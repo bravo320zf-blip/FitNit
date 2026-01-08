@@ -248,3 +248,75 @@ if (darkModeToggle) {
     };
 }
 
+// --- MODAL LOGIC ---
+const settingsModal = document.getElementById('settings-modal');
+document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
+document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
+
+// --- HEALTH CALCULATIONS ---
+function updateProfileDashboard(data) {
+    const goals = data.goals || {};
+    const weight = data.latest_weight || 0;
+    const height = parseFloat(goals.height) || 0;
+    
+    // 1. Calculate BMI
+    if (height > 0 && weight > 0) {
+        // Formula: (kg / m^2) -> We convert lbs to kg and cm to m
+        const weightKg = weight * 0.453592;
+        const heightM = height / 100;
+        const bmi = (weightKg / (heightM * heightM)).toFixed(1);
+        document.getElementById('summary-bmi').innerText = bmi;
+        
+        let status = "Normal";
+        if(bmi < 18.5) status = "Underweight";
+        else if(bmi > 25 && bmi < 29.9) status = "Overweight";
+        else if(bmi >= 30) status = "Obese";
+        document.getElementById('summary-bmi-text').innerText = status;
+    }
+
+    // 2. Weight Progress
+    // We look at the first log vs current log
+    if (data.weight_history) {
+        const history = Object.values(data.weight_history);
+        const startWeight = history[0];
+        const diff = (weight - startWeight).toFixed(1);
+        document.getElementById('summary-weight-diff').innerText = (diff > 0 ? "+" : "") + diff + " lbs";
+    }
+
+    // 3. Daily Goal Percentage
+    const today = new Date().toISOString().split('T')[0];
+    let totalCals = 0;
+    let totalProt = 0;
+    let totalCarb = 0;
+    let totalFat = 0;
+
+    if (data.diary && data.diary[today]) {
+        Object.values(data.diary[today]).forEach(meal => {
+            Object.values(meal).forEach(item => {
+                totalCals += (item.calories || 0);
+                totalProt += (item.protein || 0);
+                totalCarb += (item.carbs || 0);
+                totalFat += (item.fat || 0);
+            });
+        });
+    }
+
+    const goalCals = goals.calories || 2000;
+    const percent = Math.min(Math.round((totalCals / goalCals) * 100), 100);
+    document.getElementById('summary-goal-status').innerText = percent + "%";
+
+    // 4. Update Macro Bars
+    document.getElementById('bar-prot').style.width = Math.min((totalProt / (goals.protein || 150)) * 100, 100) + "%";
+    document.getElementById('bar-carb').style.width = Math.min((totalCarb / (goals.carbs || 250)) * 100, 100) + "%";
+    document.getElementById('bar-fat').style.width = Math.min((totalFat / (goals.fat || 70)) * 100, 100) + "%";
+}
+
+// Update the existing onValue listener in app.js to call this:
+onValue(ref(db, `users/${uid}`), (snap) => {
+    const data = snap.val();
+    if (!data) return;
+    updateDashboard(uid); // Keep your old list update
+    updateProfileDashboard(data); // Add this new summary update
+});
+
+
