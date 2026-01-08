@@ -162,3 +162,25 @@ document.getElementById('add-food-btn').onclick = () => {
     };
     saveMealToDiary(foodData);
 };
+
+function calculateDailyTotals() {
+    const user = auth.currentUser;
+    const today = new Date().toISOString().split('T')[0];
+    const summaryRef = ref(db, `users/${user.uid}/diary/${today}`);
+
+    onValue(summaryRef, (snapshot) => {
+        let totalCals = 0;
+        const data = snapshot.val();
+        
+        if (data) {
+            // Loop through Breakfast, Lunch, Dinner, etc.
+            Object.values(data).forEach(mealGroup => {
+                Object.values(mealGroup).forEach(item => {
+                    totalCals += item.calories;
+                });
+            });
+        }
+        document.getElementById('daily-cal-total').innerText = `${totalCals} / 2000 kcal`;
+    });
+}
+
