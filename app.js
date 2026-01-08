@@ -124,3 +124,41 @@ document.getElementById('save-profile').onclick = () => {
         saveProfileSettings(user.uid, name, privacy);
     }
 };
+
+import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const db = getDatabase();
+
+// --- SAVE MEAL TO DATABASE ---
+function saveMealToDiary(foodData) {
+    const user = auth.currentUser;
+    if (!user) return alert("Please login first!");
+
+    const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+    const mealType = document.getElementById('meal-type').value;
+
+    const diaryRef = ref(db, `users/${user.uid}/diary/${today}/${mealType}`);
+    
+    push(diaryRef, {
+        name: foodData.name,
+        calories: foodData.calories,
+        protein: foodData.protein || 0,
+        carbs: foodData.carbs || 0,
+        fat: foodData.fat || 0,
+        timestamp: Date.now()
+    }).then(() => {
+        alert("Meal added to " + mealType);
+        showView('dashboard-screen');
+        calculateDailyTotals(); // Refresh the dashboard
+    });
+}
+
+// Logic for the "Add to Diary" button
+document.getElementById('add-food-btn').onclick = () => {
+    const foodData = {
+        name: document.getElementById('food-name').innerText,
+        // Extracting numbers from the text string
+        calories: parseInt(document.getElementById('food-cals').innerText) || 0 
+    };
+    saveMealToDiary(foodData);
+};
