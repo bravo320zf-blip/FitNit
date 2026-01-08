@@ -1,69 +1,94 @@
 body {
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding-bottom: 70px; /* Space for nav */
-    background-color: #f4f7f6;
+    padding-bottom: 80px;
+    background-color: #f0f2f5;
+    color: #333;
 }
 
 header {
     background: #2c3e50;
     color: white;
-    padding: 1rem;
+    padding: 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+header h1 { margin: 0; font-size: 1.2rem; }
+
+#logout-btn {
+    width: auto;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    background: #e74c3c;
 }
 
 .view {
-    padding: 20px;
-    animation: fadeIn 0.3s;
+    padding: 15px;
+    animation: fadeIn 0.3s ease-in;
 }
 
 .card {
     background: white;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 15px;
 }
 
 .bottom-nav {
     position: fixed;
     bottom: 0;
     width: 100%;
-    height: 60px;
+    height: 65px;
     background: white;
     display: flex;
+    justify-content: space-around;
+    align-items: center;
     border-top: 1px solid #ddd;
+    z-index: 100;
 }
 
 .bottom-nav button {
-    flex: 1;
-    border: none;
     background: none;
-    color: #7f8c8d;
+    border: none;
+    color: #95a5a6;
+    padding: 10px;
 }
 
-.bottom-nav button:hover {
-    color: #3498db;
-}
+.bottom-nav button:focus { color: #3498db; }
 
 input, select, button {
     width: 100%;
     padding: 12px;
-    margin: 10px 0;
-    border-radius: 5px;
-    border: 1px solid #ddd;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    font-size: 1rem;
 }
 
 button {
     background: #3498db;
     color: white;
+    border: none;
     font-weight: bold;
     cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:active { transform: scale(0.98); }
+
+#reader {
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
