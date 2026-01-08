@@ -145,6 +145,84 @@ function startDataListener(uid) {
     });
 }
 
+// --- TOGGLE ADD FOOD MODES ---
+window.toggleAddMode = (mode) => {
+    document.getElementById('mode-scan').style.display = mode === 'scan' ? 'block' : 'none';
+    document.getElementById('mode-search').style.display = mode === 'search' ? 'block' : 'none';
+    document.getElementById('mode-custom').style.display = mode === 'custom' ? 'block' : 'none';
+    document.getElementById('scanned-result').style.display = 'none';
+
+    // Stop scanner if moving away from scan mode
+    if (mode !== 'scan' && html5QrCode) {
+        html5QrCode.stop().catch(() => {});
+    }
+};
+
+// --- SEARCH LOGIC ---
+document.getElementById('btn-execute-search').onclick = () => {
+    const query = document.getElementById('search-input').value;
+    if (!query) return;
+
+    const list = document.getElementById('search-results-list');
+    list.innerHTML = "Searching...";
+
+    // Open Food Facts Text Search API
+    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${query}&json=true&page_size=20`)
+    .then(res => res.json())
+    .then(data => {
+        list.innerHTML = "";
+        if (data.products && data.products.length > 0) {
+            data.products.forEach(prod => {
+                const item = document.createElement('div');
+                item.className = "card";
+                item.style.padding = "10px";
+                item.style.cursor = "pointer";
+                item.innerHTML = `<strong>${prod.product_name || 'Unknown'}</strong><br><small>${prod.brands || ''}</small>`;
+                
+                item.onclick = () => {
+                    const n = prod.nutriments;
+                    currentScannedItem = {
+                        name: prod.product_name,
+                        calories: Math.round(n['energy-kcal_100g'] || 0),
+                        protein: Math.round(n.proteins_100g || 0),
+                        carbs: Math.round(n.carbohydrates_100g || 0),
+                        fat: Math.round(n.fat_100g || 0)
+                    };
+                    showConfirmation();
+                };
+                list.appendChild(item);
+            });
+        } else {
+            list.innerHTML = "No products found.";
+        }
+    });
+};
+
+// --- CUSTOM ENTRY LOGIC ---
+document.getElementById('btn-submit-custom').onclick = () => {
+    const name = document.getElementById('c-name').value;
+    if (!name) return alert("Food Name is required!");
+
+    currentScannedItem = {
+        name: name,
+        calories: parseInt(document.getElementById('c-cals').value) || 0,
+        protein: parseInt(document.getElementById('c-prot').value) || 0,
+        carbs: parseInt(document.getElementById('c-carb').value) || 0,
+        fat: parseInt(document.getElementById('c-fat').value) || 0
+    };
+    
+    showConfirmation();
+};
+
+function showConfirmation() {
+    document.getElementById('scanned-result').style.display = 'block';
+    document.getElementById('food-name').innerText = currentScannedItem.name;
+    document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | P: ${currentScannedItem.protein}g`;
+    
+    // Smooth scroll to the confirmation box
+    document.getElementById('scanned-result').scrollIntoView({ behavior: 'smooth' });
+}
+
 // --- GOAL CALCULATION ---
 async function recalculateGoals() {
     const user = auth.currentUser;
@@ -259,3 +337,4 @@ if (darkModeToggle) {
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
+
