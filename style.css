@@ -92,3 +92,42 @@ button:active { transform: scale(0.98); }
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    text-align: center;
+    gap: 10px;
+}
+
+.fab {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: auto;
+    border-radius: 50px;
+    padding: 15px 25px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.history-card {
+    padding: 15px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+}
+
+.status-green { background-color: #27ae60; }
+.status-red { background-color: #e74c3c; }
+
+.filter-bar {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+.filter-bar button {
+    flex: 1;
+    background: #bdc3c7;
+}
