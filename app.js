@@ -157,9 +157,22 @@ document.getElementById('add-food-btn').onclick = () => {
     const today = new Date().toISOString().split('T')[0];
     const type = document.getElementById('meal-type').value;
     const user = auth.currentUser;
-    push(ref(db, `users/${user.uid}/diary/${today}/${type}`), currentScannedItem)
+
+    // Create a human-readable time (e.g., "1:45 PM")
+    const now = new Date();
+    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Add the time to our scanned object
+    const itemToSave = {
+        ...currentScannedItem,
+        scanTime: timeString,
+        timestamp: Date.now() // For sorting purposes
+    };
+
+    push(ref(db, `users/${user.uid}/diary/${today}/${type}`), itemToSave)
     .then(() => { 
         alert("Food Added!"); 
+        document.getElementById('scanned-result').style.display = 'none'; // Hide result
         window.showView('dashboard-screen'); 
     });
 };
@@ -167,6 +180,8 @@ document.getElementById('add-food-btn').onclick = () => {
 // --- DASHBOARD UPDATER ---
 function updateDashboard(uid) {
     const today = new Date().toISOString().split('T')[0];
+    const mealListDiv = document.getElementById('today-meal-list');
+
     onValue(ref(db, `users/${uid}`), (snap) => {
         const data = snap.val();
         if (!data) return;
@@ -174,16 +189,40 @@ function updateDashboard(uid) {
         const goals = data.goals || { calories: 2000, protein: 150 };
         let consumedCals = 0;
         let consumedProt = 0;
+        
+        // Clear the meal list to redraw it
+        if (mealListDiv) mealListDiv.innerHTML = "";
 
         if (data.diary && data.diary[today]) {
-            Object.values(data.diary[today]).forEach(meal => {
-                Object.values(meal).forEach(item => {
+            // Loop through categories (Breakfast, Snack, etc.)
+            Object.keys(data.diary[today]).forEach(mealType => {
+                const items = data.diary[today][mealType];
+                
+                Object.values(items).forEach(item => {
                     consumedCals += (item.calories || 0);
                     consumedProt += (item.protein || 0);
+
+                    // Create a small list item for each food
+                    if (mealListDiv) {
+                        const itemEl = document.createElement('div');
+                        itemEl.style.borderBottom = "1px solid var(--border-color)";
+                        itemEl.style.padding = "10px 0";
+                        itemEl.innerHTML = `
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>${item.name}</strong>
+                                <span style="font-size:0.8rem; color:#888;">${item.scanTime}</span>
+                            </div>
+                            <div style="font-size:0.8rem;">
+                                ${item.calories} kcal | ${item.protein}g Protein | <em>${mealType}</em>
+                            </div>
+                        `;
+                        mealListDiv.appendChild(itemEl);
+                    }
                 });
             });
         }
 
+        // Update stats at the top
         document.getElementById('dash-cals').innerText = `${consumedCals} / ${goals.calories}`;
         document.getElementById('dash-prot').innerText = `${consumedProt} / ${goals.protein}g`;
         document.getElementById('dash-weight').innerText = `${data.latest_weight || '--'} lbs`;
@@ -208,3 +247,4 @@ if (darkModeToggle) {
         }
     };
 }
+
