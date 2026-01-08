@@ -6,20 +6,18 @@
     <title>FitNit Pro</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-    <!-- Link to the Manifest with a version cache-buster -->
-<link rel="manifest" href="manifest.json?v=2">
-
-<!-- Mobile Theme Color -->
-<meta name="theme-color" content="#2c3e50">
-
-<!-- iOS Home Screen Icon -->
-<link rel="apple-touch-icon" href="FitNitAppIcon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Progressive Web App Settings -->
+    <link rel="manifest" href="manifest.json?v=2">
+    <meta name="theme-color" content="#2c3e50">
+    <link rel="apple-touch-icon" href="FitNitAppIcon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
@@ -29,18 +27,18 @@
     </header>
 
     <main id="app">
-        <!-- AUTH -->
-<section id="auth-screen" class="view">
-    <div class="card">
-        <h2>Login / Register</h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Password">
-        <button id="login-click">Login</button>
-        <button id="register-click" style="background:#27ae60">Register</button>
-    </div>
-</section>
+        <!-- 1. AUTH SCREEN -->
+        <section id="auth-screen" class="view">
+            <div class="card">
+                <h2>Login / Register</h2>
+                <input type="email" id="email" placeholder="Email">
+                <input type="password" id="password" placeholder="Password">
+                <button id="login-click">Login</button>
+                <button id="register-click" style="background:#27ae60">Register</button>
+            </div>
+        </section>
 
-        <!-- DASHBOARD (HOME) -->
+        <!-- 2. DASHBOARD (HOME) -->
         <section id="dashboard-screen" class="view" style="display:none;">
             <div class="card highlight-grid">
                 <div class="stat-box">
@@ -62,7 +60,7 @@
             </div>
         </section>
 
-        <!-- NUTRITION (STATS) -->
+        <!-- 3. NUTRITION (STATS) -->
         <section id="nutrition-screen" class="view" style="display:none;">
             <div class="card">
                 <h3>Macro Balance</h3>
@@ -70,7 +68,7 @@
             </div>
         </section>
 
-        <!-- HISTORY (LOG) -->
+        <!-- 4. HISTORY (LOG) -->
         <section id="history-screen" class="view" style="display:none;">
             <div class="filter-bar">
                 <button onclick="window.loadHistory('day')">Day</button>
@@ -79,7 +77,7 @@
             <div id="history-list"></div>
         </section>
 
-        <!-- WEIGHT (GRAPH) -->
+        <!-- 5. WEIGHT (GRAPH) -->
         <section id="weight-screen" class="view" style="display:none;">
             <div class="card">
                 <canvas id="weightHistoryChart"></canvas>
@@ -91,131 +89,135 @@
             </div>
         </section>
 
-<!-- Tab 5: Profile Summary Dashboard -->
-<section id="profile-screen" class="view" style="display:none;">
-    <div class="profile-header">
-        <h2>Health Summary</h2>
-        <button id="open-settings-btn" class="icon-btn"><i class="material-icons">settings</i></button>
-    </div>
-
-    <!-- Quick Glance Widgets -->
-    <div class="dashboard-grid">
-        <div class="card widget">
-            <small>BMI STATUS</small>
-            <h2 id="summary-bmi">--</h2>
-            <p id="summary-bmi-text">Enter height/weight</p>
-        </div>
-        <div class="card widget">
-            <small>WEIGHT CHANGE</small>
-            <h2 id="summary-weight-diff">--</h2>
-            <p>Total Progress</p>
-        </div>
-        <div class="card widget">
-            <small>DAILY GOAL</small>
-            <h2 id="summary-goal-status">0%</h2>
-            <p>Calories Consumed</p>
-        </div>
-    </div>
-
-    <div class="card">
-        <h3>Macro Breakdown</h3>
-        <div class="macro-bar-container">
-            <span>Protein</span> <div class="progress"><div id="bar-prot" class="fill"></div></div>
-            <span>Carbs</span> <div class="progress"><div id="bar-carb" class="fill"></div></div>
-            <span>Fats</span> <div class="progress"><div id="bar-fat" class="fill"></div></div>
-        </div>
-    </div>
-</section>
-
-<!-- SETTINGS MODAL (The Window that pops up) -->
-<div id="settings-modal" class="modal-overlay" style="display:none;">
-    <div class="modal-content card">
-        <div class="modal-header">
-            <h3>Settings & Personal Info</h3>
-            <button id="close-settings-btn" class="icon-btn"><i class="material-icons">close</i></button>
-        </div>
-        <div class="modal-body">
-            <div class="settings-row">
-                <span>Dark Mode</span>
-                <input type="checkbox" id="dark-mode-toggle" style="width:auto;">
+        <!-- 6. PROFILE SUMMARY DASHBOARD -->
+        <section id="profile-screen" class="view" style="display:none;">
+            <div class="profile-header">
+                <h2>Health Summary</h2>
+                <button id="open-settings-btn" class="icon-btn"><i class="material-icons">settings</i></button>
             </div>
-            <hr>
-            <label>Height (cm)</label>
-            <input type="number" id="p-height" placeholder="175">
-            <label>Age</label>
-            <input type="number" id="p-age" placeholder="30">
-            <label>Gender</label>
-            <select id="p-gender">
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-            </select>
-            <label>Activity Level</label>
-            <select id="p-activity">
-                <option value="1.2">Sedentary</option>
-                <option value="1.55">Moderate</option>
-                <option value="1.9">Athlete</option>
-            </select>
-            <button id="save-profile-btn">Save & Recalculate</button>
-        </div>
-    </div>
-</div>
-        
-<section id="scanner-screen" class="view" style="display:none;">
-    <div class="card">
-        <div class="filter-bar" style="display:flex; gap:10px;">
-            <button onclick="window.toggleAddMode('scan')">Scan</button>
-            <button onclick="window.toggleAddMode('search')">Search</button>
-            <button onclick="window.toggleAddMode('custom')">Custom</button>
-        </div>
-    </div>
 
-    <!-- 1. SCANNER MODE -->
-    <div id="mode-scan">
-        <div id="reader" style="width: 100%; min-height: 300px; background: #000; border-radius: 8px;"></div>
-    </div>
-
-    <!-- 2. SEARCH MODE -->
-    <div id="mode-search" style="display:none;">
-        <div class="card">
-            <div style="display:flex; gap:5px;">
-                <input type="text" id="search-input" placeholder="Search food (e.g. Eggs)">
-                <button id="btn-execute-search" style="width:auto;">Go</button>
+            <div class="dashboard-grid">
+                <div class="card widget">
+                    <small>BMI STATUS</small>
+                    <h2 id="summary-bmi">--</h2>
+                    <p id="summary-bmi-text">Enter height/weight</p>
+                </div>
+                <div class="card widget">
+                    <small>WEIGHT CHANGE</small>
+                    <h2 id="summary-weight-diff">--</h2>
+                    <p>Total Progress</p>
+                </div>
+                <div class="card widget">
+                    <small>DAILY GOAL</small>
+                    <h2 id="summary-goal-status">0%</h2>
+                    <p>Calories Consumed</p>
+                </div>
             </div>
-            <div id="search-results-list" style="max-height: 250px; overflow-y: auto; margin-top:10px;"></div>
-        </div>
-    </div>
 
-    <!-- 3. CUSTOM MODE -->
-    <div id="mode-custom" style="display:none;">
-        <div class="card">
-            <h3>Custom Item</h3>
-            <input type="text" id="c-name" placeholder="Food Name *">
-            <input type="number" id="c-cals" placeholder="Calories">
-            <div class="highlight-grid">
-                <input type="number" id="c-prot" placeholder="Prot (g)">
-                <input type="number" id="c-carb" placeholder="Carb (g)">
-                <input type="number" id="c-fat" placeholder="Fat (g)">
+            <div class="card">
+                <h3>Macro Breakdown</h3>
+                <div class="macro-bar-container">
+                    <span>Protein</span> <div class="progress"><div id="bar-prot" class="fill"></div></div>
+                    <span>Carbs</span> <div class="progress"><div id="bar-carb" class="fill"></div></div>
+                    <span>Fats</span> <div class="progress"><div id="bar-fat" class="fill"></div></div>
+                </div>
             </div>
-            <button id="btn-submit-custom">Use This Item</button>
-        </div>
-    </div>
+        </section>
 
-    <!-- GLOBAL CONFIRMATION BOX -->
-    <div id="scanned-result" class="card" style="display:none; border: 2px solid var(--accent-color);">
-        <h4 id="food-name">Product Name</h4>
-        <p id="food-info"></p>
-        <select id="meal-type">
-            <option value="breakfast">Breakfast</option>
-            <option value="lunch">Lunch</option>
-            <option value="dinner">Dinner</option>
-            <option value="snack">Snack</option>
-        </select>
-        <button id="add-food-btn">Add to Diary</button>
-        <button onclick="document.getElementById('scanned-result').style.display='none'" style="background:#888;">Cancel</button>
-    </div>
-</section>
+        <!-- 7. ADD FOOD SCREEN (Scanner, Search, Custom) -->
+        <section id="scanner-screen" class="view" style="display:none;">
+            <div class="card">
+                <div class="filter-bar" style="display:flex; gap:10px;">
+                    <button onclick="window.toggleAddMode('scan')">Scan</button>
+                    <button onclick="window.toggleAddMode('search')">Search</button>
+                    <button onclick="window.toggleAddMode('custom')">Custom</button>
+                </div>
+            </div>
+
+            <div id="mode-scan">
+                <div id="reader" style="width: 100%; min-height: 300px; background: #000; border-radius: 8px;"></div>
+            </div>
+
+            <div id="mode-search" style="display:none;">
+                <div class="card">
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="search-input" placeholder="Search food (e.g. Eggs)">
+                        <button id="btn-execute-search" style="width:auto;">Go</button>
+                    </div>
+                    <div id="search-results-list" style="max-height: 250px; overflow-y: auto; margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <div id="mode-custom" style="display:none;">
+                <div class="card">
+                    <h3>Custom Item</h3>
+                    <input type="text" id="c-name" placeholder="Food Name *">
+                    <input type="number" id="c-cals" placeholder="Calories">
+                    <div class="highlight-grid">
+                        <input type="number" id="c-prot" placeholder="Prot (g)">
+                        <input type="number" id="c-carb" placeholder="Carb (g)">
+                        <input type="number" id="c-fat" placeholder="Fat (g)">
+                    </div>
+                    <button id="btn-submit-custom">Use This Item</button>
+                </div>
+            </div>
+
+            <!-- GLOBAL CONFIRMATION BOX -->
+            <div id="scanned-result" class="card" style="display:none; border: 2px solid var(--accent-color);">
+                <h4 id="food-name">Product Name</h4>
+                <p id="food-info"></p>
+                <select id="meal-type">
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snack">Snack</option>
+                </select>
+                <button id="add-food-btn">Add to Diary</button>
+                <button onclick="document.getElementById('scanned-result').style.display='none'" style="background:#888;">Cancel</button>
+            </div>
+        </section>
     </main>
 
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>Settings & Personal Info</h3>
+                <button id="close-settings-btn" class="icon-btn"><i class="material-icons">close</i></button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-row">
+                    <span>Dark Mode</span>
+                    <input type="checkbox" id="dark-mode-toggle" style="width:auto;">
+                </div>
+                <div class="settings-row">
+                    <span>Invite Friends</span>
+                    <button id="share-app-btn" style="width:auto; padding: 5px 15px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px;">
+                        <i class="material-icons" style="font-size: 1.1rem;">share</i> Share Link
+                    </button>
+                </div>
+                <hr>
+                <label>Height (cm)</label>
+                <input type="number" id="p-height" placeholder="175">
+                <label>Age</label>
+                <input type="number" id="p-age" placeholder="30">
+                <label>Gender</label>
+                <select id="p-gender">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+                <label>Activity Level</label>
+                <select id="p-activity">
+                    <option value="1.2">Sedentary</option>
+                    <option value="1.55">Moderate</option>
+                    <option value="1.9">Athlete</option>
+                </select>
+                <button id="save-profile-btn">Save & Recalculate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
     <nav class="bottom-nav">
         <button onclick="window.showView('dashboard-screen')"><i class="material-icons">home</i></button>
         <button onclick="window.showView('nutrition-screen')"><i class="material-icons">pie_chart</i></button>
@@ -228,10 +230,3 @@
     <script type="module" src="app.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
