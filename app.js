@@ -84,23 +84,27 @@ document.addEventListener('DOMContentLoaded', () => {
         ).catch(err => alert("Camera Error: " + err));
     };
 
-    function onScanSuccess(decodedText) {
-        html5QrCode.stop().then(() => {
-            fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`)
-                .then(res => res.json())
-                .then(data => {
-                    if(data.status === 1) {
-                        document.getElementById('scanned-result').style.display = 'block';
-                        document.getElementById('food-name').innerText = data.product.product_name || "Unknown";
-                        const cals = data.product.nutriments['energy-kcal_100g'] || 0;
-                        document.getElementById('food-cals').innerText = cals + " kcal per 100g";
-                        document.getElementById('food-img').src = data.product.image_front_small_url || "";
-                    } else {
-                        alert("Product not found");
-                    }
-                });
-        });
-    }
+function onScanSuccess(decodedText) {
+    fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`)
+    .then(res => res.json())
+    .then(data => {
+        const prod = data.product;
+        const nutrients = prod.nutriments;
+        
+        const foodItem = {
+            name: prod.product_name || "Unknown",
+            calories: nutrients['energy-kcal_100g'] || 0,
+            protein: nutrients['proteins_100g'] || 0,
+            carbs: nutrients['carbohydrates_100g'] || 0,
+            fat: nutrients['fat_100g'] || 0,
+            sugar: nutrients['sugars_100g'] || 0,
+            sodium: nutrients['sodium_100g'] || 0,
+            img: prod.image_front_small_url || ""
+        };
+        
+        displayScanResult(foodItem);
+    });
+}
 
     // 4. Diary & Weight Logic
     document.getElementById('add-food-btn').onclick = () => {
@@ -168,3 +172,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }).then(() => alert("Profile Updated"));
     };
 });
+
+function calculateGoals(profileData, currentWeight) {
+    if(!profileData.height || !currentWeight) return null;
+
+    let bmr;
+    if (profileData.gender === 'male') {
+        bmr = (10 * currentWeight) + (6.25 * profileData.height) - (5 * profileData.age) + 5;
+    } else {
+        bmr = (10 * currentWeight) + (6.25 * profileData.height) - (5 * profileData.age) - 161;
+    }
+
+    const tdee = bmr * parseFloat(profileData.activity || 1.2);
+    
+    return {
+        calories: Math.round(tdee),
+        protein: Math.round((tdee * 0.30) / 4), // 30% cals from protein
+        carbs: Math.round((tdee * 0.40) / 4),   // 40% cals from carbs
+        fat: Math.round((tdee * 0.30) / 9),     // 30% cals from fat
+        sugar: Math.round((tdee * 0.10) / 4)    // Limit sugar to 10%
+    };
+}
+
+function loadHistory(range) {
+    const user = auth.currentUser;
+    const historyDiv = document.getElementById('history-list');
+    historyDiv.innerHTML = "Loading...";
+
+    onValue(ref(db, `users/${user.uid}/diary`), (snapshot) => {
+        const allDays = snapshot.val();
+        historyDiv.innerHTML = ""; // Clear
+        
+        for (let date in allDays) {
+            let dayTotal = 0;
+            // Calculate total cals for that day
+            Object.values(allDays[date]).forEach(mealType => {
+                Object.values(mealType).forEach(item => dayTotal += item.calories);
+            });
+
+            // Color coding logic
+            const isGood = dayTotal < 2500; // Replace 2500 with user's dynamic goal
+            const colorClass = isGood ? 'status-green' : 'status-red';
+
+            const dayRow = document.createElement('div');
+            dayRow.className = `history-card ${colorClass}`;
+            dayRow.innerHTML = `<strong>${date}</strong>: ${dayTotal} kcal`;
+            dayRow.onclick = () => showDayDetails(allDays[date]);
+            historyDiv.appendChild(dayRow);
+        }
+    });
+}
+
