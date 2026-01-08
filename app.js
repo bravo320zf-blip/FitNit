@@ -20,17 +20,17 @@ let html5QrCode;
 let currentScannedItem = null;
 let weightChart = null;
 
-// --- NAVIGATION & TABS ---
+// --- INITIAL THEME CHECK (Prevents white flash on load) ---
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+
+// --- NAVIGATION ---
 window.showView = (viewId) => {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     const target = document.getElementById(viewId);
-    if (target) {
-        target.style.display = 'block';
-    }
-    // Stop camera if we leave scanner view
-    if (html5QrCode && viewId !== 'scanner-screen') {
-        html5QrCode.stop().catch(() => {});
-    }
+    if (target) target.style.display = 'block';
+    if (html5QrCode && viewId !== 'scanner-screen') html5QrCode.stop().catch(() => {});
 };
 
 window.toggleAddMode = (mode) => {
@@ -42,26 +42,17 @@ window.toggleAddMode = (mode) => {
 };
 
 // --- AUTH LOGIC ---
-const loginBtn = document.getElementById('login-click');
-const registerBtn = document.getElementById('register-click');
+document.getElementById('login-click').onclick = () => {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    signInWithEmailAndPassword(auth, email, pass).catch(e => alert(e.message));
+};
 
-if (loginBtn) {
-    loginBtn.onclick = () => {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
-        if (!email || !pass) return alert("Please enter email and password.");
-        signInWithEmailAndPassword(auth, email, pass).catch(e => alert("Login Error: " + e.message));
-    };
-}
-
-if (registerBtn) {
-    registerBtn.onclick = () => {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
-        if (!email || !pass) return alert("Please enter email and password.");
-        createUserWithEmailAndPassword(auth, email, pass).then(() => alert("Account Created!")).catch(e => alert("Register Error: " + e.message));
-    };
-}
+document.getElementById('register-click').onclick = () => {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    createUserWithEmailAndPassword(auth, email, pass).then(() => alert("Account Created!")).catch(e => alert(e.message));
+};
 
 document.getElementById('logout-btn').onclick = () => signOut(auth);
 
@@ -76,7 +67,7 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// --- DATA LISTENER (HEART OF THE APP) ---
+// --- THE DATA WATCHER (Syncs everything including Dark Mode) ---
 function startDataListener(uid) {
     const today = new Date().toISOString().split('T')[0];
     const mealListDiv = document.getElementById('today-meal-list');
@@ -85,11 +76,17 @@ function startDataListener(uid) {
         const data = snap.val();
         if (!data) return;
 
+        // 1. SYNC SETTINGS (Dark Mode)
+        const isDark = data.settings?.darkMode || false;
+        if (isDark) document.body.classList.add('dark-mode');
+        else document.body.classList.remove('dark-mode');
+        if (document.getElementById('dark-mode-toggle')) document.getElementById('dark-mode-toggle').checked = isDark;
+
+        // 2. NUTRITION & DASHBOARD
         const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
         const weight = data.latest_weight || 0;
         let c = 0, p = 0, cr = 0, f = 0;
         
-        // 1. Update Meal List
         if (mealListDiv) mealListDiv.innerHTML = "";
         if (data.diary && data.diary[today]) {
             Object.keys(data.diary[today]).forEach(type => {
@@ -104,26 +101,22 @@ function startDataListener(uid) {
             });
         }
 
-        // 2. Update Dashboard Stats
         document.getElementById('dash-cals').innerText = `${c} / ${goals.calories}`;
         document.getElementById('dash-prot').innerText = `${p} / ${goals.protein}g`;
         document.getElementById('dash-weight').innerText = `${weight || '--'} lbs`;
         
-        // 3. Update Profile Widgets
-        const percent = Math.min(Math.round((c / (goals.calories || 2000)) * 100), 100);
+        // 3. WIDGETS
+        const percent = Math.min(Math.round((c / goals.calories) * 100), 100);
         document.getElementById('summary-goal-status').innerText = percent + "%";
-        document.getElementById('bar-prot').style.width = Math.min((p/(goals.protein || 150))*100, 100) + "%";
-        document.getElementById('bar-carb').style.width = Math.min((cr/(goals.carbs || 250))*100, 100) + "%";
-        document.getElementById('bar-fat').style.width = Math.min((f/(goals.fat || 70))*100, 100) + "%";
+        document.getElementById('bar-prot').style.width = Math.min((p/goals.protein)*100, 100) + "%";
+        document.getElementById('bar-carb').style.width = Math.min((cr/goals.carbs)*100, 100) + "%";
+        document.getElementById('bar-fat').style.width = Math.min((f/goals.fat)*100, 100) + "%";
         
         if (goals.height && weight) {
-            const bmi = ( (weight * 0.453) / ((goals.height/100)**2) ).toFixed(1);
+            const weightKg = weight * 0.453592;
+            const heightM = goals.height / 100;
+            const bmi = (weightKg / (heightM * heightM)).toFixed(1);
             document.getElementById('summary-bmi').innerText = bmi;
-            let status = "Normal";
-            if(bmi < 18.5) status = "Underweight";
-            else if(bmi > 25 && bmi < 29.9) status = "Overweight";
-            else if(bmi >= 30) status = "Obese";
-            document.getElementById('summary-bmi-text').innerText = status;
         }
 
         if (data.weight_history) {
@@ -145,7 +138,6 @@ function updateWeightGraph(historyData) {
     const isDark = document.body.classList.contains('dark-mode');
 
     if (weightChart) weightChart.destroy();
-
     weightChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -170,9 +162,8 @@ function updateWeightGraph(historyData) {
 }
 
 // --- GOAL CALCULATION ---
-async function recalculateGoals() {
+document.getElementById('save-profile-btn').onclick = async () => {
     const user = auth.currentUser;
-    if (!user) return;
     const h = document.getElementById('p-height').value;
     const a = document.getElementById('p-age').value;
     const g = document.getElementById('p-gender').value;
@@ -181,10 +172,7 @@ async function recalculateGoals() {
     const weightSnap = await get(ref(db, `users/${user.uid}/latest_weight`));
     const w = weightSnap.val();
 
-    if (!h || !w || !a) {
-        alert("Please set height/age AND log a weight first.");
-        return;
-    }
+    if (!h || !w || !a) return alert("Please set height/age AND log a weight first.");
 
     let bmr = (10 * w) + (6.25 * h) - (5 * a);
     bmr = (g === 'male') ? bmr + 5 : bmr - 161;
@@ -198,10 +186,8 @@ async function recalculateGoals() {
         height: h, age: a, gender: g, activity: act
     };
 
-    await update(ref(db, `users/${user.uid}/goals`), goals);
-    alert("Goals Updated!");
-}
-document.getElementById('save-profile-btn').onclick = recalculateGoals;
+    update(ref(db, `users/${user.uid}/goals`), goals).then(() => alert("Goals Updated!"));
+};
 
 // --- WEIGHT LOGGING ---
 document.getElementById('save-weight-btn').onclick = () => {
@@ -211,7 +197,6 @@ document.getElementById('save-weight-btn').onclick = () => {
         update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
         set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
         alert("Weight Saved!");
-        recalculateGoals();
     }
 };
 
@@ -300,71 +285,21 @@ document.getElementById('add-food-btn').onclick = () => {
     });
 };
 
-// --- SETTINGS & MODALS ---
+// --- SETTINGS (Dark Mode & Modal) ---
 const darkModeToggle = document.getElementById('dark-mode-toggle');
-if (localStorage.getItem('theme') === 'dark') {
-    document.body.classList.add('dark-mode');
-    if(darkModeToggle) darkModeToggle.checked = true;
-}
-// --- DARK MODE (Cloud Saved) ---
-const darkModeToggle = document.getElementById('dark-mode-toggle');
-
 if (darkModeToggle) {
     darkModeToggle.onchange = () => {
-        const user = auth.currentUser;
         const isEnabled = darkModeToggle.checked;
-
-        // 1. Apply locally for instant feedback
-        if (isEnabled) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
-        }
-
-        // 2. Save to Firebase if logged in
-        if (user) {
-            update(ref(db, `users/${user.uid}/settings`), {
-                darkMode: isEnabled
-            });
-        }
+        if (isEnabled) document.body.classList.add('dark-mode');
+        else document.body.classList.remove('dark-mode');
         
-        // 3. Keep localStorage as a fallback for the login screen
         localStorage.setItem('theme', isEnabled ? 'dark' : 'light');
+        if (auth.currentUser) {
+            update(ref(db, `users/${auth.currentUser.uid}/settings`), { darkMode: isEnabled });
+        }
     };
 }
 
-// Check localStorage specifically for the login screen (before user is authed)
-if (localStorage.getItem('theme') === 'dark') {
-    document.body.classList.add('dark-mode');
-}
-
-// --- MODAL LOGIC ---
-const settingsModal = document.getElementById('settings-modal');
-document.getElementById('open-settings-btn').onclick = () => {
-    if (settingsModal) settingsModal.style.display = 'flex';
-};
-document.getElementById('close-settings-btn').onclick = () => {
-    if (settingsModal) settingsModal.style.display = 'none';
-};
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
-
-// --- HISTORY VIEW ---
-window.loadHistory = (range) => {
-    onValue(ref(db, `users/${auth.currentUser.uid}/diary`), (snap) => {
-        const diary = snap.val();
-        const list = document.getElementById('history-list');
-        list.innerHTML = "";
-        if (!diary) return;
-        Object.keys(diary).sort().reverse().forEach(date => {
-            let dayCals = 0;
-            Object.values(diary[date]).forEach(m => Object.values(m).forEach(i => dayCals += i.calories));
-            const card = document.createElement('div');
-            card.className = `history-card ${dayCals > 2000 ? 'status-red' : 'status-green'}`;
-            card.innerText = `${date}: ${dayCals} kcal`;
-            list.appendChild(card);
-        });
-    }, { onlyOnce: true });
-};
-
