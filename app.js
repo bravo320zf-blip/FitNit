@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, set, push, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+// 1. Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyArqfZP8MyrSmIIgABmDGmusoPaAU0rBnE",
     authDomain: "fitnit-db781.firebaseapp.com",
@@ -17,11 +18,16 @@ const db = getDatabase(app);
 
 let html5QrCode;
 let currentScannedItem = null;
+let weightChart = null;
 
 // --- NAVIGATION & TABS ---
 window.showView = (viewId) => {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
-    document.getElementById(viewId).style.display = 'block';
+    const target = document.getElementById(viewId);
+    if (target) {
+        target.style.display = 'block';
+    }
+    // Stop camera if we leave scanner view
     if (html5QrCode && viewId !== 'scanner-screen') {
         html5QrCode.stop().catch(() => {});
     }
@@ -36,17 +42,26 @@ window.toggleAddMode = (mode) => {
 };
 
 // --- AUTH LOGIC ---
-document.getElementById('login-click').onclick = () => {
-    const email = document.getElementById('email').value;
-    const pass = document.getElementById('password').value;
-    signInWithEmailAndPassword(auth, email, pass).catch(e => alert(e.message));
-};
+const loginBtn = document.getElementById('login-click');
+const registerBtn = document.getElementById('register-click');
 
-document.getElementById('register-click').onclick = () => {
-    const email = document.getElementById('email').value;
-    const pass = document.getElementById('password').value;
-    createUserWithEmailAndPassword(auth, email, pass).catch(e => alert(e.message));
-};
+if (loginBtn) {
+    loginBtn.onclick = () => {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        if (!email || !pass) return alert("Please enter email and password.");
+        signInWithEmailAndPassword(auth, email, pass).catch(e => alert("Login Error: " + e.message));
+    };
+}
+
+if (registerBtn) {
+    registerBtn.onclick = () => {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        if (!email || !pass) return alert("Please enter email and password.");
+        createUserWithEmailAndPassword(auth, email, pass).then(() => alert("Account Created!")).catch(e => alert("Register Error: " + e.message));
+    };
+}
 
 document.getElementById('logout-btn').onclick = () => signOut(auth);
 
@@ -61,14 +76,151 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// --- SEARCH LOGIC ---
+// --- DATA LISTENER (HEART OF THE APP) ---
+function startDataListener(uid) {
+    const today = new Date().toISOString().split('T')[0];
+    const mealListDiv = document.getElementById('today-meal-list');
+
+    onValue(ref(db, `users/${uid}`), (snap) => {
+        const data = snap.val();
+        if (!data) return;
+
+        const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
+        const weight = data.latest_weight || 0;
+        let c = 0, p = 0, cr = 0, f = 0;
+        
+        // 1. Update Meal List
+        if (mealListDiv) mealListDiv.innerHTML = "";
+        if (data.diary && data.diary[today]) {
+            Object.keys(data.diary[today]).forEach(type => {
+                Object.values(data.diary[today][type]).forEach(i => {
+                    c += (i.calories || 0); p += (i.protein || 0); cr += (i.carbs || 0); f += (i.fat || 0);
+                    const el = document.createElement('div');
+                    el.style.borderBottom = "1px solid var(--border-color)";
+                    el.style.padding = "10px 0";
+                    el.innerHTML = `<strong>${i.name}</strong> (${i.scanTime || ''})<br><small>${i.calories} kcal | ${type}</small>`;
+                    mealListDiv.appendChild(el);
+                });
+            });
+        }
+
+        // 2. Update Dashboard Stats
+        document.getElementById('dash-cals').innerText = `${c} / ${goals.calories}`;
+        document.getElementById('dash-prot').innerText = `${p} / ${goals.protein}g`;
+        document.getElementById('dash-weight').innerText = `${weight || '--'} lbs`;
+        
+        // 3. Update Profile Widgets
+        const percent = Math.min(Math.round((c / (goals.calories || 2000)) * 100), 100);
+        document.getElementById('summary-goal-status').innerText = percent + "%";
+        document.getElementById('bar-prot').style.width = Math.min((p/(goals.protein || 150))*100, 100) + "%";
+        document.getElementById('bar-carb').style.width = Math.min((cr/(goals.carbs || 250))*100, 100) + "%";
+        document.getElementById('bar-fat').style.width = Math.min((f/(goals.fat || 70))*100, 100) + "%";
+        
+        if (goals.height && weight) {
+            const bmi = ( (weight * 0.453) / ((goals.height/100)**2) ).toFixed(1);
+            document.getElementById('summary-bmi').innerText = bmi;
+            let status = "Normal";
+            if(bmi < 18.5) status = "Underweight";
+            else if(bmi > 25 && bmi < 29.9) status = "Overweight";
+            else if(bmi >= 30) status = "Obese";
+            document.getElementById('summary-bmi-text').innerText = status;
+        }
+
+        if (data.weight_history) {
+            updateWeightGraph(data.weight_history);
+            const historyValues = Object.values(data.weight_history);
+            const diff = (weight - historyValues[0]).toFixed(1);
+            document.getElementById('summary-weight-diff').innerText = (diff > 0 ? "+" : "") + diff + " lbs";
+        }
+    });
+}
+
+// --- WEIGHT GRAPH ---
+function updateWeightGraph(historyData) {
+    const canvas = document.getElementById('weightHistoryChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const sortedDates = Object.keys(historyData).sort();
+    const weightValues = sortedDates.map(date => historyData[date]);
+    const isDark = document.body.classList.contains('dark-mode');
+
+    if (weightChart) weightChart.destroy();
+
+    weightChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sortedDates.map(d => d.split('-').slice(1).join('/')),
+            datasets: [{
+                label: 'Weight',
+                data: weightValues,
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { ticks: { color: isDark ? '#fff' : '#333' } },
+                x: { ticks: { color: isDark ? '#fff' : '#333' } }
+            }
+        }
+    });
+}
+
+// --- GOAL CALCULATION ---
+async function recalculateGoals() {
+    const user = auth.currentUser;
+    if (!user) return;
+    const h = document.getElementById('p-height').value;
+    const a = document.getElementById('p-age').value;
+    const g = document.getElementById('p-gender').value;
+    const act = document.getElementById('p-activity').value;
+
+    const weightSnap = await get(ref(db, `users/${user.uid}/latest_weight`));
+    const w = weightSnap.val();
+
+    if (!h || !w || !a) {
+        alert("Please set height/age AND log a weight first.");
+        return;
+    }
+
+    let bmr = (10 * w) + (6.25 * h) - (5 * a);
+    bmr = (g === 'male') ? bmr + 5 : bmr - 161;
+    const tdee = Math.round(bmr * parseFloat(act));
+
+    const goals = {
+        calories: tdee,
+        protein: Math.round((tdee * 0.3) / 4),
+        carbs: Math.round((tdee * 0.4) / 4),
+        fat: Math.round((tdee * 0.3) / 9),
+        height: h, age: a, gender: g, activity: act
+    };
+
+    await update(ref(db, `users/${user.uid}/goals`), goals);
+    alert("Goals Updated!");
+}
+document.getElementById('save-profile-btn').onclick = recalculateGoals;
+
+// --- WEIGHT LOGGING ---
+document.getElementById('save-weight-btn').onclick = () => {
+    const w = parseFloat(document.getElementById('weight-input').value);
+    const today = new Date().toISOString().split('T')[0];
+    if (w) {
+        update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
+        set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
+        alert("Weight Saved!");
+        recalculateGoals();
+    }
+};
+
+// --- FOOD SEARCH & CUSTOM ---
 document.getElementById('btn-execute-search').onclick = () => {
     const query = document.getElementById('search-input').value;
-    if (!query) return;
     const list = document.getElementById('search-results-list');
     list.innerHTML = "Searching...";
-
-    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${query}&json=true&page_size=24`)
+    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${query}&json=true&page_size=20`)
     .then(r => r.json()).then(data => {
         list.innerHTML = "";
         data.products.forEach(prod => {
@@ -92,10 +244,9 @@ document.getElementById('btn-execute-search').onclick = () => {
     });
 };
 
-// --- CUSTOM ENTRY ---
 document.getElementById('btn-submit-custom').onclick = () => {
     const name = document.getElementById('c-name').value;
-    if (!name) return alert("Name is required");
+    if (!name) return alert("Name required");
     currentScannedItem = {
         name: name,
         calories: parseInt(document.getElementById('c-cals').value) || 0,
@@ -110,6 +261,7 @@ function showConfirmation() {
     document.getElementById('scanned-result').style.display = 'block';
     document.getElementById('food-name').innerText = currentScannedItem.name;
     document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | ${currentScannedItem.protein}g Protein`;
+    document.getElementById('scanned-result').scrollIntoView({ behavior: 'smooth' });
 }
 
 // --- SCANNER TRIGGER ---
@@ -137,79 +289,47 @@ document.getElementById('scan-nav-btn').onclick = () => {
 
 // --- DIARY SAVE ---
 document.getElementById('add-food-btn').onclick = () => {
-    const user = auth.currentUser;
     const today = new Date().toISOString().split('T')[0];
     const type = document.getElementById('meal-type').value;
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
     const item = { ...currentScannedItem, scanTime: time, timestamp: Date.now() };
-    push(ref(db, `users/${user.uid}/diary/${today}/${type}`), item).then(() => {
+    push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${type}`), item).then(() => {
         alert("Added!");
         document.getElementById('scanned-result').style.display = 'none';
         window.showView('dashboard-screen');
     });
 };
 
-// --- DATA LISTENER (DASHBOARD & WIDGETS) ---
-function startDataListener(uid) {
-    const today = new Date().toISOString().split('T')[0];
-    onValue(ref(db, `users/${uid}`), (snap) => {
-        const data = snap.val();
-        if (!data) return;
-        const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
-        const weight = data.latest_weight || 0;
-        let c = 0, p = 0, cr = 0, f = 0;
-        
-        const list = document.getElementById('today-meal-list');
-        list.innerHTML = "";
-        if (data.diary && data.diary[today]) {
-            Object.keys(data.diary[today]).forEach(type => {
-                Object.values(data.diary[today][type]).forEach(i => {
-                    c += i.calories; p += i.protein; cr += i.carbs; f += i.fat;
-                    const el = document.createElement('div');
-                    el.style.borderBottom = "1px solid var(--border-color)";
-                    el.innerHTML = `<strong>${i.name}</strong> (${i.scanTime})<br><small>${i.calories} kcal | ${type}</small>`;
-                    list.appendChild(el);
-                });
-            });
-        }
-        document.getElementById('dash-cals').innerText = `${c} / ${goals.calories}`;
-        document.getElementById('dash-prot').innerText = `${p} / ${goals.protein}g`;
-        document.getElementById('dash-weight').innerText = `${weight} lbs`;
-        
-        // Widget Updates
-        const percent = Math.min(Math.round((c / goals.calories) * 100), 100);
-        document.getElementById('summary-goal-status').innerText = percent + "%";
-        document.getElementById('bar-prot').style.width = Math.min((p/goals.protein)*100, 100) + "%";
-        document.getElementById('bar-carb').style.width = Math.min((cr/goals.carbs)*100, 100) + "%";
-        document.getElementById('bar-fat').style.width = Math.min((f/goals.fat)*100, 100) + "%";
-        
-        if (goals.height && weight) {
-            const bmi = ( (weight * 0.453) / ((goals.height/100)**2) ).toFixed(1);
-            document.getElementById('summary-bmi').innerText = bmi;
-        }
-    });
+// --- SETTINGS & MODALS ---
+const darkModeToggle = document.getElementById('dark-mode-toggle');
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+    if(darkModeToggle) darkModeToggle.checked = true;
 }
-
-// --- SETTINGS & WEIGHT LOGGING (Same as before) ---
-document.getElementById('save-weight-btn').onclick = () => {
-    const w = parseFloat(document.getElementById('weight-input').value);
-    if(w) {
-        update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
-        set(ref(db, `users/${auth.currentUser.uid}/weight_history/${new Date().toISOString().split('T')[0]}`), w);
-        alert("Weight Saved!");
-    }
-};
-
+if (darkModeToggle) {
+    darkModeToggle.onchange = () => {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+    };
+}
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
 
-document.getElementById('save-profile-btn').onclick = () => {
-    const h = document.getElementById('p-height').value;
-    const a = document.getElementById('p-age').value;
-    const g = document.getElementById('p-gender').value;
-    const act = document.getElementById('p-activity').value;
-    update(ref(db, `users/${auth.currentUser.uid}/goals`), { height: h, age: a, gender: g, activity: act });
-    alert("Profile Saved!");
+// --- HISTORY VIEW ---
+window.loadHistory = (range) => {
+    onValue(ref(db, `users/${auth.currentUser.uid}/diary`), (snap) => {
+        const diary = snap.val();
+        const list = document.getElementById('history-list');
+        list.innerHTML = "";
+        if (!diary) return;
+        Object.keys(diary).sort().reverse().forEach(date => {
+            let dayCals = 0;
+            Object.values(diary[date]).forEach(m => Object.values(m).forEach(i => dayCals += i.calories));
+            const card = document.createElement('div');
+            card.className = `history-card ${dayCals > 2000 ? 'status-red' : 'status-green'}`;
+            card.innerText = `${date}: ${dayCals} kcal`;
+            list.appendChild(card);
+        });
+    }, { onlyOnce: true });
 };
