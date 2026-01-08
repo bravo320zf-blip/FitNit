@@ -285,18 +285,39 @@ document.getElementById('add-food-btn').onclick = () => {
     });
 };
 
-// --- SETTINGS (Dark Mode & Modal) ---
+// --- DARK MODE LOGIC ---
 const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+function applyTheme(isDark) {
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+}
+
+// Initial check before login (localStorage)
+applyTheme(localStorage.getItem('theme') === 'dark');
+
 if (darkModeToggle) {
     darkModeToggle.onchange = () => {
         const isEnabled = darkModeToggle.checked;
-        if (isEnabled) document.body.classList.add('dark-mode');
-        else document.body.classList.remove('dark-mode');
         
+        // 1. Instant UI update
+        applyTheme(isEnabled);
+        
+        // 2. Save locally
         localStorage.setItem('theme', isEnabled ? 'dark' : 'light');
+
+        // 3. Save to Firebase
         if (auth.currentUser) {
-            update(ref(db, `users/${auth.currentUser.uid}/settings`), { darkMode: isEnabled });
+            update(ref(db, `users/${auth.currentUser.uid}/settings`), { 
+                darkMode: isEnabled 
+            }).catch(e => console.error("Firebase Theme Error:", e));
         }
+        
+        // Optional: Remove this alert once you confirm it works
+        // alert("Dark mode toggled to: " + isEnabled);
     };
 }
 
@@ -329,4 +350,5 @@ if (shareBtn) {
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
+
 
