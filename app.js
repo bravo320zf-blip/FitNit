@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, push, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyArqfZP8MyrSmIIgABmDGmusoPaAU0rBnE",
@@ -8,218 +8,174 @@ const firebaseConfig = {
   projectId: "fitnit-db781",
   storageBucket: "fitnit-db781.firebasestorage.app",
   messagingSenderId: "375638255257",
-  appId: "1:375638255257:web:c2d92fd129e7e01dbd7a08",
-  measurementId: "G-DF024HK2LG"
+  appId: "1:375638255257:web:c2d92fd129e7e01dbd7a08"
 };
 
-// Initialize
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-// --- Core App Functionality ---
+let html5QrCode;
+let currentScannedItem = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-
-    // 1. View Switcher (Expose to window for HTML access)
-    window.showView = (viewId) => {
-        document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
-        document.getElementById(viewId).style.display = 'block';
-        
-        // Update Title
-        const titles = {
-            'dashboard-screen': 'Dashboard',
-            'scanner-screen': 'Food Scanner',
-            'profile-screen': 'My Profile',
-            'auth-screen': 'Welcome'
-        };
-        document.getElementById('view-title').innerText = titles[viewId] || 'FitNit';
-    };
-
-    // Nav Button Click Handlers
-    document.getElementById('nav-dash').onclick = () => window.showView('dashboard-screen');
-    document.getElementById('nav-prof').onclick = () => window.showView('profile-screen');
-    
-    // 2. Auth Logic
-    document.getElementById('register-click').onclick = () => {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
-        if(!email || !pass) return alert("Please fill in all fields.");
-        
-        createUserWithEmailAndPassword(auth, email, pass)
-            .then(() => alert("Account created!"))
-            .catch(err => alert("Register Error: " + err.message));
-    };
-
-    document.getElementById('login-click').onclick = () => {
-        const email = document.getElementById('email').value;
-        const pass = document.getElementById('password').value;
-        signInWithEmailAndPassword(auth, email, pass)
-            .catch(err => alert("Login Error: " + err.message));
-    };
-
-    document.getElementById('logout-btn').onclick = () => signOut(auth);
-
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            window.showView('dashboard-screen');
-            document.getElementById('logout-btn').style.display = 'block';
-            calculateDailyTotals(user.uid);
-        } else {
-            window.showView('auth-screen');
-            document.getElementById('logout-btn').style.display = 'none';
-        }
-    });
-
-    // 3. Barcode Scanner Logic
-    let html5QrCode;
-    document.getElementById('nav-scan').onclick = () => {
-        window.showView('scanner-screen');
-        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        
-        html5QrCode.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: 250 },
-            onScanSuccess
-        ).catch(err => alert("Camera Error: " + err));
-    };
-
-function onScanSuccess(decodedText) {
-    fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`)
-    .then(res => res.json())
-    .then(data => {
-        const prod = data.product;
-        const nutrients = prod.nutriments;
-        
-        const foodItem = {
-            name: prod.product_name || "Unknown",
-            calories: nutrients['energy-kcal_100g'] || 0,
-            protein: nutrients['proteins_100g'] || 0,
-            carbs: nutrients['carbohydrates_100g'] || 0,
-            fat: nutrients['fat_100g'] || 0,
-            sugar: nutrients['sugars_100g'] || 0,
-            sodium: nutrients['sodium_100g'] || 0,
-            img: prod.image_front_small_url || ""
-        };
-        
-        displayScanResult(foodItem);
-    });
-}
-
-    // 4. Diary & Weight Logic
-    document.getElementById('add-food-btn').onclick = () => {
-        const user = auth.currentUser;
-        const today = new Date().toISOString().split('T')[0];
-        const mealType = document.getElementById('meal-type').value;
-        const foodName = document.getElementById('food-name').innerText;
-        const cals = parseInt(document.getElementById('food-cals').innerText) || 0;
-
-        push(ref(db, `users/${user.uid}/diary/${today}/${mealType}`), {
-            name: foodName,
-            calories: cals,
-            time: Date.now()
-        }).then(() => {
-            alert("Added!");
-            window.showView('dashboard-screen');
-        });
-    };
-
-    function calculateDailyTotals(uid) {
-        const today = new Date().toISOString().split('T')[0];
-        onValue(ref(db, `users/${uid}/diary/${today}`), (snapshot) => {
-            let total = 0;
-            const data = snapshot.val();
-            if (data) {
-                Object.values(data).forEach(mealGroup => {
-                    Object.values(mealGroup).forEach(item => total += item.calories);
-                });
-            }
-            document.getElementById('daily-cal-total').innerText = `${total} / 2000 kcal`;
-        });
+// --- NAVIGATION ---
+window.showView = (viewId) => {
+    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+    document.getElementById(viewId).style.display = 'block';
+    if (html5QrCode && viewId !== 'scanner-screen') {
+        html5QrCode.stop().catch(() => {}); 
     }
+};
 
-    document.getElementById('save-weight-btn').onclick = () => {
-        const weight = document.getElementById('weight-input').value;
-        const today = new Date().toISOString().split('T')[0];
-        if(weight) {
-            set(ref(db, `users/${auth.currentUser.uid}/weight_logs/${today}`), weight)
-                .then(() => alert("Weight logged!"));
-        }
-    };
+// --- AUTH ---
+document.getElementById('register-click').onclick = () => {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    createUserWithEmailAndPassword(auth, email, pass).catch(e => alert(e.message));
+};
 
-    // 5. PDF Export
-    document.getElementById('export-pdf-btn').onclick = () => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        onValue(ref(db, `users/${auth.currentUser.uid}/weight_logs`), (snapshot) => {
-            const data = snapshot.val();
-            doc.text("FitNit Progress Report", 20, 20);
-            let y = 40;
-            for (let date in data) {
-                doc.text(`${date}: ${data[date]} lbs`, 20, y);
-                y += 10;
-            }
-            doc.save("HealthReport.pdf");
-        }, { onlyOnce: true });
-    };
+document.getElementById('login-click').onclick = () => {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    signInWithEmailAndPassword(auth, email, pass).catch(e => alert(e.message));
+};
 
-    // 6. Profile Logic
-    document.getElementById('save-profile').onclick = () => {
-        const privacy = document.getElementById('privacy-status').value;
-        update(ref(db, `users/${auth.currentUser.uid}`), {
-            privacy: privacy,
-            updated: Date.now()
-        }).then(() => alert("Profile Updated"));
-    };
+document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        window.showView('dashboard-screen');
+        document.getElementById('logout-btn').style.display = 'block';
+        updateDashboard();
+    } else {
+        window.showView('auth-screen');
+        document.getElementById('logout-btn').style.display = 'none';
+    }
 });
 
-function calculateGoals(profileData, currentWeight) {
-    if(!profileData.height || !currentWeight) return null;
+// --- SCANNER ---
+document.getElementById('scan-nav-btn').onclick = () => {
+    window.showView('scanner-screen');
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+        fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
+        .then(r => r.json()).then(data => {
+            if(data.status === 1) {
+                const n = data.product.nutriments;
+                currentScannedItem = {
+                    name: data.product.product_name,
+                    calories: Math.round(n['energy-kcal_100g'] || 0),
+                    protein: Math.round(n.proteins_100g || 0),
+                    fat: Math.round(n.fat_100g || 0),
+                    carbs: Math.round(n.carbohydrates_100g || 0)
+                };
+                document.getElementById('scanned-result').style.display = 'block';
+                document.getElementById('food-name').innerText = currentScannedItem.name;
+                document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | P: ${currentScannedItem.protein}g`;
+            }
+        });
+    }).catch(e => alert("Camera Error: " + e));
+};
 
-    let bmr;
-    if (profileData.gender === 'male') {
-        bmr = (10 * currentWeight) + (6.25 * profileData.height) - (5 * profileData.age) + 5;
-    } else {
-        bmr = (10 * currentWeight) + (6.25 * profileData.height) - (5 * profileData.age) - 161;
+document.getElementById('add-food-btn').onclick = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const type = document.getElementById('meal-type').value;
+    push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${type}`), currentScannedItem)
+    .then(() => { alert("Added!"); window.showView('dashboard-screen'); });
+};
+
+// --- GOAL CALCULATION ---
+async function recalculateGoals() {
+    const uid = auth.currentUser.uid;
+    const h = document.getElementById('p-height').value;
+    const a = document.getElementById('p-age').value;
+    const g = document.getElementById('p-gender').value;
+    const act = document.getElementById('p-activity').value;
+
+    // Get latest weight from database
+    const weightSnap = await get(ref(db, `users/${uid}/latest_weight`));
+    const w = weightSnap.val() || 0;
+
+    if (!h || !w || !a) {
+        alert("Please ensure Height, Age, and Weight (in Weight Tab) are set.");
+        return;
     }
 
-    const tdee = bmr * parseFloat(profileData.activity || 1.2);
-    
-    return {
-        calories: Math.round(tdee),
-        protein: Math.round((tdee * 0.30) / 4), // 30% cals from protein
-        carbs: Math.round((tdee * 0.40) / 4),   // 40% cals from carbs
-        fat: Math.round((tdee * 0.30) / 9),     // 30% cals from fat
-        sugar: Math.round((tdee * 0.10) / 4)    // Limit sugar to 10%
+    // Mifflin-St Jeor Formula
+    let bmr = (10 * w) + (6.25 * h) - (5 * a);
+    bmr = (g === 'male') ? bmr + 5 : bmr - 161;
+    const tdee = Math.round(bmr * parseFloat(act));
+
+    const goals = {
+        calories: tdee,
+        protein: Math.round((tdee * 0.3) / 4),
+        carbs: Math.round((tdee * 0.4) / 4),
+        fat: Math.round((tdee * 0.3) / 9),
+        height: h, age: a, gender: g, activity: act
     };
+
+    await update(ref(db, `users/${uid}/goals`), goals);
+    alert("Goals Updated!");
+    updateDashboard();
 }
 
-function loadHistory(range) {
-    const user = auth.currentUser;
-    const historyDiv = document.getElementById('history-list');
-    historyDiv.innerHTML = "Loading...";
+document.getElementById('save-profile-btn').onclick = recalculateGoals;
 
-    onValue(ref(db, `users/${user.uid}/diary`), (snapshot) => {
-        const allDays = snapshot.val();
-        historyDiv.innerHTML = ""; // Clear
-        
-        for (let date in allDays) {
-            let dayTotal = 0;
-            // Calculate total cals for that day
-            Object.values(allDays[date]).forEach(mealType => {
-                Object.values(mealType).forEach(item => dayTotal += item.calories);
+// --- WEIGHT LOGGING ---
+document.getElementById('save-weight-btn').onclick = () => {
+    const w = document.getElementById('weight-input').value;
+    const today = new Date().toISOString().split('T')[0];
+    const uid = auth.currentUser.uid;
+
+    if (w) {
+        update(ref(db, `users/${uid}`), { latest_weight: w });
+        set(ref(db, `users/${uid}/weight_history/${today}`), w);
+        alert("Weight Saved!");
+        recalculateGoals(); // Auto-trigger goal update
+    }
+};
+
+// --- DASHBOARD & HISTORY ---
+function updateDashboard() {
+    const uid = auth.currentUser.uid;
+    const today = new Date().toISOString().split('T')[0];
+
+    onValue(ref(db, `users/${uid}`), (snap) => {
+        const data = snap.val();
+        if (!data) return;
+
+        const goals = data.goals || { calories: 0, protein: 0 };
+        let consumedCals = 0;
+        let consumedProt = 0;
+
+        if (data.diary && data.diary[today]) {
+            Object.values(data.diary[today]).forEach(meal => {
+                Object.values(meal).forEach(item => {
+                    consumedCals += item.calories;
+                    consumedProt += item.protein;
+                });
             });
-
-            // Color coding logic
-            const isGood = dayTotal < 2500; // Replace 2500 with user's dynamic goal
-            const colorClass = isGood ? 'status-green' : 'status-red';
-
-            const dayRow = document.createElement('div');
-            dayRow.className = `history-card ${colorClass}`;
-            dayRow.innerHTML = `<strong>${date}</strong>: ${dayTotal} kcal`;
-            dayRow.onclick = () => showDayDetails(allDays[date]);
-            historyDiv.appendChild(dayRow);
         }
+
+        document.getElementById('dash-cals').innerText = `${consumedCals} / ${goals.calories}`;
+        document.getElementById('dash-prot').innerText = `${consumedProt} / ${goals.protein}g`;
+        document.getElementById('dash-weight').innerText = `${data.latest_weight || '--'} lbs`;
     });
 }
 
+window.loadHistory = (range) => {
+    const uid = auth.currentUser.uid;
+    onValue(ref(db, `users/${uid}/diary`), (snap) => {
+        const diary = snap.val();
+        const list = document.getElementById('history-list');
+        list.innerHTML = "";
+        for (let date in diary) {
+            let dayCals = 0;
+            Object.values(diary[date]).forEach(m => Object.values(m).forEach(i => dayCals += i.calories));
+            const card = document.createElement('div');
+            card.className = `history-card ${dayCals > 2000 ? 'status-red' : 'status-green'}`;
+            card.innerText = `${date}: ${dayCals} kcal`;
+            list.appendChild(card);
+        }
+    });
+};
