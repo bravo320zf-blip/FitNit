@@ -80,3 +80,47 @@ onAuthStateChanged(auth, (user) => {
         document.getElementById('logout-btn').style.display = 'none';
     }
 });
+
+import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const db = getDatabase();
+
+// --- Function to Save Profile Settings ---
+async function saveProfileSettings(uid, displayName, privacyLevel) {
+    const userRef = ref(db, 'users/' + uid);
+    await update(userRef, {
+        displayName: displayName,
+        privacy: privacyLevel, // 'public', 'private', or 'friends'
+        lastActive: Date.now()
+    });
+    alert("Profile Updated!");
+}
+
+// --- Function to View a Profile (Checking Privacy) ---
+function loadProfile(targetUid, viewerUid) {
+    const targetRef = ref(db, 'users/' + targetUid);
+    onValue(targetRef, (snapshot) => {
+        const data = snapshot.val();
+        
+        if (data.privacy === 'public') {
+            displayProfile(data);
+        } else if (data.privacy === 'friends') {
+            checkIfFriends(viewerUid, targetUid).then(isFriend => {
+                if (isFriend) displayProfile(data);
+                else alert("This profile is for friends only.");
+            });
+        } else {
+            alert("This profile is private.");
+        }
+    });
+}
+
+// Logic for the Profile Save button
+document.getElementById('save-profile').onclick = () => {
+    const user = auth.currentUser;
+    const privacy = document.getElementById('privacy-status').value;
+    const name = user.email.split('@')[0]; // Simple display name for now
+    if (user) {
+        saveProfileSettings(user.uid, name, privacy);
+    }
+};
