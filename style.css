@@ -240,3 +240,10 @@ body.dark-mode .progress {
     color: white;
 }
 
+#weightHistoryChart {
+    width: 100% !important;
+    max-height: 250px;
+    margin-top: 10px;
+}
+
+
