@@ -80,28 +80,36 @@
             </div>
         </section>
 
-        <!-- PROFILE (GOALS) -->
-        <section id="profile-screen" class="view" style="display:none;">
-            <div class="card">
-                <h3>Settings & Goals</h3>
-                <label>Height (cm)</label>
-                <input type="number" id="p-height" placeholder="175">
-                <label>Age</label>
-                <input type="number" id="p-age" placeholder="30">
-                <label>Gender</label>
-                <select id="p-gender">
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                </select>
-                <label>Activity Level</label>
-                <select id="p-activity">
-                    <option value="1.2">Sedentary</option>
-                    <option value="1.55">Moderate</option>
-                    <option value="1.9">Athlete</option>
-                </select>
-                <button id="save-profile-btn">Recalculate Goals</button>
-            </div>
-        </section>
+<!-- Tab 5: Profile & Settings -->
+<section id="profile-screen" class="view" style="display:none;">
+    <div class="card">
+        <h3>App Settings</h3>
+        <div class="settings-row">
+            <span>Dark Mode</span>
+            <input type="checkbox" id="dark-mode-toggle" style="width: auto;">
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Personal Goals Info</h3>
+        <label>Height (cm)</label>
+        <input type="number" id="p-height" placeholder="175">
+        <label>Age</label>
+        <input type="number" id="p-age" placeholder="30">
+        <label>Gender</label>
+        <select id="p-gender">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+        </select>
+        <label>Activity Level</label>
+        <select id="p-activity">
+            <option value="1.2">Sedentary (Office job)</option>
+            <option value="1.55">Moderate (Exercise 3x week)</option>
+            <option value="1.9">Athlete (Heavy exercise)</option>
+        </select>
+        <button id="save-profile-btn">Recalculate My Goals</button>
+    </div>
+</section>
 
         <!-- SCANNER -->
         <section id="scanner-screen" class="view" style="display:none;">
@@ -131,3 +139,4 @@
     <script type="module" src="app.js"></script>
 </body>
 </html>
+
