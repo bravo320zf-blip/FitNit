@@ -300,6 +300,33 @@ if (darkModeToggle) {
     };
 }
 
+// --- SHARE APP LOGIC ---
+const shareBtn = document.getElementById('share-app-btn');
+
+if (shareBtn) {
+    shareBtn.onclick = async () => {
+        const shareData = {
+            title: 'Join me on FitNit!',
+            text: 'I am using FitNit to track my fitness goals. Join me!',
+            url: window.location.href // This automatically grabs your GitHub Pages URL
+        };
+
+        try {
+            // Check if the browser supports native sharing (Mobile Chrome/Safari)
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                // Fallback: Copy to clipboard if native share isn't available
+                await navigator.clipboard.writeText(window.location.href);
+                alert("App link copied to clipboard! Send it to your friends.");
+            }
+        } catch (err) {
+            console.log('Error sharing:', err);
+        }
+    };
+}
+
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
+
