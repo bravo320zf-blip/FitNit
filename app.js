@@ -306,12 +306,46 @@ if (localStorage.getItem('theme') === 'dark') {
     document.body.classList.add('dark-mode');
     if(darkModeToggle) darkModeToggle.checked = true;
 }
+// --- DARK MODE (Cloud Saved) ---
+const darkModeToggle = document.getElementById('dark-mode-toggle');
+
 if (darkModeToggle) {
     darkModeToggle.onchange = () => {
-        document.body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+        const user = auth.currentUser;
+        const isEnabled = darkModeToggle.checked;
+
+        // 1. Apply locally for instant feedback
+        if (isEnabled) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+
+        // 2. Save to Firebase if logged in
+        if (user) {
+            update(ref(db, `users/${user.uid}/settings`), {
+                darkMode: isEnabled
+            });
+        }
+        
+        // 3. Keep localStorage as a fallback for the login screen
+        localStorage.setItem('theme', isEnabled ? 'dark' : 'light');
     };
 }
+
+// Check localStorage specifically for the login screen (before user is authed)
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+
+// --- MODAL LOGIC ---
+const settingsModal = document.getElementById('settings-modal');
+document.getElementById('open-settings-btn').onclick = () => {
+    if (settingsModal) settingsModal.style.display = 'flex';
+};
+document.getElementById('close-settings-btn').onclick = () => {
+    if (settingsModal) settingsModal.style.display = 'none';
+};
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('open-settings-btn').onclick = () => settingsModal.style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => settingsModal.style.display = 'none';
@@ -333,3 +367,4 @@ window.loadHistory = (range) => {
         });
     }, { onlyOnce: true });
 };
+
