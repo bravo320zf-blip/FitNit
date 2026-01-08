@@ -179,3 +179,36 @@ window.loadHistory = (range) => {
         }
     });
 };
+
+// --- DARK MODE LOGIC ---
+const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+// Check for saved preference on load
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+    darkModeToggle.checked = true;
+}
+
+darkModeToggle.onchange = () => {
+    if (darkModeToggle.checked) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+    } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+    }
+    
+    // Optional: Update Chart colors if you are using Chart.js
+    updateChartTheme(); 
+};
+
+// Function to update Chart.js colors for Dark Mode
+function updateChartTheme() {
+    const isDark = document.body.classList.contains('dark-mode');
+    const color = isDark ? '#e0e0e0' : '#333333';
+    
+    // If your chart objects are global, you can update them here:
+    // weightChart.options.scales.x.ticks.color = color;
+    // weightChart.update();
+}
+
