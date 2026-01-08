@@ -1,5 +1,6 @@
+/* --- CSS VARIABLES (Theming) --- */
 :root {
-    /* Light Mode Colors */
+    /* Light Mode Palette */
     --bg-color: #f0f2f5;
     --card-bg: #ffffff;
     --text-color: #333333;
@@ -12,7 +13,7 @@
 }
 
 body.dark-mode {
-    /* Dark Mode Colors */
+    /* Dark Mode Palette */
     --bg-color: #121212;
     --card-bg: #1e1e1e;
     --text-color: #e0e0e0;
@@ -23,16 +24,17 @@ body.dark-mode {
     --stat-label: #95a5a6;
 }
 
+/* --- BASE STYLES --- */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding-bottom: 90px; /* Space for nav */
+    padding-bottom: 90px; /* Leave room for bottom nav */
     background-color: var(--bg-color);
     color: var(--text-color);
     transition: background 0.3s, color 0.3s;
 }
 
-/* --- Header & Navigation --- */
+/* --- HEADER & NAVIGATION --- */
 header {
     background: var(--header-bg);
     color: white;
@@ -66,12 +68,18 @@ header h1 { margin: 0; font-size: 1.2rem; }
     color: #95a5a6;
     padding: 10px;
     cursor: pointer;
+    transition: color 0.2s;
 }
 
-.bottom-nav button:active { color: var(--accent-color); }
+.bottom-nav button:active, .bottom-nav button:focus {
+    color: var(--accent-color);
+}
 
-/* --- Views & Containers --- */
-.view { padding: 15px; animation: fadeIn 0.3s ease-in; }
+/* --- VIEWS & CARDS --- */
+.view { 
+    padding: 15px; 
+    animation: fadeIn 0.3s ease-in; 
+}
 
 .card {
     background: var(--card-bg);
@@ -79,9 +87,10 @@ header h1 { margin: 0; font-size: 1.2rem; }
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     margin-bottom: 15px;
+    color: var(--text-color);
 }
 
-/* --- Form Elements --- */
+/* --- FORM ELEMENTS --- */
 input, select, button {
     width: 100%;
     padding: 12px;
@@ -100,14 +109,17 @@ button {
     border: none;
     font-weight: bold;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: opacity 0.2s, transform 0.1s;
 }
 
-button:active { opacity: 0.8; transform: scale(0.98); }
+button:active { 
+    opacity: 0.8; 
+    transform: scale(0.98); 
+}
 
 hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
 
-/* --- Dashboard & Widgets --- */
+/* --- DASHBOARD & SUMMARY WIDGETS --- */
 .dashboard-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -140,7 +152,20 @@ hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
     text-align: center; 
 }
 
-/* --- Progress Bars (Macros) --- */
+.stat-box small {
+    display: block;
+    font-size: 0.65rem;
+    color: var(--stat-label);
+    margin-bottom: 2px;
+}
+
+.stat-box p {
+    margin: 0;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+/* --- MACRO PROGRESS BARS --- */
 .macro-bar-container { margin-bottom: 10px; }
 .macro-bar-container span { font-size: 0.8rem; display: block; margin: 8px 0 4px 0; }
 
@@ -151,6 +176,8 @@ hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
     overflow: hidden; 
 }
 
+body.dark-mode .progress { background: #333; }
+
 .fill { 
     background: var(--accent-color); 
     height: 100%; 
@@ -158,12 +185,12 @@ hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
     transition: width 0.6s ease-out; 
 }
 
-/* Specific colors for macros */
+/* Macro Bar Colors */
 #bar-prot { background: #e67e22; } /* Orange */
 #bar-carb { background: #3498db; } /* Blue */
 #bar-fat { background: #f1c40f; }  /* Yellow */
 
-/* --- Modal (Settings Window) --- */
+/* --- SETTINGS MODAL --- */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; 
@@ -198,6 +225,7 @@ hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
     width: auto; 
     border: none; 
     padding: 5px;
+    cursor: pointer;
 }
 
 .settings-row {
@@ -207,7 +235,7 @@ hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
     padding: 10px 0;
 }
 
-/* --- History & Status Colors --- */
+/* --- HISTORY CARDS --- */
 .history-card { 
     padding: 15px; 
     margin-bottom: 8px; 
@@ -219,20 +247,11 @@ hr { border: 0; border-top: 1px solid var(--border-color); margin: 15px 0; }
 .status-green { background-color: #27ae60; }
 .status-red { background-color: #e74c3c; }
 
-/* --- Animations --- */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Dark mode override for specific elements */
-body.dark-mode input, 
-body.dark-mode select {
-    border: 1px solid #444;
-}
-
-body.dark-mode .progress {
-    background: #333;
+/* --- SEARCH & LISTS --- */
+#search-results-list .card {
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
 #search-results-list .card:hover {
@@ -240,10 +259,21 @@ body.dark-mode .progress {
     color: white;
 }
 
+/* --- CHARTS --- */
 #weightHistoryChart {
     width: 100% !important;
     max-height: 250px;
     margin-top: 10px;
 }
 
+/* --- ANIMATIONS --- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 
+/* Ensure scanner reader is visible */
+#reader {
+    border-radius: 8px;
+    overflow: hidden;
+}
