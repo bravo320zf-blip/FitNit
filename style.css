@@ -234,3 +234,9 @@ body.dark-mode select {
 body.dark-mode .progress {
     background: #333;
 }
+
+#search-results-list .card:hover {
+    background-color: var(--accent-color);
+    color: white;
+}
+
