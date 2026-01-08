@@ -221,3 +221,4 @@ document.getElementById('export-pdf-btn').onclick = () => {
         doc.save("WeightReport.pdf");
     }, { onlyOnce: true });
 };
+
