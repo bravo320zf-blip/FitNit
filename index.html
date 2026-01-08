@@ -33,79 +33,84 @@
     </header>
 
     <!-- Main Content Area -->
-    <main id="app">
-        <!-- Auth Screen -->
-        <section id="auth-screen" class="view">
-            <div class="card">
-                <h2>Welcome</h2>
-                <input type="email" id="email" placeholder="Email">
-                <input type="password" id="password" placeholder="Password">
-                <button id="login-click">Login</button>
-                <button id="register-click" style="background: #27ae60;">Register</button>
+<main id="app">
+    <!-- Tab 1: Home (Highlights) -->
+    <section id="dashboard-screen" class="view">
+        <div class="card highlight-card">
+            <h3>Today's Progress</h3>
+            <div class="stat-grid">
+                <div><small>Cals</small><p id="dash-cals">0/0</p></div>
+                <div><small>Protein</small><p id="dash-prot">0g</p></div>
+                <div><small>Weight</small><p id="dash-weight">--</p></div>
             </div>
-        </section>
+        </div>
+        <button onclick="showView('scanner-screen')" class="fab">+ Scan Food</button>
+    </section>
 
-        <!-- Dashboard / Summary Screen -->
-        <section id="dashboard-screen" class="view" style="display:none;">
-            <div class="card">
-                <h3>Today's Calories</h3>
-                <p id="daily-cal-total" style="font-size: 1.5rem; font-weight: bold;">0 / 2000 kcal</p>
-            </div>
-            <div class="card">
-                <h3>Weight Progress</h3>
-                <canvas id="weightChart"></canvas>
-            </div>
-            <div class="card">
-                <h3>Log Daily Weight</h3>
-                <input type="number" id="weight-input" placeholder="Weight (lbs)">
-                <button id="save-weight-btn">Save Weight</button>
-                <button id="export-pdf-btn" style="background:#8e44ad;">Export PDF for Doctor</button>
-            </div>
-        </section>
+    <!-- Tab 2: Nutrition Stats -->
+    <section id="nutrition-screen" class="view" style="display:none;">
+        <div class="card">
+            <h3>Macro Summary</h3>
+            <canvas id="macroChart"></canvas>
+            <div id="macro-details"></div>
+        </div>
+    </section>
 
-        <!-- Barcode Scanner Screen -->
-        <section id="scanner-screen" class="view" style="display:none;">
-            <div class="card">
-                <div id="reader" style="width: 100%;"></div>
-            </div>
-            <div id="scanned-result" class="card" style="display:none;">
-                <img id="food-img" src="" alt="food" style="width:80px; display:block; margin:auto;">
-                <h4 id="food-name">Product Name</h4>
-                <p id="food-cals">0 kcal</p>
-                <select id="meal-type">
-                    <option value="breakfast">Breakfast</option>
-                    <option value="lunch">Lunch</option>
-                    <option value="dinner">Dinner</option>
-                    <option value="snack">Snack</option>
-                </select>
-                <button id="add-food-btn">Add to Diary</button>
-            </div>
-        </section>
+    <!-- Tab 3: History/Log -->
+    <section id="history-screen" class="view" style="display:none;">
+        <div class="filter-bar">
+            <button onclick="loadHistory('day')">Day</button>
+            <button onclick="loadHistory('week')">Week</button>
+            <button onclick="loadHistory('month')">Month</button>
+        </div>
+        <div id="history-list"></div>
+    </section>
 
-        <!-- Profile / Social Screen -->
-        <section id="profile-screen" class="view" style="display:none;">
-            <div class="card">
-                <h3>Privacy Settings</h3>
-                <p>Choose who can see your progress:</p>
-                <select id="privacy-status">
-                    <option value="private">Private</option>
-                    <option value="friends">Friends Only</option>
-                    <option value="public">Public</option>
-                </select>
-                <button id="save-profile">Save Profile</button>
-            </div>
-        </section>
-    </main>
+    <!-- Tab 4: Weight Tracker -->
+    <section id="weight-screen" class="view" style="display:none;">
+        <div class="card">
+            <h3>Weight Journey</h3>
+            <canvas id="weightHistoryChart"></canvas>
+            <input type="number" id="new-weight" placeholder="Log Today's Weight">
+            <button id="btn-save-weight">Log Weight</button>
+        </div>
+    </section>
+
+    <!-- Tab 5: Profile & Goals -->
+    <section id="profile-screen" class="view" style="display:none;">
+        <div class="card">
+            <h3>Personal Info</h3>
+            <input type="number" id="p-height" placeholder="Height (cm)">
+            <input type="number" id="p-age" placeholder="Age">
+            <select id="p-gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+            </select>
+            <select id="p-activity">
+                <option value="1.2">Sedentary</option>
+                <option value="1.55">Moderate Activity</option>
+                <option value="1.9">Heavy Athlete</option>
+            </select>
+            <button id="save-profile-btn">Recalculate Goals</button>
+        </div>
+        <div class="card" id="goal-summary">
+            <!-- Calculated goals appear here -->
+        </div>
+    </section>
+</main>
 
     <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-        <button id="nav-dash"><i class="material-icons">dashboard</i></button>
-        <button id="nav-scan"><i class="material-icons">qr_code_scanner</i></button>
-        <button id="nav-prof"><i class="material-icons">person</i></button>
-    </nav>
+<nav class="bottom-nav">
+    <button onclick="showView('dashboard-screen')"><i class="material-icons">home</i></button>
+    <button onclick="showView('nutrition-screen')"><i class="material-icons">pie_chart</i></button>
+    <button onclick="showView('history-screen')"><i class="material-icons">assignment</i></button>
+    <button onclick="showView('weight-screen')"><i class="material-icons">show_chart</i></button>
+    <button onclick="showView('profile-screen')"><i class="material-icons">settings</i></button>
+</nav>
 
     <!-- App Logic -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
+
 
