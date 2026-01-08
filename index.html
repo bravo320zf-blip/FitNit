@@ -3,20 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyFitnessCustom</title>
+    <title>FitNit - Personal Tracker</title>
     <link rel="stylesheet" href="style.css">
     <!-- Google Fonts & Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <!-- Chart.js for Weight Tracking -->
+    
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- HTML5-QRCode for Barcode Scanning -->
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
     <!-- App Header -->
     <header>
-        <h1 id="view-title">Dashboard</h1>
+        <h1 id="view-title">FitNit</h1>
         <button id="logout-btn" style="display:none;">Logout</button>
     </header>
 
@@ -24,35 +25,40 @@
     <main id="app">
         <!-- Auth Screen -->
         <section id="auth-screen" class="view">
-            <h2>Welcome</h2>
-            <input type="email" id="email" placeholder="Email">
-            <input type="password" id="password" placeholder="Password">
-            <button id="login-click">Login</button>
-            <button id="register-click">Register</button>
+            <div class="card">
+                <h2>Welcome</h2>
+                <input type="email" id="email" placeholder="Email">
+                <input type="password" id="password" placeholder="Password">
+                <button id="login-click">Login</button>
+                <button id="register-click" style="background: #27ae60;">Register</button>
+            </div>
         </section>
 
         <!-- Dashboard / Summary Screen -->
         <section id="dashboard-screen" class="view" style="display:none;">
             <div class="card">
                 <h3>Today's Calories</h3>
-                <p id="daily-cal-total">0 / 2000</p>
+                <p id="daily-cal-total" style="font-size: 1.5rem; font-weight: bold;">0 / 2000 kcal</p>
             </div>
             <div class="card">
-                <h3>Current Weight</h3>
+                <h3>Weight Progress</h3>
                 <canvas id="weightChart"></canvas>
             </div>
             <div class="card">
-            <input type="number" id="weight-input" placeholder="Enter Weight (lbs)">
-            <button id="save-weight-btn">Log Weight</button>
-            <button id="export-pdf-btn" style="background:#27ae60;">Export PDF for Doctor</button>
+                <h3>Log Daily Weight</h3>
+                <input type="number" id="weight-input" placeholder="Weight (lbs)">
+                <button id="save-weight-btn">Save Weight</button>
+                <button id="export-pdf-btn" style="background:#8e44ad;">Export PDF for Doctor</button>
             </div>
         </section>
 
         <!-- Barcode Scanner Screen -->
         <section id="scanner-screen" class="view" style="display:none;">
-            <div id="reader" style="width: 100%;"></div>
+            <div class="card">
+                <div id="reader" style="width: 100%;"></div>
+            </div>
             <div id="scanned-result" class="card" style="display:none;">
-                <img id="food-img" src="" alt="food" style="width:50px;">
+                <img id="food-img" src="" alt="food" style="width:80px; display:block; margin:auto;">
                 <h4 id="food-name">Product Name</h4>
                 <p id="food-cals">0 kcal</p>
                 <select id="meal-type">
@@ -67,25 +73,27 @@
 
         <!-- Profile / Social Screen -->
         <section id="profile-screen" class="view" style="display:none;">
-            <h3>Privacy Settings</h3>
-            <select id="privacy-status">
-                <option value="private">Private</option>
-                <option value="friends">Friends Only</option>
-                <option value="public">Public</option>
-            </select>
-            <button id="save-profile">Save Profile</button>
+            <div class="card">
+                <h3>Privacy Settings</h3>
+                <p>Choose who can see your progress:</p>
+                <select id="privacy-status">
+                    <option value="private">Private</option>
+                    <option value="friends">Friends Only</option>
+                    <option value="public">Public</option>
+                </select>
+                <button id="save-profile">Save Profile</button>
+            </div>
         </section>
     </main>
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-        <button onclick="showView('dashboard-screen')"><i class="material-icons">dashboard</i></button>
-        <button onclick="showView('scanner-screen')"><i class="material-icons">qr_code_scanner</i></button>
-        <button onclick="showView('profile-screen')"><i class="material-icons">person</i></button>
+        <button id="nav-dash"><i class="material-icons">dashboard</i></button>
+        <button id="nav-scan"><i class="material-icons">qr_code_scanner</i></button>
+        <button id="nav-prof"><i class="material-icons">person</i></button>
     </nav>
 
-    <!-- Firebase SDKs -->
+    <!-- App Logic -->
     <script type="module" src="app.js"></script>
 </body>
-
 </html>
