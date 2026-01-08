@@ -184,3 +184,37 @@ function calculateDailyTotals() {
     });
 }
 
+// --- WEIGHT LOGGING ---
+document.getElementById('save-weight-btn').onclick = () => {
+    const weight = document.getElementById('weight-input').value;
+    const user = auth.currentUser;
+    const today = new Date().toISOString().split('T')[0];
+
+    if(weight && user) {
+        set(ref(db, `users/${user.uid}/weight_logs/${today}`), weight);
+        alert("Weight saved!");
+    }
+};
+
+// --- PDF EXPORT ---
+document.getElementById('export-pdf-btn').onclick = () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const user = auth.currentUser;
+
+    const weightRef = ref(db, `users/${user.uid}/weight_logs`);
+    onValue(weightRef, (snapshot) => {
+        const data = snapshot.val();
+        doc.text("Fitness Progress Report", 20, 20);
+        doc.text(`User ID: ${user.uid}`, 20, 30);
+        
+        let y = 40;
+        for (let date in data) {
+            doc.text(`${date}: ${data[date]} lbs`, 20, y);
+            y += 10;
+        }
+        doc.save("WeightReport.pdf");
+    }, { onlyOnce: true });
+};
+
+
