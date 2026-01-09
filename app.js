@@ -87,13 +87,18 @@ function startDataListener(uid) {
         document.body.classList.toggle('dark-mode', isDark);
         document.getElementById('dark-mode-toggle').checked = isDark;
 
-        window.toggleFav = (name) => {
+        window.toggleFav = (name, item) => {
             const sanitizedName = name.replace(/[.#$[\]]/g, "");
             const isFav = window._lastUserData?.favorites?.[sanitizedName];
+
             if (isFav) {
                 set(ref(db, `users/${auth.currentUser.uid}/favorites/${sanitizedName}`), null);
             } else {
-                set(ref(db, `users/${auth.currentUser.uid}/favorites/${sanitizedName}`), { name: name, added: Date.now() });
+                // BUG FIX: Save the FULL item object, or fallback to name if missing (rare)
+                const favItem = item || { name: name };
+                // Ensure timestamp is fresh
+                favItem.added = Date.now();
+                set(ref(db, `users/${auth.currentUser.uid}/favorites/${sanitizedName}`), favItem);
             }
         };
 
@@ -1810,17 +1815,23 @@ const initLabelReader = () => {
 
         const file = e.target.files[0];
         const originalText = btnReader.innerHTML;
-        btnReader.innerHTML = 'Scanning...';
+        btnReader.innerHTML = 'Analyzing...';
         btnReader.disabled = true;
 
         try {
-            // Recognize
+            // 1. Preprocess Image (Resize + Grayscale + Contrast)
+            const processedImage = await preprocessImage(file);
+
+            // 2. Recognize
             const worker = await Tesseract.createWorker('eng');
-            const { data: { text } } = await worker.recognize(file);
+            // Using whitelist to improve accuracy for numbers? 
+            // await worker.setParameters({ tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:.-% ' });
+
+            const { data: { text } } = await worker.recognize(processedImage);
             console.log("OCR Result:", text);
             await worker.terminate();
 
-            // Parse
+            // 3. Parse Logic (Improved Regex)
             const findVal = (regex) => {
                 const match = text.match(regex);
                 return match ? parseFloat(match[1]) : 0;
@@ -1828,10 +1839,10 @@ const initLabelReader = () => {
 
             // Loose regex for nutrition facts
             const cals = findVal(/Calories\D*(\d+)/i) || findVal(/Energy\D*(\d+)/i) || 0;
-            // Protein often "Protein 20g" or "Protein: 20g"
             const prot = findVal(/Protein\D*(\d+)g?/i) || 0;
-            const carbs = findVal(/Carb\w*\D*(\d+)g?/i) || 0;
-            const fat = findVal(/Fat\D*(\d+)g?/i) || 0;
+            const carbs = findVal(/Total Carb\w*\D*(\d+)g?/i) || findVal(/Carbohydrate\D*(\d+)g?/i) || 0;
+            const fat = findVal(/Total Fat\D*(\d+)g?/i) || findVal(/Fat\D*(\d+)g?/i) || 0;
+            const sugar = findVal(/Total Sugars?\D*(\d+)g?/i) || findVal(/Sugars?\D*(\d+)g?/i) || 0;
 
             // Fill Form
             document.getElementById('c-name').value = "Scanned Item (Edit Me)";
@@ -1839,6 +1850,7 @@ const initLabelReader = () => {
             document.getElementById('c-prot').value = prot || "";
             document.getElementById('c-carb').value = carbs || "";
             document.getElementById('c-fat').value = fat || "";
+            document.getElementById('c-sugar').value = sugar || "";
 
             // Switch View
             if (window.toggleAddMode) window.toggleAddMode('custom');
@@ -1847,11 +1859,11 @@ const initLabelReader = () => {
                 document.getElementById('mode-custom').style.display = 'block';
             }
 
-            alert(`Scan Complete!\nFound: ${cals} kcal, ${prot}g P, ${carbs}g C, ${fat}g F\nPlease verify values.`);
+            alert(`Scan Complete!\nFound: ${cals} kcal\nP: ${prot}g, C: ${carbs}g, F: ${fat}g, S: ${sugar}g\n\nPlease verify values.`);
 
         } catch (err) {
             console.error(err);
-            alert("Error scanning label. Please try again or enter manually.");
+            alert("Error scanning label. Try better lighting.");
         } finally {
             btnReader.innerHTML = originalText;
             btnReader.disabled = false;
@@ -1859,6 +1871,49 @@ const initLabelReader = () => {
         }
     };
 };
+
+// Helper: Preprocess Image for Better OCR
+function preprocessImage(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // 1. Resize (Limit max dimension to 800px for speed/clarity)
+                const MAX_DIM = 800;
+                let scale = 1;
+                if (img.width > MAX_DIM || img.height > MAX_DIM) {
+                    scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height);
+                }
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // 2. Grayscale & Contrast
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    const r = d[i], g = d[i + 1], b = d[i + 2];
+                    // Grayscale (Luminance)
+                    let v = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                    // Contrast (Thresholding - simple binarization)
+                    // If v > 128 ? 255 : 0; (Binarization helps specific fonts, but grayscale is safer generally)
+                    // Let's stick to simple High Contrast Grayscale
+                    v = v > 100 ? 255 : 0; // Simple binarization threshold
+
+                    d[i] = d[i + 1] = d[i + 2] = v;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
 
 // Initialize
 initLabelReader();
@@ -1873,6 +1928,7 @@ if (customBtn) {
         const prot = Number(document.getElementById('c-prot').value || 0);
         const carbs = Number(document.getElementById('c-carb').value || 0);
         const fat = Number(document.getElementById('c-fat').value || 0);
+        const sugar = Number(document.getElementById('c-sugar').value || 0);
 
         if (!name || !cals) return alert("Name and Calories are required.");
 
@@ -1880,7 +1936,7 @@ if (customBtn) {
         const dupItem = await checkDuplicate(name);
 
         const currentItem = {
-            name, calories: cals, protein: prot, carbs, fat, timestamp: Date.now(),
+            name, calories: cals, protein: prot, carbs, fat, sugar, timestamp: Date.now(),
             createdBy: auth.currentUser.uid
         };
 
