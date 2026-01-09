@@ -286,14 +286,68 @@ function renderDietHistory(diary) {
         mealBox.style.display = "none";
 
         Object.keys(diary[date]).forEach(type => {
-            Object.values(diary[date][type]).forEach(i => {
+            Object.entries(diary[date][type]).forEach(([key, i]) => {
                 const itemEl = document.createElement('div');
                 itemEl.className = "meal-item";
-                itemEl.style.padding = "8px";
+                itemEl.style.padding = "10px";
                 itemEl.style.borderBottom = "1px solid #f9f9f9";
+                itemEl.style.display = "flex";
+                itemEl.style.justifyContent = "space-between";
+                itemEl.style.alignItems = "center";
+
                 const isFav = window._lastUserData?.favorites?.[i.name.replace(/[.#$[\]]/g, "")];
-                itemEl.innerHTML = `<div style="display:flex; align-items:center;"><i class="material-icons fav-icon" onclick="event.stopPropagation(); window.toggleFav('${i.name}')" style="color:${isFav ? 'orange' : '#ccc'}; cursor:pointer; margin-right:5px;">${isFav ? 'star' : 'star_outline'}</i><div><strong>${i.name}</strong><br><small>${i.calories} kcal | ${type}</small></div></div>`;
-                setupLongPress(itemEl, i); // Assumes setupLongPress is available
+
+                // Left Side: Star (Fav) + Info (Clickable for details)
+                // Passing 'i' to showFoodDetails requires 'i' to be serialization safe or we attach it to the element
+                // We'll create the click handler in JS to keep object reference clean
+
+                const leftDiv = document.createElement('div');
+                leftDiv.style.flexGrow = "1";
+                leftDiv.style.display = "flex";
+                leftDiv.style.alignItems = "center";
+                leftDiv.style.cursor = "pointer";
+
+                leftDiv.innerHTML = `
+                    <i class="material-icons fav-icon" data-name="${i.name}" style="color:${isFav ? 'orange' : '#ccc'}; cursor:pointer; margin-right:8px; font-size:20px;">${isFav ? 'star' : 'star_outline'}</i>
+                    <div>
+                        <strong style="font-size:14px; color:var(--text-color);">${i.name}</strong><br>
+                        <small style="color:#777;">${i.calories} kcal | ${type}</small>
+                    </div>
+                `;
+
+                // Event Handlers for Left Side
+                // Generic click on leftDiv -> Details
+                leftDiv.onclick = (e) => {
+                    // Prevent if clicking star
+                    if (e.target.classList.contains('fav-icon')) return;
+                    window.showFoodDetails(i);
+                }
+
+                // Star Click Handler
+                const starIcon = leftDiv.querySelector('.fav-icon');
+                starIcon.onclick = (e) => {
+                    e.stopPropagation();
+                    window.toggleFav(i.name);
+                };
+
+                // Right Side: Delete Button (Red Square requested area)
+                const delBtn = document.createElement('button');
+                delBtn.className = "icon-btn delete-btn";
+                delBtn.innerHTML = `<i class="material-icons">delete</i>`;
+                delBtn.style.color = "#e74c3c";
+                delBtn.style.marginLeft = "10px";
+                delBtn.style.padding = "8px";
+                delBtn.style.background = "rgba(231, 76, 60, 0.1)";
+                delBtn.style.borderRadius = "4px";
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Remove ${i.name}?`)) {
+                        window.deleteFoodItem(date, type, key);
+                    }
+                };
+
+                itemEl.appendChild(leftDiv);
+                itemEl.appendChild(delBtn);
                 mealBox.appendChild(itemEl);
             });
         });
@@ -975,7 +1029,8 @@ document.getElementById('scan-nav-btn').onclick = () => {
                         vitA: Math.round((n['vitamin-a_100g'] || 0) * 1000000), // in mcg?
                         vitC: Math.round((n['vitamin-c_100g'] || 0) * 1000), // mg
                         calcium: Math.round((n.calcium_100g || 0) * 1000), // mg
-                        iron: Math.round((n.iron_100g || 0) * 1000) // mg
+                        iron: Math.round((n.iron_100g || 0) * 1000), // mg
+                        image: d.product.image_url || ""
                     };
                     // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
                     // For sodium/salt, OFF returns sodium_100g in Unit.
@@ -1276,3 +1331,56 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
         </div>
     `;
 }
+
+// --- DELETE & DETAILS ACTIONS ---
+window.deleteFoodItem = (date, type, key) => {
+    set(ref(db, `users/${auth.currentUser.uid}/diary/${date}/${type}/${key}`), null);
+};
+
+window.showFoodDetails = (item) => {
+    const m = document.getElementById('food-details-modal');
+    if (!m) return;
+
+    // Reset
+    document.getElementById('fd-image-container').style.display = 'none';
+    document.getElementById('fd-extended').innerHTML = "";
+
+    // Basic Info
+    document.getElementById('fd-name').innerText = item.name;
+    document.getElementById('fd-meta').innerText = `Logged Item`; // Could contain time or type
+    document.getElementById('fd-cals').innerText = item.calories;
+    document.getElementById('fd-prot').innerText = (item.protein || 0) + 'g';
+    document.getElementById('fd-carb').innerText = (item.carbs || 0) + 'g';
+    document.getElementById('fd-fat').innerText = (item.fat || 0) + 'g';
+
+    // Image
+    if (item.image) {
+        document.getElementById('fd-image').src = item.image;
+        document.getElementById('fd-image-container').style.display = 'block';
+    }
+
+    // Extended Nutrients List
+    const extContainer = document.getElementById('fd-extended');
+    const fields = [
+        { l: 'Sugar', v: item.sugar, u: 'g' },
+        { l: 'Fiber', v: item.fiber, u: 'g' },
+        { l: 'Saturated Fat', v: item.satFat, u: 'g' },
+        { l: 'Sodium', v: item.sodium, u: 'mg' },
+        { l: 'Vitamin C', v: item.vitC, u: 'mg' },
+        { l: 'Calcium', v: item.calcium, u: 'mg' },
+        { l: 'Iron', v: item.iron, u: 'mg' }
+    ];
+
+    fields.forEach(f => {
+        if (f.v !== undefined) {
+            const row = document.createElement('div');
+            row.style.display = "flex"; row.style.justifyContent = "space-between";
+            row.style.padding = "5px 0"; row.style.borderBottom = "1px solid #f5f5f5";
+            row.innerHTML = `<span>${f.l}</span><span>${f.v}${f.u}</span>`;
+            extContainer.appendChild(row);
+        }
+    });
+
+    m.style.display = 'flex';
+}
+
