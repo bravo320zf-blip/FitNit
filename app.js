@@ -160,7 +160,140 @@ function startDataListener(uid) {
             document.getElementById('summary-bmi-text').innerText = bmi < 25 ? "Normal" : "Overweight";
         }
         if (data.weight_history) updateWeightGraph(data.weight_history);
+
+        if (data.weight_history) updateWeightGraph(data.weight_history);
+
+        checkAchievements(data, uid);
+        renderAchievements(data.achievements);
     });
+}
+
+function renderAchievements(earned) {
+    const container = document.getElementById('profile-achievements-preview');
+    if (!earned) return;
+
+    // Choose top 3 recent or specific pinned ones (logic for pinned coming later)
+    const recent = Object.keys(earned).sort((a, b) => earned[b].unlockedAt - earned[a].unlockedAt).slice(0, 3);
+
+    if (recent.length > 0) {
+        container.innerHTML = "";
+        recent.forEach(id => {
+            const def = achievementsList.find(a => a.id === id);
+            if (def) {
+                const badge = document.createElement('div');
+                badge.className = 'achievement-badge';
+                // Use sprite sheet with background position or individual images if we split them.
+                // For now, using emojis/text + styling as placeholder until sprite CSS is ready
+                // Assuming styling for .achievement-badge handles the 'gold' look
+                badge.innerHTML = `<i class="material-icons" style="color:#f1c40f; font-size:24px;">emoji_events</i><br><small style="font-size:8px;">${def.name}</small>`;
+                badge.title = def.desc;
+                container.appendChild(badge);
+            }
+        });
+
+        // "See All" button
+        const more = document.createElement('div');
+        more.innerHTML = `<small>View All ></small>`;
+        more.style.cursor = "pointer";
+        more.onclick = () => alert("Full Achievement List coming in next update!");
+        container.appendChild(more);
+    }
+}
+
+// --- ACHIEVEMENTS SYSTEM ---
+const achievementsList = [
+    // General & Profile
+    { id: 'first_step', name: 'First Step', desc: 'Log your first weight', icon: 'scale' },
+    { id: 'profile_set', name: 'Who Am I?', desc: 'Complete your profile settings', icon: 'user' },
+    { id: 'socialite', name: 'Socialite', desc: 'Follow 1 person', icon: 'social' },
+    { id: 'influencer', name: 'Influencer', desc: 'Get 1 follower', icon: 'social' },
+    { id: 'goal_setter', name: 'Dream Big', desc: 'Set a personal goal', icon: 'target' },
+
+    // Nutrition (Logging)
+    { id: 'tracker_1', name: 'Tracker', desc: 'Log food for 1 day', icon: 'apple' },
+    { id: 'tracker_3', name: 'Consistency', desc: 'Log food for 3 days in a row', icon: 'flame' },
+    { id: 'tracker_7', name: 'On Fire', desc: 'Log food for 7 days in a row', icon: 'flame' },
+    { id: 'tracker_30', name: 'Habitual', desc: 'Log food for 30 days in a row', icon: 'flame' },
+    { id: 'century_club', name: 'Century Club', desc: 'Log 100 items total', icon: 'apple' },
+    { id: 'veg_head', name: 'Veg Head', desc: 'Log 50 vegetables', icon: 'apple' }, // Placeholder logic
+    { id: 'protein_king', name: 'Protein King', desc: 'Hit protein goal 5 times', icon: 'muscle' },
+
+    // Workouts
+    { id: 'gym_rat', name: 'Gym Rat', desc: 'Log 10 workouts', icon: 'dumbbell' },
+    { id: 'iron_born', name: 'Iron Born', desc: 'Log a Strength workout', icon: 'dumbbell' },
+    { id: 'cardio_bunny', name: 'Cardio Bunny', desc: 'Log a Cardio workout', icon: 'shoe' },
+    { id: 'early_bird', name: 'Early Bird', desc: 'Log a workout before 8 AM', icon: 'sun' },
+    { id: 'night_owl', name: 'Night Owl', desc: 'Log a workout after 8 PM', icon: 'moon' },
+    { id: 'marathoner', name: 'Marathoner', desc: 'Log 10 cardio sessions', icon: 'shoe' },
+    { id: 'heavy_lifter', name: 'Heavy Lifter', desc: 'Log 10 strength sessions', icon: 'dumbbell' },
+    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Log a workout on Sat & Sun', icon: 'calendar' },
+
+    // Weight
+    { id: '5lb_club', name: '5lb Club', desc: 'Lose 5 lbs total', icon: 'scale' },
+    { id: '10lb_club', name: '10lb Club', desc: 'Lose 10 lbs total', icon: 'scale' },
+    { id: '20lb_club', name: '20lb Club', desc: 'Lose 20 lbs total', icon: 'scale' },
+    { id: 'on_target', name: 'On Target', desc: 'Weight trend matches goal', icon: 'target' },
+
+    // Streaks & Meta
+    { id: 'login_streak_7', name: 'Dedicated', desc: 'Open app 7 days in a row', icon: 'flame' },
+    { id: 'jack_of_all', name: 'Jack of All', desc: 'Log food, weight, and workout in 1 day', icon: 'trophy' }
+    // ... (Can expand to 50 easily with variations of numbers)
+];
+
+function checkAchievements(data, uid) {
+    const earned = data.achievements || {};
+    const newUnlocks = [];
+
+    const unlock = (id) => {
+        if (!earned[id]) {
+            earned[id] = { unlockedAt: Date.now() };
+            newUnlocks.push(achievementsList.find(a => a.id === id));
+            update(ref(db, `users/${uid}/achievements/${id}`), { unlockedAt: Date.now() });
+        }
+    };
+
+    // 1. Weight 
+    if (data.weight_history) {
+        unlock('first_step');
+        const weights = Object.values(data.weight_history);
+        if (weights.length >= 2) {
+            const loss = weights[0] - weights[weights.length - 1]; // specific logic depends on order
+            if (loss >= 5) unlock('5lb_club');
+            if (loss >= 10) unlock('10lb_club');
+        }
+    }
+
+    // 2. Profile
+    if (data.goals && data.goals.height) unlock('profile_set');
+
+    // 3. Social
+    if (data.social && data.social.following) unlock('socialite');
+    if (data.social && data.social.followers) unlock('influencer');
+
+    // 4. Diary / Logs
+    if (data.diary) {
+        unlock('tracker_1');
+        const dates = Object.keys(data.diary).sort();
+        // Simple streak check could go here
+    }
+
+    // 5. Workouts
+    if (data.workouts) {
+        let gymCount = 0;
+        Object.values(data.workouts).forEach(day => {
+            gymCount += Object.keys(day).length;
+            Object.values(day).forEach(w => {
+                if (w.sets) unlock('iron_born');
+                else unlock('cardio_bunny');
+            });
+        });
+        if (gymCount >= 10) unlock('gym_rat');
+    }
+
+    // Notify
+    if (newUnlocks.length > 0) {
+        newUnlocks.forEach(a => alert(`🏆 Achievement Unlocked: ${a.name}!`));
+    }
 }
 
 // --- EXERCISE AUTOCOMPLETE ---
@@ -411,3 +544,4 @@ document.getElementById('share-app-btn').onclick = () => {
 };
 document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'flex';
 document.getElementById('close-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'none';
+document.getElementById('friends-btn').onclick = () => document.getElementById('friends-modal').style.display = 'flex';
