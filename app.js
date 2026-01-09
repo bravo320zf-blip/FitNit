@@ -889,482 +889,488 @@ document.getElementById('btn-save-cardio').onclick = async () => {
 
 // --- GOAL CALCULATION & PUBLIC PROFILE ---
 document.getElementById('save-profile-btn').onclick = async () => {
-    const h = parseFloat(document.getElementById('p-height').value);
-    const a = parseInt(document.getElementById('p-age').value);
-    const g = document.getElementById('p-gender').value;
-    const act = parseFloat(document.getElementById('p-activity').value);
-    // Assuming user might enter a name in a new field eventually, but for now using email prefix or just "User"
+    const h = Number(document.getElementById('s-height').value);
+    const w = Number(document.getElementById('s-weight').value);
+    const a = Number(document.getElementById('s-age').value);
+    const g = document.getElementById('s-gender').value;
+    const act = Number(document.getElementById('s-activity').value);
+
+    if (!h || !a) return alert("Please enter Height and Age.");
+
+    let currentWeight = w;
+    if (!currentWeight) {
+        try {
+            const weightSnap = await get(ref(db, `users/${auth.currentUser.uid}/latest_weight`));
+            currentWeight = weightSnap.val();
+        } catch (e) { }
+    }
+    // If still no weight, rely on user to update weight tab, but let's proceed with calculations if we have h/a/g.
+    // If no weight, BMR calc fails. Use dummy 150lbs? Or alert?
+    if (!currentWeight) return alert("Please enter weight or log it in the weight tab.");
+
+    const wKg = currentWeight * 0.453592;
+    let bmr = (10 * wKg) + (6.25 * h) - (5 * a);
+    bmr = (g === 'male') ? bmr + 5 : bmr - 161;
+    let target = Math.round((bmr * act) - 500);
+    if (target < 1200) target = 1200;
+
     const displayName = auth.currentUser.email.split('@')[0];
 
-    const weightSnap = await get(ref(db, `users/${auth.currentUser.uid}/latest_weight`));
-    const wLbs = weightSnap.val();
-
-    if (!h || !wLbs || !a) return alert("Log weight in Weight Tab first!");
-
-    // 2. Save Settings
-    document.getElementById('save-profile-btn').onclick = async () => {
-        const h = Number(document.getElementById('s-height').value);
-        const w = Number(document.getElementById('s-weight').value);
-        const a = Number(document.getElementById('s-age').value);
-        const g = document.getElementById('s-gender').value;
-        const act = Number(document.getElementById('s-activity').value);
-
-        // Validate
-        if (!h || !a) return alert("Please enter Height and Age.");
-
-        const updates = {};
-        updates[`users/${auth.currentUser.uid}/goals`] = {
-            calories: target, protein: Math.round((target * 0.3) / 4), carbs: Math.round((target * 0.4) / 4), fat: Math.round((target * 0.3) / 9),
-            height: h, age: a, gender: g, activity: act
-        };
-        // Update central directory for search
-        updates[`public_users/${auth.currentUser.uid}`] = {
-            name: displayName,
-            email: auth.currentUser.email, // Be careful with privacy, maybe just public display
-            uid: auth.currentUser.uid
-        };
-
-        update(ref(db), updates).then(() => alert("Profile & Goals Saved!"));
+    const updates = {};
+    updates[`users/${auth.currentUser.uid}/goals`] = {
+        calories: target, protein: Math.round((target * 0.3) / 4), carbs: Math.round((target * 0.4) / 4), fat: Math.round((target * 0.3) / 9),
+        height: h, age: a, gender: g, activity: act
+    };
+    updates[`public_users/${auth.currentUser.uid}`] = {
+        name: displayName,
+        email: auth.currentUser.email,
+        uid: auth.currentUser.uid
     };
 
-    // --- SOCIAL FEATURES ---
+    update(ref(db), updates).then(() => {
+        alert("Profile & Goals Saved!");
+        document.getElementById('settings-modal').style.display = 'none';
+    });
+};
 
-    // 1. Search Users
-    document.getElementById('friend-search-btn').onclick = () => {
-        const q = document.getElementById('friend-search-input').value.toLowerCase();
-        const resultList = document.getElementById('friends-list-container');
-        resultList.innerHTML = "Searching...";
+// --- SOCIAL FEATURES ---
 
-        // In a real app, use a query. For prototype, fetching all public users (assuming small scale)
-        get(ref(db, 'public_users')).then(snap => {
-            resultList.innerHTML = "";
-            if (!snap.exists()) { resultList.innerHTML = "No users found."; return; }
+// 1. Search Users
+document.getElementById('friend-search-btn').onclick = () => {
+    const q = document.getElementById('friend-search-input').value.toLowerCase();
+    const resultList = document.getElementById('friends-list-container');
+    resultList.innerHTML = "Searching...";
 
-            let found = false;
-            snap.forEach(child => {
-                const u = child.val();
-                if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
-                    if (u.uid === auth.currentUser.uid) return; // Don't show self
-                    found = true;
-                    const row = document.createElement('div');
-                    row.className = "meal-item";
-                    row.style.display = 'flex'; row.style.justifyContent = 'space-between';
-                    row.innerHTML = `<span><strong>${u.name}</strong></span>`;
+    // In a real app, use a query. For prototype, fetching all public users (assuming small scale)
+    get(ref(db, 'public_users')).then(snap => {
+        resultList.innerHTML = "";
+        if (!snap.exists()) { resultList.innerHTML = "No users found."; return; }
 
-                    const btn = document.createElement('button');
-                    btn.innerText = "Follow";
-                    btn.onclick = () => followUser(u.uid, u.name);
-                    row.appendChild(btn);
-                    resultList.appendChild(row);
-                }
-            });
-            if (!found) resultList.innerHTML = "No matches.";
+        let found = false;
+        snap.forEach(child => {
+            const u = child.val();
+            if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
+                if (u.uid === auth.currentUser.uid) return; // Don't show self
+                found = true;
+                const row = document.createElement('div');
+                row.className = "meal-item";
+                row.style.display = 'flex'; row.style.justifyContent = 'space-between';
+                row.innerHTML = `<span><strong>${u.name}</strong></span>`;
+
+                const btn = document.createElement('button');
+                btn.innerText = "Follow";
+                btn.onclick = () => followUser(u.uid, u.name);
+                row.appendChild(btn);
+                resultList.appendChild(row);
+            }
         });
+        if (!found) resultList.innerHTML = "No matches.";
+    });
+};
+
+// 2. Follow User
+function followUser(targetUid, targetName) {
+    const myUid = auth.currentUser.uid;
+    const updates = {};
+    updates[`users/${myUid}/social/following/${targetUid}`] = true;
+    updates[`users/${targetUid}/social/followers/${myUid}`] = true;
+
+    // Notification for them
+    const notifRef = push(ref(db, `users/${targetUid}/notifications`));
+    updates[`users/${targetUid}/notifications/${notifRef.key}`] = {
+        type: 'follow', message: `${auth.currentUser.email.split('@')[0]} started following you!`, timestamp: Date.now(), read: false
     };
 
-    // 2. Follow User
-    function followUser(targetUid, targetName) {
-        const myUid = auth.currentUser.uid;
-        const updates = {};
-        updates[`users/${myUid}/social/following/${targetUid}`] = true;
-        updates[`users/${targetUid}/social/followers/${myUid}`] = true;
+    update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
+}
 
-        // Notification for them
-        const notifRef = push(ref(db, `users/${targetUid}/notifications`));
-        updates[`users/${targetUid}/notifications/${notifRef.key}`] = {
-            type: 'follow', message: `${auth.currentUser.email.split('@')[0]} started following you!`, timestamp: Date.now(), read: false
-        };
+// 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
+function renderSocialLists(socialData) {
+    // This requires fetching details for each ID, which is async. 
+    // For simplicity, we just List IDs or fetch names if we cache them.
+    // Ideally we listen to 'public_users' to map IDs to Names.
 
-        update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
-    }
+    // TODO: Implement robust list rendering with names.
+    // For now, simpler implementation in UI or lazy load.
+}
 
-    // 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
-    function renderSocialLists(socialData) {
-        // This requires fetching details for each ID, which is async. 
-        // For simplicity, we just List IDs or fetch names if we cache them.
-        // Ideally we listen to 'public_users' to map IDs to Names.
+let pressTimer;
+function setupLongPress(el, item) {
+    el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name), 800);
+    el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
+}
 
-        // TODO: Implement robust list rendering with names.
-        // For now, simpler implementation in UI or lazy load.
-    }
-
-    let pressTimer;
-    function setupLongPress(el, item) {
-        el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name), 800);
-        el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
-    }
-
-    // --- SEARCH & SCAN ---
-    document.getElementById('btn-execute-search').onclick = () => {
-        const q = document.getElementById('search-input').value;
-        const list = document.getElementById('search-results-list');
-        list.innerHTML = "Searching...";
-        fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&json=true&page_size=20`)
-            .then(r => r.json()).then(d => {
-                list.innerHTML = "";
-                d.products.forEach(p => {
-                    const n = p.nutriments;
-                    const food = { name: p.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
-                    const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
-                    card.innerHTML = `<strong>${food.name}</strong><br><small>${food.calories} kcal</small>`;
-                    card.onclick = () => { currentScannedItem = food; showConfirm(); };
-                    list.appendChild(card);
-                });
-            });
-    };
-
-    function loadFoodList(path, elId) {
-        get(ref(db, `users/${auth.currentUser.uid}/${path}`)).then(s => {
-            const list = document.getElementById(elId); list.innerHTML = "";
-            if (!s.exists()) { list.innerHTML = "Empty"; return; }
-            Object.values(s.val()).forEach(f => {
+// --- SEARCH & SCAN ---
+document.getElementById('btn-execute-search').onclick = () => {
+    const q = document.getElementById('search-input').value;
+    const list = document.getElementById('search-results-list');
+    list.innerHTML = "Searching...";
+    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&json=true&page_size=20`)
+        .then(r => r.json()).then(d => {
+            list.innerHTML = "";
+            d.products.forEach(p => {
+                const n = p.nutriments;
+                const food = { name: p.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
                 const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
-                card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
-                card.onclick = () => { currentScannedItem = f; showConfirm(); };
+                card.innerHTML = `<strong>${food.name}</strong><br><small>${food.calories} kcal</small>`;
+                card.onclick = () => { currentScannedItem = food; showConfirm(); };
                 list.appendChild(card);
             });
         });
-    }
+};
 
-    function showConfirm() {
-        document.getElementById('scanned-result').style.display = 'block';
-        document.getElementById('food-name').innerText = currentScannedItem.name;
-        document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | ${currentScannedItem.protein}g P`;
-    }
-
-    document.getElementById('add-food-btn').onclick = () => {
-        const today = getToday();
-        const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
-        const clean = item.name.replace(/[.#$[\]]/g, "");
-        push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
-        update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
-        alert("Added!");
-        window.showView('dashboard-screen');
-    };
-
-    // --- WEIGHT & GRAPH ---
-    document.getElementById('save-weight-btn').onclick = () => {
-        const w = parseFloat(document.getElementById('weight-input').value);
-        if (!w) return;
-        const today = getToday();
-        update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
-        set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
-        alert("Logged!");
-    };
-
-    // Helper to filter and update graph
-    window.updateWeightFilter = (days) => {
-        window._weightRange = days;
-        if (!window._fullWeightHistory) return;
-
-        // Calculate cutoff date
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - days);
-        const cutoffStr = cutoff.toISOString().split('T')[0];
-
-        // Filter
-        const filtered = {};
-        Object.keys(window._fullWeightHistory).forEach(k => {
-            if (k >= cutoffStr) filtered[k] = window._fullWeightHistory[k];
+function loadFoodList(path, elId) {
+    get(ref(db, `users/${auth.currentUser.uid}/${path}`)).then(s => {
+        const list = document.getElementById(elId); list.innerHTML = "";
+        if (!s.exists()) { list.innerHTML = "Empty"; return; }
+        Object.values(s.val()).forEach(f => {
+            const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
+            card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
+            card.onclick = () => { currentScannedItem = f; showConfirm(); };
+            list.appendChild(card);
         });
+    });
+}
 
-        if (window.updateWeightGraph) window.updateWeightGraph(filtered);
-    }
+function showConfirm() {
+    document.getElementById('scanned-result').style.display = 'block';
+    document.getElementById('food-name').innerText = currentScannedItem.name;
+    document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | ${currentScannedItem.protein}g P`;
+}
 
-    // Add Filter Listener
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            const range = Number(e.target.dataset.range);
-            window.updateWeightFilter(range);
-        }
+document.getElementById('add-food-btn').onclick = () => {
+    const today = getToday();
+    const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
+    const clean = item.name.replace(/[.#$[\]]/g, "");
+    push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
+    update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
+    alert("Added!");
+    window.showView('dashboard-screen');
+};
+
+// --- WEIGHT & GRAPH ---
+document.getElementById('save-weight-btn').onclick = () => {
+    const w = parseFloat(document.getElementById('weight-input').value);
+    if (!w) return;
+    const today = getToday();
+    update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
+    set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
+    alert("Logged!");
+};
+
+// Helper to filter and update graph
+window.updateWeightFilter = (days) => {
+    window._weightRange = days;
+    if (!window._fullWeightHistory) return;
+
+    // Calculate cutoff date
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    // Filter
+    const filtered = {};
+    Object.keys(window._fullWeightHistory).forEach(k => {
+        if (k >= cutoffStr) filtered[k] = window._fullWeightHistory[k];
     });
 
-    window.updateWeightGraph = (history) => {
-        const ctx = document.getElementById('weightHistoryChart').getContext('2d');
-        const sorted = Object.keys(history).sort();
+    if (window.updateWeightGraph) window.updateWeightGraph(filtered);
+}
 
-        if (weightChart) weightChart.destroy();
+// Add Filter Listener
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.onclick = (e) => {
+        const range = Number(e.target.dataset.range);
+        window.updateWeightFilter(range);
+    }
+});
 
-        // Only show if we have data, else empty
-        if (sorted.length === 0) return;
+window.updateWeightGraph = (history) => {
+    const ctx = document.getElementById('weightHistoryChart').getContext('2d');
+    const sorted = Object.keys(history).sort();
 
-        weightChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: sorted.map(d => d.split('-').slice(1).join('/')),
-                datasets: [{
-                    label: 'Weight',
-                    data: sorted.map(d => history[d]),
-                    borderColor: '#3498db',
-                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3
-                }]
+    if (weightChart) weightChart.destroy();
+
+    // Only show if we have data, else empty
+    if (sorted.length === 0) return;
+
+    weightChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sorted.map(d => d.split('-').slice(1).join('/')),
+            datasets: [{
+                label: 'Weight',
+                data: sorted.map(d => history[d]),
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false } // HIDE LEGEND
             },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false } // HIDE LEGEND
-                },
-                scales: {
-                    y: { beginAtZero: false }
-                }
+            scales: {
+                y: { beginAtZero: false }
             }
-        });
-    }
-
-    // --- SCANNER ---
-    document.getElementById('scan-nav-btn').onclick = () => {
-        window.showView('scanner-screen');
-        window.toggleAddMode('scan');
-        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-            fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
-                .then(r => r.json()).then(d => {
-                    if (d.status === 1) {
-                        const n = d.product.nutriments;
-
-                        currentScannedItem = {
-                            name: d.product.product_name,
-                            calories: Math.round(n['energy-kcal_100g'] || 0),
-                            protein: Math.round(n.proteins_100g || 0),
-                            carbs: Math.round(n.carbohydrates_100g || 0),
-                            fat: Math.round(n.fat_100g || 0),
-                            // Extended Nutrients
-                            sugar: Math.round(n.sugars_100g || 0),
-                            satFat: Math.round(n['saturated-fat_100g'] || 0),
-                            fiber: Math.round(n.fiber_100g || 0),
-                            sodium: Math.round(n.sodium_100g || 0), // Note: OFF often returns sodium in g or mg, nutriments has sodium_100g in grams usually
-                            cholesterol: Math.round((n.cholesterol_100g || 0) * 1000), // usually in grams, convert to mg? Let's assume standard mg
-                            potassium: Math.round((n.potassium_100g || 0) * 1000),
-                            vitA: Math.round((n['vitamin-a_100g'] || 0) * 1000000), // in mcg?
-                            vitC: Math.round((n['vitamin-c_100g'] || 0) * 1000), // mg
-                            calcium: Math.round((n.calcium_100g || 0) * 1000), // mg
-                            iron: Math.round((n.iron_100g || 0) * 1000), // mg
-                            image: d.product.image_url || ""
-                        };
-                        // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
-                        // For sodium/salt, OFF returns sodium_100g in Unit.
-
-                        showConfirm();
-                    }
-                });
-        });
-    };
-
-    // --- SETTINGS ---
-    document.getElementById('dark-mode-toggle').onchange = (e) => {
-        const isDark = e.target.checked;
-        document.body.classList.toggle('dark-mode', isDark);
-        update(ref(db, `users/${auth.currentUser.uid}/settings`), { darkMode: isDark });
-    };
-    ['weight', 'goals', 'workouts'].forEach(type => {
-        document.getElementById(`privacy-${type}`).onchange = (e) => {
-            update(ref(db, `users/${auth.currentUser.uid}/settings/privacy`), { [type]: e.target.checked });
-        };
+        }
     });
-    document.getElementById('share-app-btn').onclick = () => {
-        if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
-        else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
+}
+
+// --- SCANNER ---
+document.getElementById('scan-nav-btn').onclick = () => {
+    window.showView('scanner-screen');
+    window.toggleAddMode('scan');
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+        fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
+            .then(r => r.json()).then(d => {
+                if (d.status === 1) {
+                    const n = d.product.nutriments;
+
+                    currentScannedItem = {
+                        name: d.product.product_name,
+                        calories: Math.round(n['energy-kcal_100g'] || 0),
+                        protein: Math.round(n.proteins_100g || 0),
+                        carbs: Math.round(n.carbohydrates_100g || 0),
+                        fat: Math.round(n.fat_100g || 0),
+                        // Extended Nutrients
+                        sugar: Math.round(n.sugars_100g || 0),
+                        satFat: Math.round(n['saturated-fat_100g'] || 0),
+                        fiber: Math.round(n.fiber_100g || 0),
+                        sodium: Math.round(n.sodium_100g || 0), // Note: OFF often returns sodium in g or mg, nutriments has sodium_100g in grams usually
+                        cholesterol: Math.round((n.cholesterol_100g || 0) * 1000), // usually in grams, convert to mg? Let's assume standard mg
+                        potassium: Math.round((n.potassium_100g || 0) * 1000),
+                        vitA: Math.round((n['vitamin-a_100g'] || 0) * 1000000), // in mcg?
+                        vitC: Math.round((n['vitamin-c_100g'] || 0) * 1000), // mg
+                        calcium: Math.round((n.calcium_100g || 0) * 1000), // mg
+                        iron: Math.round((n.iron_100g || 0) * 1000), // mg
+                        image: d.product.image_url || ""
+                    };
+                    // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
+                    // For sodium/salt, OFF returns sodium_100g in Unit.
+
+                    showConfirm();
+                }
+            });
+    });
+};
+
+// --- SETTINGS ---
+document.getElementById('dark-mode-toggle').onchange = (e) => {
+    const isDark = e.target.checked;
+    document.body.classList.toggle('dark-mode', isDark);
+    update(ref(db, `users/${auth.currentUser.uid}/settings`), { darkMode: isDark });
+};
+['weight', 'goals', 'workouts'].forEach(type => {
+    document.getElementById(`privacy-${type}`).onchange = (e) => {
+        update(ref(db, `users/${auth.currentUser.uid}/settings/privacy`), { [type]: e.target.checked });
     };
-    // 3. UI for Social Lists
-    function renderSocialListsUI(social) {
-        const followingContainer = document.getElementById('friends-list-container');
-        const followersContainer = document.getElementById('followers-list-container');
+});
+document.getElementById('share-app-btn').onclick = () => {
+    if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
+    else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
+};
+// 3. UI for Social Lists
+function renderSocialListsUI(social) {
+    const followingContainer = document.getElementById('friends-list-container');
+    const followersContainer = document.getElementById('followers-list-container');
 
-        // Only fetch if we are actually viewing the friends modal (optimization)
-        // But for now, just load it.
+    // Only fetch if we are actually viewing the friends modal (optimization)
+    // But for now, just load it.
 
-        const loadList = async (ids, container, type) => {
-            container.innerHTML = "";
-            if (!ids) { container.innerHTML = "<small>None</small>"; return; }
+    const loadList = async (ids, container, type) => {
+        container.innerHTML = "";
+        if (!ids) { container.innerHTML = "<small>None</small>"; return; }
 
-            const idArray = Object.keys(ids);
-            for (const uid of idArray) {
-                // Unoptimized N+1 fetch, but fine for prototype with few friends
-                try {
-                    const snap = await get(ref(db, `public_users/${uid}`));
-                    if (snap.exists()) {
-                        const u = snap.val();
-                        const div = document.createElement('div');
-                        div.className = 'meal-item';
-                        div.style.padding = "5px";
-                        div.innerHTML = `<strong>${u.name}</strong>`;
+        const idArray = Object.keys(ids);
+        for (const uid of idArray) {
+            // Unoptimized N+1 fetch, but fine for prototype with few friends
+            try {
+                const snap = await get(ref(db, `public_users/${uid}`));
+                if (snap.exists()) {
+                    const u = snap.val();
+                    const div = document.createElement('div');
+                    div.className = 'meal-item';
+                    div.style.padding = "5px";
+                    div.innerHTML = `<strong>${u.name}</strong>`;
 
-                        const btn = document.createElement('button');
-                        btn.innerText = "View";
-                        btn.style.fontSize = "10px";
-                        btn.style.marginLeft = "10px";
-                        btn.onclick = () => window.viewPublicProfile(uid);
-                        div.appendChild(btn);
+                    const btn = document.createElement('button');
+                    btn.innerText = "View";
+                    btn.style.fontSize = "10px";
+                    btn.style.marginLeft = "10px";
+                    btn.onclick = () => window.viewPublicProfile(uid);
+                    div.appendChild(btn);
 
-                        container.appendChild(div);
-                    }
-                } catch (e) { console.log("error loading user", uid); }
-            }
+                    container.appendChild(div);
+                }
+            } catch (e) { console.log("error loading user", uid); }
+        }
+    };
+
+    if (social.following) loadList(social.following, followingContainer, 'following');
+    else followingContainer.innerHTML = "<small>You are not following anyone.</small>";
+
+    if (social.followers) loadList(social.followers, followersContainer, 'followers');
+    else followersContainer.innerHTML = "<small>No followers yet.</small>";
+}
+
+// 4. View Public Profile
+window.viewPublicProfile = async (uid) => {
+    document.getElementById('friends-modal').style.display = 'none';
+    window.showView('profile-screen');
+
+    const snap = await get(ref(db, `users/${uid}`));
+    if (snap.exists()) {
+        const data = snap.val();
+        // Mock public name attach
+        const publicSnap = await get(ref(db, `public_users/${uid}`));
+        if (publicSnap.exists()) data.public_users = publicSnap.val();
+
+        renderProfileScreen(data, false, uid);
+    }
+};
+
+const toggleBtn = document.getElementById('view-my-public-btn');
+// Initial State text (optional, but handled in logic)
+
+toggleBtn.onclick = () => {
+    const isPublicMode = window._isViewingPublicProfile;
+
+    if (!isPublicMode) {
+        // Switch TO Public View
+        window._isViewingPublicProfile = true;
+        toggleBtn.innerText = "Exit Public View";
+        toggleBtn.style.background = "#e74c3c";
+        document.getElementById('settings-modal').style.display = 'none';
+
+        // Render cached data as public
+        if (window._lastUserData) {
+            renderProfileScreen(window._lastUserData, false, window._lastUserUid);
+            window.showView('profile-screen');
+        }
+
+    } else {
+        // Switch BACK to Private
+        window._isViewingPublicProfile = false;
+        toggleBtn.innerText = "View My Public Profile";
+        toggleBtn.style.background = "#3498db";
+        document.getElementById('settings-modal').style.display = 'none';
+
+        // Render cached data as private
+        if (window._lastUserData) {
+            renderProfileScreen(window._lastUserData, true, window._lastUserUid);
+        }
+    }
+};
+
+document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'flex';
+document.getElementById('close-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'none';
+document.getElementById('friends-btn').onclick = () => document.getElementById('friends-modal').style.display = 'flex';
+
+// --- CUSTOM GOALS ---
+const suggestedGoals = [
+    "Lose 5 lbs", "Lose 10 lbs", "Drink 8 cups water", "Walk 10,000 steps",
+    "Run a 5k", "Run a 10k", "Do 50 pushups", "Do 10 pullups",
+    "Eat 150g protein", "Veg with every meal", "No sugar for 1 week",
+    "Workout 3x/week", "Workout 5x/week", "Sleep 8 hours",
+    "Meditate 10 mins", "Meal prep for week", "Track all calories",
+    "Hit calorie goal", "Maintain weight", "Bench press bodyweight"
+];
+
+function renderRandomSuggestions() {
+    const grid = document.getElementById('add-goal-suggestions');
+    if (!grid) return;
+    grid.innerHTML = "";
+    // Pick 3 random
+    const shuffled = [...suggestedGoals].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 3);
+
+    selected.forEach(g => {
+        const btn = document.createElement('div');
+        btn.className = "suggestion-chip";
+        btn.style.background = "#3498db";
+        btn.style.color = "#fff";
+        btn.style.padding = "8px";
+        btn.style.borderRadius = "20px";
+        btn.style.fontSize = "12px";
+        btn.style.textAlign = "center";
+        btn.style.cursor = "pointer";
+        btn.innerText = g;
+        btn.onclick = () => {
+            document.getElementById('new-goal-input').value = g;
         };
+        grid.appendChild(btn);
+    });
+}
+// Regenerate Button Handler (will be added to HTML)
+window.regenerateSuggestions = () => renderRandomSuggestions();
 
-        if (social.following) loadList(social.following, followingContainer, 'following');
-        else followingContainer.innerHTML = "<small>You are not following anyone.</small>";
+document.getElementById('add-goal-btn').onclick = () => {
+    document.getElementById('add-goal-modal').style.display = 'flex';
+    document.getElementById('new-goal-input').value = ""; // Clear
+    renderRandomSuggestions();
+};
 
-        if (social.followers) loadList(social.followers, followersContainer, 'followers');
-        else followersContainer.innerHTML = "<small>No followers yet.</small>";
+
+document.getElementById('confirm-add-goal-btn').onclick = () => {
+    const goal = document.getElementById('new-goal-input').value;
+    if (goal) {
+        push(ref(db, `users/${auth.currentUser.uid}/active_goals`), { text: goal, created: Date.now(), completed: false });
+        document.getElementById('add-goal-modal').style.display = 'none';
+        // If viewing self profile, it updates automatically via listener?
+        // Yes, listener is active.
     }
+};
 
-    // 4. View Public Profile
-    window.viewPublicProfile = async (uid) => {
-        document.getElementById('friends-modal').style.display = 'none';
-        window.showView('profile-screen');
+function renderGoals(goalsData) {
+    const list = document.getElementById('goals-list-container');
+    if (!list) return;
+    list.innerHTML = "";
+    if (!goalsData) { list.innerHTML = "<small>No active goals.</small>"; return; }
 
-        const snap = await get(ref(db, `users/${uid}`));
-        if (snap.exists()) {
-            const data = snap.val();
-            // Mock public name attach
-            const publicSnap = await get(ref(db, `public_users/${uid}`));
-            if (publicSnap.exists()) data.public_users = publicSnap.val();
+    Object.keys(goalsData).forEach(key => {
+        const g = goalsData[key];
+        const row = document.createElement('div');
+        row.style.padding = "10px";
+        row.style.borderBottom = "1px solid #eee";
+        row.style.display = "flex";
+        row.style.justifyContent = "space-between";
+        row.style.alignItems = "center";
 
-            renderProfileScreen(data, false, uid);
-        }
-    };
+        row.innerHTML = `<span>${g.completed ? '<s>' + g.text + '</s>' : g.text}</span>`;
 
-    const toggleBtn = document.getElementById('view-my-public-btn');
-    // Initial State text (optional, but handled in logic)
+        const check = document.createElement('input');
+        check.type = "checkbox";
+        check.checked = g.completed;
+        check.onchange = (e) => {
+            update(ref(db, `users/${auth.currentUser.uid}/active_goals/${key}`), { completed: e.target.checked });
+        };
+        row.appendChild(check);
+        list.appendChild(row);
+    });
+}
+// --- NUTRITION DASHBOARD RENDERER ---
+function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals) {
+    const container = document.getElementById('nutrition-dashboard-container');
+    if (!container) return;
 
-    toggleBtn.onclick = () => {
-        const isPublicMode = window._isViewingPublicProfile;
+    // Helper for percentage
+    const getPct = (val, max) => max > 0 ? Math.min(100, Math.round((val / max) * 100)) : 0;
 
-        if (!isPublicMode) {
-            // Switch TO Public View
-            window._isViewingPublicProfile = true;
-            toggleBtn.innerText = "Exit Public View";
-            toggleBtn.style.background = "#e74c3c";
-            document.getElementById('settings-modal').style.display = 'none';
+    // Use default goals for extended nutrients if not user-defined
+    const gSugar = goals.sugar || 50;
+    const gFiber = goals.fiber || 30;
+    const gSatFat = goals.satFat || 20;
+    const gSodium = goals.sodium || 2300;
+    const gVitC = goals.vitC || 90;
+    const gCalcium = goals.calcium || 1000;
+    const gIron = goals.iron || 18;
 
-            // Render cached data as public
-            if (window._lastUserData) {
-                renderProfileScreen(window._lastUserData, false, window._lastUserUid);
-                window.showView('profile-screen');
-            }
-
-        } else {
-            // Switch BACK to Private
-            window._isViewingPublicProfile = false;
-            toggleBtn.innerText = "View My Public Profile";
-            toggleBtn.style.background = "#3498db";
-            document.getElementById('settings-modal').style.display = 'none';
-
-            // Render cached data as private
-            if (window._lastUserData) {
-                renderProfileScreen(window._lastUserData, true, window._lastUserUid);
-            }
-        }
-    };
-
-    document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'flex';
-    document.getElementById('close-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'none';
-    document.getElementById('friends-btn').onclick = () => document.getElementById('friends-modal').style.display = 'flex';
-
-    // --- CUSTOM GOALS ---
-    const suggestedGoals = [
-        "Lose 5 lbs", "Lose 10 lbs", "Drink 8 cups water", "Walk 10,000 steps",
-        "Run a 5k", "Run a 10k", "Do 50 pushups", "Do 10 pullups",
-        "Eat 150g protein", "Veg with every meal", "No sugar for 1 week",
-        "Workout 3x/week", "Workout 5x/week", "Sleep 8 hours",
-        "Meditate 10 mins", "Meal prep for week", "Track all calories",
-        "Hit calorie goal", "Maintain weight", "Bench press bodyweight"
-    ];
-
-    function renderRandomSuggestions() {
-        const grid = document.getElementById('add-goal-suggestions');
-        if (!grid) return;
-        grid.innerHTML = "";
-        // Pick 3 random
-        const shuffled = [...suggestedGoals].sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, 3);
-
-        selected.forEach(g => {
-            const btn = document.createElement('div');
-            btn.className = "suggestion-chip";
-            btn.style.background = "#3498db";
-            btn.style.color = "#fff";
-            btn.style.padding = "8px";
-            btn.style.borderRadius = "20px";
-            btn.style.fontSize = "12px";
-            btn.style.textAlign = "center";
-            btn.style.cursor = "pointer";
-            btn.innerText = g;
-            btn.onclick = () => {
-                document.getElementById('new-goal-input').value = g;
-            };
-            grid.appendChild(btn);
-        });
-    }
-    // Regenerate Button Handler (will be added to HTML)
-    window.regenerateSuggestions = () => renderRandomSuggestions();
-
-    document.getElementById('add-goal-btn').onclick = () => {
-        document.getElementById('add-goal-modal').style.display = 'flex';
-        document.getElementById('new-goal-input').value = ""; // Clear
-        renderRandomSuggestions();
-    };
-
-
-    document.getElementById('confirm-add-goal-btn').onclick = () => {
-        const goal = document.getElementById('new-goal-input').value;
-        if (goal) {
-            push(ref(db, `users/${auth.currentUser.uid}/active_goals`), { text: goal, created: Date.now(), completed: false });
-            document.getElementById('add-goal-modal').style.display = 'none';
-            // If viewing self profile, it updates automatically via listener?
-            // Yes, listener is active.
-        }
-    };
-
-    function renderGoals(goalsData) {
-        const list = document.getElementById('goals-list-container');
-        if (!list) return;
-        list.innerHTML = "";
-        if (!goalsData) { list.innerHTML = "<small>No active goals.</small>"; return; }
-
-        Object.keys(goalsData).forEach(key => {
-            const g = goalsData[key];
-            const row = document.createElement('div');
-            row.style.padding = "10px";
-            row.style.borderBottom = "1px solid #eee";
-            row.style.display = "flex";
-            row.style.justifyContent = "space-between";
-            row.style.alignItems = "center";
-
-            row.innerHTML = `<span>${g.completed ? '<s>' + g.text + '</s>' : g.text}</span>`;
-
-            const check = document.createElement('input');
-            check.type = "checkbox";
-            check.checked = g.completed;
-            check.onchange = (e) => {
-                update(ref(db, `users/${auth.currentUser.uid}/active_goals/${key}`), { completed: e.target.checked });
-            };
-            row.appendChild(check);
-            list.appendChild(row);
-        });
-    }
-    // --- NUTRITION DASHBOARD RENDERER ---
-    function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals) {
-        const container = document.getElementById('nutrition-dashboard-container');
-        if (!container) return;
-
-        // Helper for percentage
-        const getPct = (val, max) => max > 0 ? Math.min(100, Math.round((val / max) * 100)) : 0;
-
-        // Use default goals for extended nutrients if not user-defined
-        const gSugar = goals.sugar || 50;
-        const gFiber = goals.fiber || 30;
-        const gSatFat = goals.satFat || 20;
-        const gSodium = goals.sodium || 2300;
-        const gVitC = goals.vitC || 90;
-        const gCalcium = goals.calcium || 1000;
-        const gIron = goals.iron || 18;
-
-        container.innerHTML = `
+    container.innerHTML = `
         <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">Nutrition Breakdown Today</h3>
         
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
@@ -1442,78 +1448,78 @@ document.getElementById('save-profile-btn').onclick = async () => {
             </div>
         </div>
     `;
-    }
+}
 
-    // --- DELETE & DETAILS ACTIONS ---
-    // --- DELETE & DETAILS ACTIONS ---
+// --- DELETE & DETAILS ACTIONS ---
+// --- DELETE & DETAILS ACTIONS ---
 
-    window.promptDeleteItem = (meta) => {
-        // meta: { category: 'food'|'workout', date, subType, key, name }
-        window.pendingDelete = meta;
-        document.getElementById('delete-confirm-msg').innerText = `Remove ${meta.name}?`;
-        document.getElementById('delete-confirm-modal').style.display = 'flex';
-    }
+window.promptDeleteItem = (meta) => {
+    // meta: { category: 'food'|'workout', date, subType, key, name }
+    window.pendingDelete = meta;
+    document.getElementById('delete-confirm-msg').innerText = `Remove ${meta.name}?`;
+    document.getElementById('delete-confirm-modal').style.display = 'flex';
+}
 
-    window.confirmDelete = () => {
-        if (window.pendingDelete) {
-            const { category, date, subType, key } = window.pendingDelete;
-            const uid = auth.currentUser.uid;
+window.confirmDelete = () => {
+    if (window.pendingDelete) {
+        const { category, date, subType, key } = window.pendingDelete;
+        const uid = auth.currentUser.uid;
 
-            if (category === 'food') {
-                set(ref(db, `users/${uid}/diary/${date}/${subType}/${key}`), null);
-            } else if (category === 'workout') {
-                set(ref(db, `users/${uid}/workouts/${date}/${key}`), null);
-            }
-
-            window.pendingDelete = null;
-        }
-        document.getElementById('delete-confirm-modal').style.display = 'none';
-    }
-
-    window.showFoodDetails = (item) => {
-        const m = document.getElementById('food-details-modal');
-        if (!m) return;
-
-        // Reset
-        document.getElementById('fd-image-container').style.display = 'none';
-        document.getElementById('fd-extended').innerHTML = "";
-
-        // Basic Info
-        document.getElementById('fd-name').innerText = item.name;
-        document.getElementById('fd-meta').innerText = `Logged Item`; // Could contain time or type
-        document.getElementById('fd-cals').innerText = item.calories;
-        document.getElementById('fd-prot').innerText = (item.protein || 0) + 'g';
-        document.getElementById('fd-carb').innerText = (item.carbs || 0) + 'g';
-        document.getElementById('fd-fat').innerText = (item.fat || 0) + 'g';
-
-        // Image
-        if (item.image) {
-            document.getElementById('fd-image').src = item.image;
-            document.getElementById('fd-image-container').style.display = 'block';
+        if (category === 'food') {
+            set(ref(db, `users/${uid}/diary/${date}/${subType}/${key}`), null);
+        } else if (category === 'workout') {
+            set(ref(db, `users/${uid}/workouts/${date}/${key}`), null);
         }
 
-        // Extended Nutrients List
-        const extContainer = document.getElementById('fd-extended');
-        const fields = [
-            { l: 'Sugar', v: item.sugar, u: 'g' },
-            { l: 'Fiber', v: item.fiber, u: 'g' },
-            { l: 'Saturated Fat', v: item.satFat, u: 'g' },
-            { l: 'Sodium', v: item.sodium, u: 'mg' },
-            { l: 'Vitamin C', v: item.vitC, u: 'mg' },
-            { l: 'Calcium', v: item.calcium, u: 'mg' },
-            { l: 'Iron', v: item.iron, u: 'mg' }
-        ];
-
-        fields.forEach(f => {
-            if (f.v !== undefined) {
-                const row = document.createElement('div');
-                row.style.display = "flex"; row.style.justifyContent = "space-between";
-                row.style.padding = "5px 0"; row.style.borderBottom = "1px solid #f5f5f5";
-                row.innerHTML = `<span>${f.l}</span><span>${f.v}${f.u}</span>`;
-                extContainer.appendChild(row);
-            }
-        });
-
-        m.style.display = 'flex';
+        window.pendingDelete = null;
     }
+    document.getElementById('delete-confirm-modal').style.display = 'none';
+}
+
+window.showFoodDetails = (item) => {
+    const m = document.getElementById('food-details-modal');
+    if (!m) return;
+
+    // Reset
+    document.getElementById('fd-image-container').style.display = 'none';
+    document.getElementById('fd-extended').innerHTML = "";
+
+    // Basic Info
+    document.getElementById('fd-name').innerText = item.name;
+    document.getElementById('fd-meta').innerText = `Logged Item`; // Could contain time or type
+    document.getElementById('fd-cals').innerText = item.calories;
+    document.getElementById('fd-prot').innerText = (item.protein || 0) + 'g';
+    document.getElementById('fd-carb').innerText = (item.carbs || 0) + 'g';
+    document.getElementById('fd-fat').innerText = (item.fat || 0) + 'g';
+
+    // Image
+    if (item.image) {
+        document.getElementById('fd-image').src = item.image;
+        document.getElementById('fd-image-container').style.display = 'block';
+    }
+
+    // Extended Nutrients List
+    const extContainer = document.getElementById('fd-extended');
+    const fields = [
+        { l: 'Sugar', v: item.sugar, u: 'g' },
+        { l: 'Fiber', v: item.fiber, u: 'g' },
+        { l: 'Saturated Fat', v: item.satFat, u: 'g' },
+        { l: 'Sodium', v: item.sodium, u: 'mg' },
+        { l: 'Vitamin C', v: item.vitC, u: 'mg' },
+        { l: 'Calcium', v: item.calcium, u: 'mg' },
+        { l: 'Iron', v: item.iron, u: 'mg' }
+    ];
+
+    fields.forEach(f => {
+        if (f.v !== undefined) {
+            const row = document.createElement('div');
+            row.style.display = "flex"; row.style.justifyContent = "space-between";
+            row.style.padding = "5px 0"; row.style.borderBottom = "1px solid #f5f5f5";
+            row.innerHTML = `<span>${f.l}</span><span>${f.v}${f.u}</span>`;
+            extContainer.appendChild(row);
+        }
+    });
+
+    m.style.display = 'flex';
+}
 
