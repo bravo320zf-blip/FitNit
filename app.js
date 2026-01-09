@@ -1737,3 +1737,98 @@ window.showFoodDetails = (item) => {
     m.style.display = 'flex';
 }
 
+// --- SMART LABEL READER (OCR) ---
+const initLabelReader = () => {
+    const btnReader = document.getElementById('btn-read-label');
+    const inputReader = document.getElementById('label-image-input');
+
+    if (!btnReader || !inputReader) return;
+
+    btnReader.onclick = () => inputReader.click();
+
+    inputReader.onchange = async (e) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const file = e.target.files[0];
+        const originalText = btnReader.innerHTML;
+        btnReader.innerHTML = 'Scanning...';
+        btnReader.disabled = true;
+
+        try {
+            // Recognize
+            const worker = await Tesseract.createWorker('eng');
+            const { data: { text } } = await worker.recognize(file);
+            console.log("OCR Result:", text);
+            await worker.terminate();
+
+            // Parse
+            const findVal = (regex) => {
+                const match = text.match(regex);
+                return match ? parseFloat(match[1]) : 0;
+            };
+
+            // Loose regex for nutrition facts
+            const cals = findVal(/Calories\D*(\d+)/i) || findVal(/Energy\D*(\d+)/i) || 0;
+            // Protein often "Protein 20g" or "Protein: 20g"
+            const prot = findVal(/Protein\D*(\d+)g?/i) || 0;
+            const carbs = findVal(/Carb\w*\D*(\d+)g?/i) || 0;
+            const fat = findVal(/Fat\D*(\d+)g?/i) || 0;
+
+            // Fill Form
+            document.getElementById('c-name').value = "Scanned Item (Edit Me)";
+            document.getElementById('c-cals').value = cals || "";
+            document.getElementById('c-prot').value = prot || "";
+            document.getElementById('c-carb').value = carbs || "";
+            document.getElementById('c-fat').value = fat || "";
+
+            // Switch View
+            if (window.toggleAddMode) window.toggleAddMode('custom');
+            else {
+                document.getElementById('mode-scan').style.display = 'none';
+                document.getElementById('mode-custom').style.display = 'block';
+            }
+
+            alert(`Scan Complete!\nFound: ${cals} kcal, ${prot}g P, ${carbs}g C, ${fat}g F\nPlease verify values.`);
+
+        } catch (err) {
+            console.error(err);
+            alert("Error scanning label. Please try again or enter manually.");
+        } finally {
+            btnReader.innerHTML = originalText;
+            btnReader.disabled = false;
+            inputReader.value = ""; // Reset
+        }
+    };
+};
+
+// Initialize
+initLabelReader();
+
+// EXTENDED CUSTOM FOOD HANDLER
+const customBtn = document.getElementById('btn-submit-custom');
+if (customBtn) {
+    customBtn.onclick = () => {
+        const name = document.getElementById('c-name').value;
+        const cals = Number(document.getElementById('c-cals').value);
+        const prot = Number(document.getElementById('c-prot').value || 0);
+        const carbs = Number(document.getElementById('c-carb').value || 0);
+        const fat = Number(document.getElementById('c-fat').value || 0); // Added ID in HTML
+
+        if (!name || !cals) return alert("Name and Calories are required.");
+
+        // Default to 'snack' for now as custom mode has no selector
+        const date = window.getToday ? window.getToday() : new Date().toISOString().split('T')[0];
+        const uid = auth.currentUser.uid;
+        const item = { name, calories: cals, protein: prot, carbs, fat, timestamp: Date.now() };
+
+        push(ref(db, `users/${uid}/diary/${date}/snack`), item).then(() => {
+            alert("Custom Food Added!");
+            // Clear
+            document.getElementById('c-name').value = "";
+            document.getElementById('c-cals').value = "";
+            document.getElementById('c-prot').value = "";
+            document.getElementById('c-carb').value = "";
+            document.getElementById('c-fat').value = "";
+        });
+    };
+}

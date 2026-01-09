@@ -197,6 +197,14 @@
 
             <div id="mode-scan">
                 <div id="reader"></div>
+                <div style="margin-top:10px; text-align:center;">
+                    <p style="margin:5px 0; color:#777;">- OR -</p>
+                    <button id="btn-read-label" style="background:#8e44ad; width:auto; padding:8px 15px;"><i
+                            class="material-icons" style="vertical-align:middle; font-size:18px;">camera_alt</i> Scan
+                        Label</button>
+                    <input type="file" id="label-image-input" accept="image/*" capture="environment"
+                        style="display:none;">
+                </div>
             </div>
             <div id="mode-search" style="display:none;">
                 <div class="card">
@@ -214,7 +222,12 @@
             <div id="mode-custom" style="display:none;">
                 <div class="card">
                     <input type="text" id="c-name" placeholder="Name *">
-                    <input type="number" id="c-cals" placeholder="Calories">
+                    <div class="highlight-grid" style="margin-bottom:10px;">
+                        <input type="number" id="c-cals" placeholder="Calories">
+                        <input type="number" id="c-prot" placeholder="Protein (g)">
+                        <input type="number" id="c-carb" placeholder="Carbs (g)">
+                        <input type="number" id="c-fat" placeholder="Fat (g)">
+                    </div>
                     <button id="btn-submit-custom">Save Custom</button>
                 </div>
             </div>
@@ -416,6 +429,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <script type="module" src="app.js"></script>
 
     <!-- REPORT MODAL -->
