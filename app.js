@@ -1394,59 +1394,45 @@ document.getElementById('scan-nav-btn').onclick = () => {
         // 1. Check Community DB (public_barcodes)
         get(ref(db, `public_barcodes/${text}`)).then((snap) => {
             if (snap.exists()) {
-                // Found in Community
-                currentScannedItem = { ...snap.val(), image: "" };
-                showConfirm();
+                // Found in Community -> STOP & SHOW
+                html5QrCode.stop().then(() => {
+                    currentScannedItem = { ...snap.val(), image: "" };
+                    showConfirm();
+                }).catch(e => console.error(e));
             } else {
                 // 2. Fallback to OpenFoodFacts
                 fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
                     .then(r => r.json()).then(d => {
                         if (d.status === 1) {
-                            const n = d.product.nutriments;
+                            // Found in OFF -> STOP & SHOW
+                            html5QrCode.stop().then(() => {
+                                const n = d.product.nutriments;
+                                const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
+                                const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
 
-                            // Helper to prefer serving size, fallback to 100g
-                            const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
-
-                            // Special handling for energy which can be energy-kcal
-                            const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
-
-                            currentScannedItem = {
-                                name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
-                                calories: getCals(),
-                                protein: getVal('proteins'),
-                                carbs: getVal('carbohydrates'),
-                                fat: getVal('fat'),
-                                // Extended Nutrients
-                                sugar: getVal('sugars'),
-                                satFat: getVal('saturated-fat'),
-                                fiber: getVal('fiber'),
-                                sodium: getVal('sodium') * 1000, // OFF often stores sodium in grams for these keys? Need to verify. 
-                                // Actually sodium_serving is usually in grams too. We want mg?
-                                // "sodium_100g": 0.05 (g). We want mg. So * 1000 is correct if unit is g.
-
-                                cholesterol: getVal('cholesterol') * 1000,
-                                potassium: getVal('potassium') * 1000,
-                                vitA: getVal('vitamin-a') * 1000000,
-                                vitC: getVal('vitamin-c') * 1000,
-                                calcium: getVal('calcium') * 1000,
-                                iron: getVal('iron') * 1000,
-                                image: d.product.image_url || ""
-                            };
-
-                            // Sodium Check: If result is huge, it might have been in mg already.
-                            // OFF is inconsistent. But typically _value is in unit specified.
-                            // Let's stick to the multiplier for now as standard OFF is grams.
-                            // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
-                            // For sodium/salt, OFF returns sodium_100g in Unit.
-
-                            showConfirm();
+                                currentScannedItem = {
+                                    name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
+                                    calories: getCals(),
+                                    protein: getVal('proteins'),
+                                    carbs: getVal('carbohydrates'),
+                                    fat: getVal('fat'),
+                                    sugar: getVal('sugars'),
+                                    satFat: getVal('saturated-fat'),
+                                    fiber: getVal('fiber'),
+                                    sodium: getVal('sodium') * 1000,
+                                    cholesterol: getVal('cholesterol') * 1000,
+                                    potassium: getVal('potassium') * 1000,
+                                    vitA: getVal('vitamin-a') * 1000000,
+                                    vitC: getVal('vitamin-c') * 1000,
+                                    calcium: getVal('calcium') * 1000,
+                                    iron: getVal('iron') * 1000,
+                                    image: d.product.image_url || ""
+                                };
+                                showConfirm();
+                            }).catch(e => console.error(e));
                         }
                     })
-                    .catch(error => {
-                        console.error("Error fetching from OpenFoodFacts:", error);
-                        // Optionally, show an alert to the user
-                        // alert("Could not find product on OpenFoodFacts or an error occurred.");
-                    });
+                    .catch(error => { console.error("OFF Error", error); });
             }
         });
     });
