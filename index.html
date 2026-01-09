@@ -49,7 +49,7 @@
                     <p id="dash-weight">--</p>
                 </div>
             </div>
-            <div id="today-meal-list"></div>
+            <div id="diet-history-container"></div>
         </section>
 
         <!-- NUTRITION -->
@@ -118,7 +118,7 @@
                 <button id="btn-save-cardio">Log Cardio</button>
             </div>
 
-            <div id="workout-list-daily"></div>
+            <div id="workout-history-container"></div>
         </section>
 
 
@@ -142,7 +142,7 @@
             </div>
 
             <!-- PERSONAL GOALS -->
-            <div class="card">
+            <div class="card" id="personal-goals-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h3>My Goals</h3>
                     <button id="add-goal-btn" class="icon-btn"
@@ -164,6 +164,9 @@
                     <h2 id="summary-goal-status">0%</h2>
                     <p>Consumed</p>
                 </div>
+            </div>
+            <div id="last-workout-container" class="card" style="display:none; margin-bottom:10px;">
+                <!-- Last workout inserted via JS -->
             </div>
             <div class="card">
                 <h3>Macros</h3>
@@ -305,7 +308,7 @@
             <h4>Privacy</h4>
             <div class="settings-row"><span>Hide Weight</span><input type="checkbox" id="privacy-weight"
                     style="width:auto;"></div>
-            <div class="settings-row"><span>Hide Diary</span><input type="checkbox" id="privacy-diary"
+            <div class="settings-row"><span>Hide Goals</span><input type="checkbox" id="privacy-goals"
                     style="width:auto;"></div>
             <div class="settings-row"><span>Hide Workouts</span><input type="checkbox" id="privacy-workouts"
                     style="width:auto;"></div>

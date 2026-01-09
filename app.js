@@ -89,60 +89,26 @@ function startDataListener(uid) {
 
         let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
 
-        // 1. MEAL ACCORDIONS
-        const mealList = document.getElementById('today-meal-list');
-        if (mealList) mealList.innerHTML = "";
-        if (data.diary) {
-            Object.keys(data.diary).sort().reverse().forEach(date => {
-                const dateHeader = document.createElement('div');
-                dateHeader.className = "date-accordion";
-                dateHeader.innerHTML = `<span>${date} ${date === today ? '(Today)' : ''}</span><i class="material-icons">expand_more</i>`;
-
-                const mealBox = document.createElement('div');
-                mealBox.className = "meal-container-collapsible";
-                if (date === today) mealBox.classList.add('active');
-
-                Object.keys(data.diary[date]).forEach(type => {
-                    Object.values(data.diary[date][type]).forEach(i => {
-                        if (date === today) {
-                            consumed += Number(i.calories || 0);
-                            protein += Number(i.protein || 0);
-                            carbs += Number(i.carbs || 0);
-                            fat += Number(i.fat || 0);
-                        }
-                        const itemEl = document.createElement('div');
-                        itemEl.className = "meal-item";
-                        const isFav = data.favorites?.[i.name.replace(/[.#$[\]]/g, "")];
-                        itemEl.innerHTML = `<div style="display:flex; align-items:center;"><i class="material-icons fav-icon" onclick="event.stopPropagation(); window.toggleFav('${i.name}')">${isFav ? 'star' : 'star_outline'}</i><div><strong>${i.name}</strong><br><small>${i.calories} kcal | ${type}</small></div></div>`;
-                        setupLongPress(itemEl, i);
-                        mealBox.appendChild(itemEl);
-                    });
-                });
-                dateHeader.onclick = () => mealBox.classList.toggle('active');
-                mealList.appendChild(dateHeader);
-                mealList.appendChild(mealBox);
-            });
-        }
-
-        // 2. WORKOUT LIST
-        const workList = document.getElementById('workout-list-daily');
-        if (workList) workList.innerHTML = "";
-        if (data.workouts) {
-            Object.keys(data.workouts).sort().reverse().forEach(date => {
-                const head = document.createElement('div');
-                head.className = "date-accordion";
-                head.innerHTML = `<span>Exercises: ${date}</span>`;
-                workList.appendChild(head);
-
-                Object.values(data.workouts[date]).forEach(w => {
-                    if (date === today) burned += Number(w.burned || 0);
-                    const el = document.createElement('div');
-                    el.className = "meal-item";
-                    el.innerHTML = `<strong>${w.name}</strong><br><small>${w.sets ? w.sets + ' sets x ' + w.reps : w.duration + ' mins'} | ${w.burned} kcal burned</small>`;
-                    workList.appendChild(el);
+        // 1. Calculate Stats for TODAY (for Widgets)
+        if (data.diary && data.diary[today]) {
+            Object.values(data.diary[today]).forEach(cat => {
+                Object.values(cat).forEach(i => {
+                    consumed += Number(i.calories || 0);
+                    protein += Number(i.protein || 0);
+                    carbs += Number(i.carbs || 0);
+                    fat += Number(i.fat || 0);
                 });
             });
         }
+        if (data.workouts && data.workouts[today]) {
+            Object.values(data.workouts[today]).forEach(w => {
+                burned += Number(w.burned || 0);
+            });
+        }
+
+        // 2. Render Histories (Paginated)
+        renderDietHistory(data.diary);
+        renderWorkoutHistory(data.workouts);
 
         // 3. STATS & WIDGETS
         document.getElementById('dash-cals').innerText = `${Math.round(consumed)} / ${goals.calories}`;
@@ -176,7 +142,7 @@ function renderProfileScreen(data, isMe, ownerUid) {
     // Privacy Checks (if not me)
     const privacy = data.settings?.privacy || {};
     const hideWeight = !isMe && privacy.weight;
-    const hideDiary = !isMe && privacy.diary;
+    const hideGoals = !isMe && privacy.goals;
 
     // 1. BMI & Stats
     if (goals.height && weight && !hideWeight) {
@@ -198,7 +164,7 @@ function renderProfileScreen(data, isMe, ownerUid) {
     // User asked for "Protein Carbs Fats" tracker data lost. 
     // If isMe OR privacy allows:
 
-    if (isMe || !hideDiary) {
+    if (isMe || !hideGoals) {
         // Update Profile Widgets
         const pct = goals.calories > 0 ? Math.min(100, Math.round((daily.consumed / goals.calories) * 100)) : 0;
         document.getElementById('summary-goal-status').innerText = `${pct}%`;
@@ -234,13 +200,201 @@ function renderProfileScreen(data, isMe, ownerUid) {
     renderAchievements(data.achievements, data.settings?.pinned_achievements);
 
     // 5. Goals
-    if (isMe) {
-        document.getElementById('add-goal-btn').style.display = 'block';
-        renderGoals(data.active_goals);
-    } else {
-        document.getElementById('add-goal-btn').style.display = 'none';
-        renderGoals(data.active_goals);
+    // 5. Goals logic
+    const goalsCard = document.getElementById('personal-goals-card');
+    if (goalsCard) {
+        if (!isMe && hideGoals) {
+            goalsCard.style.display = 'none';
+        } else {
+            goalsCard.style.display = 'block';
+            if (isMe) document.getElementById('add-goal-btn').style.display = 'block';
+            else document.getElementById('add-goal-btn').style.display = 'none';
+            renderGoals(data.active_goals);
+        }
     }
+
+    // 6. Last Workout for Public Profile
+    renderLastWorkoutWidget(data.workouts);
+}
+
+// --- HISTORY & PAGINATION HELPERS ---
+window._dietPage = 0;
+window._workoutPage = 0;
+window._lastDietData = null;
+window._lastWorkoutData = null;
+
+function renderDietHistory(diary) {
+    window._lastDietData = diary;
+    const container = document.getElementById('diet-history-container');
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (!diary) {
+        container.innerHTML = "<small style='display:block; text-align:center; padding:10px;'>No history yet.</small>";
+        return;
+    }
+
+    const dates = Object.keys(diary).sort().reverse();
+    const page = window._dietPage;
+    const pageSize = 5;
+    const slice = dates.slice(page * pageSize, (page + 1) * pageSize);
+
+    slice.forEach(date => {
+        // Summary Calc
+        let dCals = 0;
+        let summaryText = "";
+        Object.keys(diary[date]).forEach(type => {
+            Object.values(diary[date][type]).forEach(i => dCals += Number(i.calories || 0));
+        });
+        summaryText = `${dCals} kcal`;
+
+        const head = document.createElement('div');
+        head.className = "date-accordion";
+        head.style.cursor = "pointer";
+        head.style.fontWeight = "bold";
+        head.style.padding = "10px";
+        head.style.borderBottom = "1px solid #eee";
+        head.style.display = "flex"; head.style.justifyContent = "space-between";
+        head.innerHTML = `<span>${date}</span><span>${summaryText}</span>`;
+
+        const mealBox = document.createElement('div');
+        mealBox.className = "meal-container-collapsible";
+        mealBox.style.display = "none";
+
+        Object.keys(diary[date]).forEach(type => {
+            Object.values(diary[date][type]).forEach(i => {
+                const itemEl = document.createElement('div');
+                itemEl.className = "meal-item";
+                itemEl.style.padding = "8px";
+                itemEl.style.borderBottom = "1px solid #f9f9f9";
+                const isFav = window._lastUserData?.favorites?.[i.name.replace(/[.#$[\]]/g, "")];
+                itemEl.innerHTML = `<div style="display:flex; align-items:center;"><i class="material-icons fav-icon" onclick="event.stopPropagation(); window.toggleFav('${i.name}')" style="color:${isFav ? 'orange' : '#ccc'}; cursor:pointer; margin-right:5px;">${isFav ? 'star' : 'star_outline'}</i><div><strong>${i.name}</strong><br><small>${i.calories} kcal | ${type}</small></div></div>`;
+                setupLongPress(itemEl, i); // Assumes setupLongPress is available
+                mealBox.appendChild(itemEl);
+            });
+        });
+
+        head.onclick = () => {
+            mealBox.style.display = mealBox.style.display === 'none' ? 'block' : 'none';
+        }
+
+        container.appendChild(head);
+        container.appendChild(mealBox);
+    });
+
+    // Pagination
+    const controls = document.createElement('div');
+    controls.style.display = 'flex';
+    controls.style.justifyContent = 'space-between';
+    controls.style.marginTop = '15px';
+    controls.style.padding = '10px';
+
+    // Newer
+    const prev = document.createElement('button');
+    prev.innerText = "< Newer";
+    prev.style.visibility = page > 0 ? 'visible' : 'hidden';
+    prev.onclick = () => { window._dietPage--; renderDietHistory(window._lastDietData); };
+
+    // Older
+    const next = document.createElement('button');
+    next.innerText = "Older >";
+    next.style.visibility = ((page + 1) * pageSize < dates.length) ? 'visible' : 'hidden';
+    next.onclick = () => { window._dietPage++; renderDietHistory(window._lastDietData); };
+
+    controls.appendChild(prev);
+    controls.appendChild(next);
+    container.appendChild(controls);
+}
+
+function renderWorkoutHistory(workouts) {
+    window._lastWorkoutData = workouts;
+    const container = document.getElementById('workout-history-container');
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (!workouts) {
+        container.innerHTML = "<small style='display:block; text-align:center; padding:10px;'>No workouts logged.</small>";
+        return;
+    }
+
+    const dates = Object.keys(workouts).sort().reverse();
+    const page = window._workoutPage;
+    const pageSize = 5;
+    const slice = dates.slice(page * pageSize, (page + 1) * pageSize);
+
+    slice.forEach(date => {
+        let dayCount = Object.keys(workouts[date]).length;
+        const head = document.createElement('div');
+        head.className = "date-accordion";
+        head.style.cursor = "pointer";
+        head.style.padding = "10px";
+        head.style.borderBottom = "1px solid #eee";
+        head.style.fontWeight = "bold";
+        head.style.background = "#fff";
+        head.innerHTML = `<span>${date} (${dayCount} exercises)</span>`;
+
+        const box = document.createElement('div');
+        box.style.display = "none";
+        box.style.paddingLeft = "10px";
+
+        Object.values(workouts[date]).forEach(w => {
+            const el = document.createElement('div');
+            el.className = "meal-item";
+            el.style.padding = "5px 0";
+            el.style.borderBottom = "1px solid #f0f0f0";
+            el.innerHTML = `<strong>${w.name}</strong><br><small>${w.sets ? w.sets + ' sets x ' + w.reps : w.duration + ' mins'} | ${w.burned} kcal</small>`;
+            box.appendChild(el);
+        });
+
+        head.onclick = () => {
+            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        }
+
+        container.appendChild(head);
+        container.appendChild(box);
+    });
+
+    // Pagination
+    const controls = document.createElement('div');
+    controls.style.display = 'flex';
+    controls.style.justifyContent = 'space-between';
+    controls.style.marginTop = '15px';
+    controls.style.padding = '10px';
+
+    const prev = document.createElement('button');
+    prev.innerText = "< Newer";
+    prev.style.visibility = page > 0 ? 'visible' : 'hidden';
+    prev.onclick = () => { window._workoutPage--; renderWorkoutHistory(window._lastWorkoutData); };
+
+    const next = document.createElement('button');
+    next.innerText = "Older >";
+    next.style.visibility = ((page + 1) * pageSize < dates.length) ? 'visible' : 'hidden';
+    next.onclick = () => { window._workoutPage++; renderWorkoutHistory(window._lastWorkoutData); };
+
+    controls.appendChild(prev);
+    controls.appendChild(next);
+    container.appendChild(controls);
+}
+
+function renderLastWorkoutWidget(workouts) {
+    const container = document.getElementById('last-workout-container');
+    if (!container) return;
+    if (!workouts) {
+        container.style.display = 'none';
+        return;
+    }
+    const dates = Object.keys(workouts).sort().reverse();
+    const lastDate = dates[0];
+    const exercises = Object.values(workouts[lastDate]);
+
+    container.style.display = 'block';
+    container.innerHTML = `
+        <h4 style="margin:0 0 5px 0; color:var(--primary-color);">Last Session: ${lastDate}</h4>
+        <p style="margin:0; font-size:14px;">Logged ${exercises.length} exercises.</p>
+        <div style="font-size:12px; color:#555; margin-top:5px;">
+            ${exercises.map(e => e.name).slice(0, 3).join(', ')}${exercises.length > 3 ? '...' : ''}
+        </div>
+    `;
 }
 
 // --- ACHIEVEMENTS SYSTEM ---
@@ -323,22 +477,30 @@ function renderAchievements(earned, pinned) {
             if (def) {
                 const badge = document.createElement('div');
                 badge.className = 'achievement-badge';
-                // USE IMAGE
-                badge.innerHTML = `<img src="${def.image}" style="width:24px; height:24px;"><br><small style="font-size:8px;">${def.name}</small>`;
+                // INCREASED SIZE as requested
+                badge.innerHTML = `<img src="${def.image}" style="width:40px; height:40px;"><br><small style="font-size:10px;">${def.name}</small>`;
                 badge.title = def.desc;
                 container.appendChild(badge);
             }
         });
 
-        // "See All" button
-        const more = document.createElement('div');
-        more.innerHTML = `<small>View All ></small>`;
-        more.style.cursor = "pointer";
-        more.onclick = () => {
-            document.getElementById('achievements-modal').style.display = 'flex';
-            renderAllAchievements(earned, pinned);
-        };
-        container.appendChild(more);
+        // "See All" button - HIDE IF NOT ME
+        // This function doesn't explicit know 'isMe' but we can infer or pass it. 
+        // For simplicity, we can rely on Global `_isViewingPublicProfile` OR 
+        // Check if `toggleBtn` text or `window._isViewingPublicProfile`
+        // Effectively, if looking at public profile, `window._isViewingPublicProfile` is true.
+        // BUT if I browse my OWN profile, I still want to see it? User said "viewing the public profile hide the view all"
+
+        if (!window._isViewingPublicProfile) {
+            const more = document.createElement('div');
+            more.innerHTML = `<small>View All ></small>`;
+            more.style.cursor = "pointer";
+            more.onclick = () => {
+                document.getElementById('achievements-modal').style.display = 'flex';
+                renderAllAchievements(earned, pinned);
+            };
+            container.appendChild(more);
+        }
     }
 }
 
