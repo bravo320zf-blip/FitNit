@@ -25,22 +25,22 @@ window.showView = (v) => {
     document.querySelectorAll('.view').forEach(s => s.style.display = 'none');
     const target = document.getElementById(v);
     if (target) target.style.display = 'block';
-    
+
     // Cleanup scanner
-    if (html5QrCode && v !== 'scanner-screen') html5QrCode.stop().catch(() => {});
-    
+    if (html5QrCode && v !== 'scanner-screen') html5QrCode.stop().catch(() => { });
+
     // Default workout mode
     if (v === 'workout-screen') window.setWorkoutMode('strength');
 };
 
 window.toggleAddMode = (m) => {
     ['mode-scan', 'mode-search', 'mode-recent', 'mode-favs', 'mode-custom'].forEach(id => {
-        document.getElementById(id).style.display = (id === 'mode-'+m) ? 'block' : 'none';
+        document.getElementById(id).style.display = (id === 'mode-' + m) ? 'block' : 'none';
     });
     document.getElementById('scanned-result').style.display = 'none';
     if (m === 'recent') loadFoodList('recent_items', 'recent-list');
     if (m === 'favs') loadFoodList('favorites', 'favs-list');
-    if (m !== 'scan' && html5QrCode) html5QrCode.stop().catch(() => {});
+    if (m !== 'scan' && html5QrCode) html5QrCode.stop().catch(() => { });
 };
 
 window.setWorkoutMode = (m) => {
@@ -76,26 +76,26 @@ function startDataListener(uid) {
 
         const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
         const weight = data.latest_weight || 0;
-        
+
         let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
-        
+
         // 1. MEAL ACCORDIONS
         const mealList = document.getElementById('today-meal-list');
-        if(mealList) mealList.innerHTML = "";
+        if (mealList) mealList.innerHTML = "";
         if (data.diary) {
             Object.keys(data.diary).sort().reverse().forEach(date => {
                 const dateHeader = document.createElement('div');
                 dateHeader.className = "date-accordion";
                 dateHeader.innerHTML = `<span>${date} ${date === today ? '(Today)' : ''}</span><i class="material-icons">expand_more</i>`;
-                
+
                 const mealBox = document.createElement('div');
                 mealBox.className = "meal-container-collapsible";
                 if (date === today) mealBox.classList.add('active');
 
                 Object.keys(data.diary[date]).forEach(type => {
                     Object.values(data.diary[date][type]).forEach(i => {
-                        if (date === today) { 
-                            consumed += Number(i.calories || 0); 
+                        if (date === today) {
+                            consumed += Number(i.calories || 0);
                             protein += Number(i.protein || 0);
                             carbs += Number(i.carbs || 0);
                             fat += Number(i.fat || 0);
@@ -116,7 +116,7 @@ function startDataListener(uid) {
 
         // 2. WORKOUT LIST
         const workList = document.getElementById('workout-list-daily');
-        if(workList) workList.innerHTML = "";
+        if (workList) workList.innerHTML = "";
         if (data.workouts) {
             Object.keys(data.workouts).sort().reverse().forEach(date => {
                 const head = document.createElement('div');
@@ -128,7 +128,7 @@ function startDataListener(uid) {
                     if (date === today) burned += Number(w.burned || 0);
                     const el = document.createElement('div');
                     el.className = "meal-item";
-                    el.innerHTML = `<strong>${w.name}</strong><br><small>${w.sets ? w.sets+' sets x '+w.reps : w.duration+' mins'} | ${w.burned} kcal burned</small>`;
+                    el.innerHTML = `<strong>${w.name}</strong><br><small>${w.sets ? w.sets + ' sets x ' + w.reps : w.duration + ' mins'} | ${w.burned} kcal burned</small>`;
                     workList.appendChild(el);
                 });
             });
@@ -139,19 +139,19 @@ function startDataListener(uid) {
         document.getElementById('dash-prot').innerText = `${Math.round(protein)} / ${goals.protein}g`;
         document.getElementById('dash-weight').innerText = `${weight} lbs`;
 
-        if(document.getElementById('dash-burned')) {
+        if (document.getElementById('dash-burned')) {
             document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
             document.getElementById('dash-net').innerText = Math.round(consumed - burned);
         }
 
         const perc = Math.min(Math.round((consumed / goals.calories) * 100), 100);
         document.getElementById('summary-goal-status').innerText = perc + "%";
-        document.getElementById('bar-prot').style.width = Math.min((protein/goals.protein)*100, 100) + "%";
-        document.getElementById('bar-carb').style.width = Math.min((carbs/goals.carbs)*100, 100) + "%";
-        document.getElementById('bar-fat').style.width = Math.min((fat/goals.fat)*100, 100) + "%";
+        document.getElementById('bar-prot').style.width = Math.min((protein / goals.protein) * 100, 100) + "%";
+        document.getElementById('bar-carb').style.width = Math.min((carbs / goals.carbs) * 100, 100) + "%";
+        document.getElementById('bar-fat').style.width = Math.min((fat / goals.fat) * 100, 100) + "%";
 
         if (goals.height && weight) {
-            const bmi = ((weight * 0.453) / ((goals.height/100)**2)).toFixed(1);
+            const bmi = ((weight * 0.453) / ((goals.height / 100) ** 2)).toFixed(1);
             document.getElementById('summary-bmi').innerText = bmi;
             document.getElementById('summary-bmi-text').innerText = bmi < 25 ? "Normal" : "Overweight";
         }
@@ -173,11 +173,15 @@ function initExercises() {
     const exRef = ref(db, 'common_exercises');
     get(exRef).then(snap => {
         if (!snap.exists()) {
-            set(exRef, defaultExercises);
+            // Attempt to seed, but if it fails (permissions), we still have local defaults
+            set(exRef, defaultExercises).catch(e => console.warn("Could not seed exercises:", e));
             allExercises = defaultExercises;
         } else {
             allExercises = snap.val();
         }
+    }).catch(err => {
+        console.warn("Error fetching exercises (likely permissions), using defaults:", err);
+        allExercises = defaultExercises;
     });
 }
 // Call init on load
@@ -222,12 +226,12 @@ document.getElementById('btn-save-strength').onclick = async () => {
     const name = document.getElementById('ex-name').value;
     const sets = document.getElementById('ex-sets').value;
     const reps = document.getElementById('ex-reps').value;
-    if(!name || !sets) return alert("Enter exercise and sets");
+    if (!name || !sets) return alert("Enter exercise and sets");
 
     // Estimate: 10 cals per set
     const burned = Number(sets) * 10;
     const entry = { name, sets, reps, burned, timestamp: Date.now() };
-    
+
     push(ref(db, `users/${auth.currentUser.uid}/workouts/${getToday()}`), entry);
     alert("Strength Logged!");
     document.getElementById('ex-name').value = "";
@@ -237,11 +241,11 @@ document.getElementById('btn-save-cardio').onclick = async () => {
     const met = document.getElementById('cardio-type').value;
     const time = document.getElementById('car-time').value;
     const typeName = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
-    
+
     const weightSnap = await get(ref(db, `users/${auth.currentUser.uid}/latest_weight`));
     const userW_kg = (weightSnap.val() || 200) * 0.453;
 
-    if(!time) return alert("Enter duration");
+    if (!time) return alert("Enter duration");
 
     // Calories = MET * weight_kg * (mins/60)
     const burned = Math.round(met * userW_kg * (time / 60));
@@ -261,14 +265,14 @@ document.getElementById('save-profile-btn').onclick = async () => {
     const wLbs = weightSnap.val();
 
     if (!h || !wLbs || !a) return alert("Log weight in Weight Tab first!");
-    
+
     const wKg = wLbs * 0.453592;
     let bmr = (10 * wKg) + (6.25 * h) - (5 * a);
     bmr = (g === 'male') ? bmr + 5 : bmr - 161;
     let target = Math.round((bmr * act) - 500);
 
     update(ref(db, `users/${auth.currentUser.uid}/goals`), {
-        calories: target, protein: Math.round((target*0.3)/4), carbs: Math.round((target*0.4)/4), fat: Math.round((target*0.3)/9),
+        calories: target, protein: Math.round((target * 0.3) / 4), carbs: Math.round((target * 0.4) / 4), fat: Math.round((target * 0.3) / 9),
         height: h, age: a, gender: g, activity: act
     }).then(() => alert("Goals Saved!"));
 };
@@ -281,7 +285,7 @@ window.toggleFav = async (name) => {
     if (snap.exists()) set(favRef, null);
     else {
         const userSnap = await get(ref(db, `users/${auth.currentUser.uid}`));
-        const itemData = userSnap.val().recent_items?.[clean] || {name: name, calories: 0, protein: 0, carbs: 0, fat: 0};
+        const itemData = userSnap.val().recent_items?.[clean] || { name: name, calories: 0, protein: 0, carbs: 0, fat: 0 };
         set(favRef, itemData);
     }
 };
@@ -298,17 +302,17 @@ document.getElementById('btn-execute-search').onclick = () => {
     const list = document.getElementById('search-results-list');
     list.innerHTML = "Searching...";
     fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&json=true&page_size=20`)
-    .then(r => r.json()).then(d => {
-        list.innerHTML = "";
-        d.products.forEach(p => {
-            const n = p.nutriments;
-            const food = { name: p.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
-            const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
-            card.innerHTML = `<strong>${food.name}</strong><br><small>${food.calories} kcal</small>`;
-            card.onclick = () => { currentScannedItem = food; showConfirm(); };
-            list.appendChild(card);
+        .then(r => r.json()).then(d => {
+            list.innerHTML = "";
+            d.products.forEach(p => {
+                const n = p.nutriments;
+                const food = { name: p.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
+                const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
+                card.innerHTML = `<strong>${food.name}</strong><br><small>${food.calories} kcal</small>`;
+                card.onclick = () => { currentScannedItem = food; showConfirm(); };
+                list.appendChild(card);
+            });
         });
-    });
 };
 
 function loadFoodList(path, elId) {
@@ -316,7 +320,7 @@ function loadFoodList(path, elId) {
         const list = document.getElementById(elId); list.innerHTML = "";
         if (!s.exists()) { list.innerHTML = "Empty"; return; }
         Object.values(s.val()).forEach(f => {
-            const card = document.createElement('div'); card.className = "card"; card.style.padding="10px";
+            const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
             card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
             card.onclick = () => { currentScannedItem = f; showConfirm(); };
             list.appendChild(card);
@@ -332,7 +336,7 @@ function showConfirm() {
 
 document.getElementById('add-food-btn').onclick = () => {
     const today = getToday();
-    const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), timestamp: Date.now() };
+    const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
     const clean = item.name.replace(/[.#$[\]]/g, "");
     push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
     update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
@@ -370,13 +374,13 @@ document.getElementById('scan-nav-btn').onclick = () => {
     if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
     html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
         fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
-        .then(r => r.json()).then(d => {
-            if (d.status === 1) {
-                const n = d.product.nutriments;
-                currentScannedItem = { name: d.product.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
-                showConfirm();
-            }
-        });
+            .then(r => r.json()).then(d => {
+                if (d.status === 1) {
+                    const n = d.product.nutriments;
+                    currentScannedItem = { name: d.product.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
+                    showConfirm();
+                }
+            });
     });
 };
 
@@ -390,5 +394,5 @@ document.getElementById('share-app-btn').onclick = () => {
     if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
     else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
 };
-document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display='flex';
-document.getElementById('close-settings-btn').onclick = () => document.getElementById('settings-modal').style.display='none';
+document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'flex';
+document.getElementById('close-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'none';

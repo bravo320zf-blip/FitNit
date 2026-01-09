@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -13,7 +14,9 @@
     <meta name="theme-color" content="#2c3e50">
     <link rel="apple-touch-icon" href="FitNitAppIcon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
 </head>
+
 <body>
 
     <header>
@@ -36,9 +39,15 @@
         <!-- DASHBOARD (HOME) -->
         <section id="dashboard-screen" class="view" style="display:none;">
             <div class="card highlight-grid">
-                <div class="stat-box"><small>CALORIES</small><p id="dash-cals">0/0</p></div>
-                <div class="stat-box"><small>PROTEIN</small><p id="dash-prot">0/0g</p></div>
-                <div class="stat-box"><small>WEIGHT</small><p id="dash-weight">--</p></div>
+                <div class="stat-box"><small>CALORIES</small>
+                    <p id="dash-cals">0/0</p>
+                </div>
+                <div class="stat-box"><small>PROTEIN</small>
+                    <p id="dash-prot">0/0g</p>
+                </div>
+                <div class="stat-box"><small>WEIGHT</small>
+                    <p id="dash-weight">--</p>
+                </div>
             </div>
             <div id="today-meal-list"></div>
         </section>
@@ -61,53 +70,57 @@
             </div>
         </section>
 
-<!-- WORKOUT SCREEN -->
-<section id="workout-screen" class="view" style="display:none;">
-    <div class="card highlight-grid">
-        <div class="stat-box"><small>BURNED TODAY</small><p id="dash-burned">0 kcal</p></div>
-        <div class="stat-box"><small>NET CALS</small><p id="dash-net">0</p></div>
-    </div>
+        <!-- WORKOUT SCREEN -->
+        <section id="workout-screen" class="view" style="display:none;">
+            <div class="card highlight-grid">
+                <div class="stat-box"><small>BURNED TODAY</small>
+                    <p id="dash-burned">0 kcal</p>
+                </div>
+                <div class="stat-box"><small>NET CALS</small>
+                    <p id="dash-net">0</p>
+                </div>
+            </div>
 
-    <div class="card">
-        <div class="filter-bar" style="display:flex; gap:10px;">
-            <button onclick="window.setWorkoutMode('strength')">Strength</button>
-            <button onclick="window.setWorkoutMode('cardio')">Cardio</button>
-        </div>
-    </div>
+            <div class="card">
+                <div class="filter-bar" style="display:flex; gap:10px;">
+                    <button onclick="window.setWorkoutMode('strength')">Strength</button>
+                    <button onclick="window.setWorkoutMode('cardio')">Cardio</button>
+                </div>
+            </div>
 
-    <!-- Add Strength -->
-    <div id="add-strength" class="card" style="display:none;">
-        <div style="position:relative;">
-            <input type="text" id="ex-name" placeholder="Exercise (e.g. Bench Press)" autocomplete="off">
-            <div id="ex-suggestions" class="suggestions-list" style="display:none;"></div>
-        </div>
-        <div class="highlight-grid">
-            <input type="number" id="ex-sets" placeholder="Sets">
-            <input type="number" id="ex-reps" placeholder="Reps">
-            <input type="number" id="ex-weight" placeholder="Lbs">
-        </div>
-        <button id="btn-save-strength">Log Sets</button>
-    </div>
+            <!-- Add Strength -->
+            <div id="add-strength" class="card" style="display:none;">
+                <div style="position:relative;">
+                    <input type="text" id="ex-name" placeholder="Exercise (e.g. Bench Press)" autocomplete="off">
+                    <div id="ex-suggestions" class="suggestions-list" style="display:none;"></div>
+                </div>
+                <div class="highlight-grid">
+                    <input type="number" id="ex-sets" placeholder="Sets">
+                    <input type="number" id="ex-reps" placeholder="Reps">
+                    <input type="number" id="ex-weight" placeholder="Lbs">
+                </div>
+                <button id="btn-save-strength">Log Sets</button>
+            </div>
 
-    <!-- Add Cardio -->
-    <div id="add-cardio" class="card" style="display:none;">
-        <select id="cardio-type">
-            <option value="8">Running (approx 5mph)</option>
-            <option value="10">Running (fast)</option>
-            <option value="3.5">Walking</option>
-            <option value="7">Cycling</option>
-            <option value="9">Elliptical</option>
-        </select>
-        <div class="highlight-grid">
-            <input type="number" id="car-time" placeholder="Mins">
-            <input type="number" id="car-speed" placeholder="MPH">
-        </div>
-        <button id="btn-save-cardio">Log Cardio</button>
-    </div>
+            <!-- Add Cardio -->
+            <div id="add-cardio" class="card" style="display:none;">
+                <select id="cardio-type">
+                    <option value="8">Running (approx 5mph)</option>
+                    <option value="10">Running (fast)</option>
+                    <option value="3.5">Walking</option>
+                    <option value="7">Cycling</option>
+                    <option value="9">Elliptical</option>
+                </select>
+                <div class="highlight-grid">
+                    <input type="number" id="car-time" placeholder="Mins">
+                    <input type="number" id="car-speed" placeholder="MPH">
+                </div>
+                <button id="btn-save-cardio">Log Cardio</button>
+            </div>
 
-    <div id="workout-list-daily"></div>
-</section>
-        
+            <div id="workout-list-daily"></div>
+        </section>
+
 
         <!-- PROFILE -->
         <section id="profile-screen" class="view" style="display:none;">
@@ -116,16 +129,34 @@
                 <button id="open-settings-btn" class="icon-btn"><i class="material-icons">settings</i></button>
             </div>
             <div class="dashboard-grid">
-                <div class="card widget"><small>BMI</small><h2 id="summary-bmi">--</h2><p id="summary-bmi-text">--</p></div>
-                <div class="card widget"><small>PROGRESS</small><h2 id="summary-weight-diff">--</h2><p>Total Lbs</p></div>
-                <div class="card widget"><small>DAILY GOAL</small><h2 id="summary-goal-status">0%</h2><p>Consumed</p></div>
+                <div class="card widget"><small>BMI</small>
+                    <h2 id="summary-bmi">--</h2>
+                    <p id="summary-bmi-text">--</p>
+                </div>
+                <div class="card widget"><small>PROGRESS</small>
+                    <h2 id="summary-weight-diff">--</h2>
+                    <p>Total Lbs</p>
+                </div>
+                <div class="card widget"><small>DAILY GOAL</small>
+                    <h2 id="summary-goal-status">0%</h2>
+                    <p>Consumed</p>
+                </div>
             </div>
             <div class="card">
                 <h3>Macros</h3>
                 <div class="macro-bar-container">
-                    <span>Protein</span><div class="progress"><div id="bar-prot" class="fill"></div></div>
-                    <span>Carbs</span><div class="progress"><div id="bar-carb" class="fill"></div></div>
-                    <span>Fats</span><div class="progress"><div id="bar-fat" class="fill"></div></div>
+                    <span>Protein</span>
+                    <div class="progress">
+                        <div id="bar-prot" class="fill"></div>
+                    </div>
+                    <span>Carbs</span>
+                    <div class="progress">
+                        <div id="bar-carb" class="fill"></div>
+                    </div>
+                    <span>Fats</span>
+                    <div class="progress">
+                        <div id="bar-fat" class="fill"></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -142,7 +173,9 @@
                 </div>
             </div>
 
-            <div id="mode-scan"><div id="reader"></div></div>
+            <div id="mode-scan">
+                <div id="reader"></div>
+            </div>
             <div id="mode-search" style="display:none;">
                 <div class="card">
                     <input type="text" id="search-input" placeholder="Search...">
@@ -150,8 +183,12 @@
                     <div id="search-results-list" class="list-container"></div>
                 </div>
             </div>
-            <div id="mode-recent" style="display:none;"><div id="recent-list" class="list-container"></div></div>
-            <div id="mode-favs" style="display:none;"><div id="favs-list" class="list-container"></div></div>
+            <div id="mode-recent" style="display:none;">
+                <div id="recent-list" class="list-container"></div>
+            </div>
+            <div id="mode-favs" style="display:none;">
+                <div id="favs-list" class="list-container"></div>
+            </div>
             <div id="mode-custom" style="display:none;">
                 <div class="card">
                     <input type="text" id="c-name" placeholder="Name *">
@@ -177,14 +214,26 @@
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="modal-overlay" style="display:none;">
         <div class="modal-content card">
-            <div class="modal-header"><h3>Settings</h3><button id="close-settings-btn" class="icon-btn"><i class="material-icons">close</i></button></div>
-            <div class="settings-row"><span>Dark Mode</span><input type="checkbox" id="dark-mode-toggle" style="width:auto;"></div>
-            <div class="settings-row"><span>Invite</span><button id="share-app-btn" style="width:auto; padding:5px 15px;">Share</button></div>
+            <div class="modal-header">
+                <h3>Settings</h3><button id="close-settings-btn" class="icon-btn"><i
+                        class="material-icons">close</i></button>
+            </div>
+            <div class="settings-row"><span>Dark Mode</span><input type="checkbox" id="dark-mode-toggle"
+                    style="width:auto;"></div>
+            <div class="settings-row"><span>Invite</span><button id="share-app-btn"
+                    style="width:auto; padding:5px 15px;">Share</button></div>
             <hr>
             <input type="number" id="p-height" placeholder="Height (cm)">
             <input type="number" id="p-age" placeholder="Age">
-            <select id="p-gender"><option value="male">Male</option><option value="female">Female</option></select>
-            <select id="p-activity"><option value="1.2">Sedentary</option><option value="1.55">Moderate</option><option value="1.9">Athlete</option></select>
+            <select id="p-gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+            </select>
+            <select id="p-activity">
+                <option value="1.2">Sedentary</option>
+                <option value="1.55">Moderate</option>
+                <option value="1.9">Athlete</option>
+            </select>
             <button id="save-profile-btn">Recalculate Goals</button>
         </div>
     </div>
@@ -199,5 +248,5 @@
 
     <script type="module" src="app.js"></script>
 </body>
-</html>
 
+</html>
