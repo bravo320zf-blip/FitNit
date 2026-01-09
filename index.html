@@ -469,6 +469,29 @@
         </div>
     </div>
 
+    <!-- DUPLICATE CHECK MODAL -->
+    <div id="duplicate-check-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card" style="text-align:center;">
+            <h3 style="color:#e67e22;">Item Already Exists!</h3>
+            <p style="margin:10px 0; color:#555;">An item with a very similar name was found in the database.</p>
+
+            <div id="dup-item-preview"
+                style="background:#f9f9f9; padding:10px; border-radius:5px; margin:15px 0; text-align:left;">
+                <!-- Existing item details injected here -->
+            </div>
+
+            <p style="margin-bottom:20px;">Would you like to use this existing item instead?</p>
+
+            <div style="display:flex; justify-content:center; gap:10px;">
+                <button id="btn-use-existing" style="background:#27ae60;">Use This Item</button>
+                <button id="btn-force-custom" style="background:#7f8c8d; font-size:12px;">No, Make Custom
+                    (Private)</button>
+            </div>
+            <button onclick="document.getElementById('duplicate-check-modal').style.display='none'"
+                style="margin-top:10px; background:transparent; color:#777;">Cancel</button>
+        </div>
+    </div>
+
     <!-- HIDDEN REPORT CONTAINER -->
     <div id="report-container"
         style="position:fixed; top:-9999px; left:-9999px; width:800px; background:white; color:black; padding:40px; font-family:'Helvetica', sans-serif;">
