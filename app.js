@@ -1964,38 +1964,55 @@ function startGuidedBarcodeScan() {
     const readerDiv = document.getElementById('reader');
     readerDiv.innerHTML = "";
 
-    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    // CLEANUP OLD INSTANCE SAFELY
+    const startScanner = () => {
+        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (code) => {
-        if (barcodeLock) return; // Ignore if already found
-        barcodeLock = true;
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (code) => {
+            if (barcodeLock) return;
+            barcodeLock = true;
 
-        // --- HARD STOP UI IMMEDIATE ---
-        // Don't wait for stop() promise. Hide UI immediately so user sees "Success" instantly.
-        document.getElementById('mode-scan').style.display = 'none';
+            // --- HARD STOP UI IMMEDIATE ---
+            document.getElementById('mode-scan').style.display = 'none';
 
-        // Show Wizard Confirmation Step
-        document.getElementById('guided-wizard-overlay').style.display = 'flex';
-        document.getElementById('gw-barcode-display').innerText = code;
-        gwData.barcode = code;
-        setGwView('gw-view-edit-3');
-
-        // Stop in background
-        html5QrCode.stop().then(() => {
-            console.log("Scanner stopped successfully.");
-            // html5QrCode.clear(); // Optional cleanup
-        }).catch(err => {
-            console.warn("Scanner stop error (ignored as UI is already updated):", err);
-        });
-
-    }).catch(err => {
-        // console.error(err);
-        if (!barcodeLock) {
-            alert("Camera error: " + err);
-            // Fallback / Exit logic?
+            // Show Wizard Confirmation Step
             document.getElementById('guided-wizard-overlay').style.display = 'flex';
+            document.getElementById('gw-barcode-display').innerText = code;
+            gwData.barcode = code;
+            setGwView('gw-view-edit-3');
+
+            // Stop in background
+            html5QrCode.stop().then(() => {
+                console.log("Scanner stopped.");
+                html5QrCode.clear(); // Important to free resources
+            }).catch(e => console.warn(e));
+
+        }).catch(err => {
+            // If error is "Scanning is already in progress", ignore it or retry?
+            console.error("Start Error: ", err);
+            if (!barcodeLock) {
+                alert("Scanner Error: " + err);
+                document.getElementById('mode-scan').style.display = 'none';
+                document.getElementById('guided-wizard-overlay').style.display = 'flex';
+            }
+        });
+    };
+
+    // Attempt to stop/clear existing instance before starting
+    if (html5QrCode) {
+        if (html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                html5QrCode.clear().then(startScanner);
+            }).catch(() => {
+                // Force clear if stop fails
+                startScanner();
+            });
+        } else {
+            startScanner();
         }
-    });
+    } else {
+        startScanner();
+    }
 }
 
 // Initialize
