@@ -1395,6 +1395,10 @@ const GlobalScanner = {
         try {
             await GlobalScanner.stop(); // Force cleanup first
 
+            // Ensure DOM element is clean/ready
+            const reader = document.getElementById('reader');
+            if (reader) reader.innerHTML = "";
+
             // Re-init
             GlobalScanner.instance = new Html5Qrcode("reader");
             GlobalScanner.isScanning = true;
@@ -1413,13 +1417,17 @@ const GlobalScanner = {
         }
     },
 
-    // SAFE STOP: Checks state, stops, clears
+    // SAFE STOP: Checks state, stops, clears (with Timeout)
     stop: async () => {
         if (!GlobalScanner.instance) return;
 
         try {
             if (GlobalScanner.instance.isScanning) {
-                await GlobalScanner.instance.stop();
+                // Race: Stop vs Timeout (force kill after 1s)
+                const stopPromise = GlobalScanner.instance.stop();
+                const timeoutPromise = new Promise(resolve => setTimeout(resolve, 1000));
+
+                await Promise.race([stopPromise, timeoutPromise]);
             }
             // Always clear
             GlobalScanner.instance.clear();
@@ -1437,15 +1445,40 @@ document.getElementById('scan-nav-btn').onclick = () => {
     window.showView('scanner-screen');
     window.toggleAddMode('scan');
 
+    // Reset any previous specific UI states
+    const resultDiv = document.getElementById('scanned-result');
+    if (resultDiv) resultDiv.style.display = 'none';
+
+    // Lock flag for this session
+    let sessionLock = false;
+
     GlobalScanner.start((text) => {
-        // FOUND
-        // 1. HARD STOP UI Handling within the specific scanner logic if needed, 
-        // or just rely on manager stop.
-        // For Normal Scanner, we stop immediately upon find.
+        if (sessionLock) return;
+        sessionLock = true;
+
+        // HARD STOP UI PATTERN
+        // 1. Hide Scanner View Immediately
+        // window.showView('dashboard-screen'); // Or just hide reader?
+        // Better: Keep screen but overlay result.
+        // Actually fitnit uses "scanner-screen" as a full page.
+        // We should probably hide the reader div or switch view.
+        // Let's hide the reader to be safe.
+        document.getElementById('reader').style.display = 'none';
+
+        processNormalScan(text);
+
+        // 2. Stop in background
         GlobalScanner.stop().then(() => {
-            processNormalScan(text);
+            // Restore display for next time?
+            document.getElementById('reader').style.display = 'block';
+        }).catch(e => {
+            console.warn(e);
+            document.getElementById('reader').style.display = 'block';
         });
+
     }, (err) => {
+        // Only alert if we really failed to start, not frame errors
+        if (err?.toString().includes("started")) return;
         alert("Scanner Error: " + err);
     });
 };
@@ -1484,9 +1517,16 @@ function processNormalScan(text) {
                             image: d.product.image_url || ""
                         };
                         showConfirm();
+                    } else {
+                        alert("Item not found. Try custom entry.");
+                        window.showView('dashboard-screen');
                     }
                 })
-                .catch(error => { console.error("OFF Error", error); });
+                .catch(error => {
+                    console.error("OFF Error", error);
+                    alert("Network error.");
+                    window.showView('dashboard-screen');
+                });
         }
     });
 }
