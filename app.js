@@ -1802,185 +1802,194 @@ window.showFoodDetails = (item) => {
     m.style.display = 'flex';
 }
 
-// --- ENHANCED SMART SCANNER (INTERACTIVE WIZARD) ---
-let scanStep = 0; // 0=Macros, 1=Name, 2=Barcode
-let tempScanData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "" };
+// --- GUIDED SCANN NER WIZARD LOGIC ---
+let gwStep = 1;
+let gwData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "", barcode: "" };
+let barcodeLock = false; // Prevent double scans
 
-// Helper: Show Wizard Modal Step
-const showWizard = (step) => {
-    const modal = document.getElementById('scanner-wizard-modal');
-    const title = document.getElementById('wiz-title');
-    const s1 = document.getElementById('wiz-step-1');
-    const s2 = document.getElementById('wiz-step-2');
-
-    modal.style.display = 'flex';
-    s1.style.display = 'none';
-    s2.style.display = 'none';
-
-    if (step === 1) {
-        title.innerText = "Step 1: Check Macros";
-        s1.style.display = 'block';
-        // Pre-fill
-        document.getElementById('wiz-cals').value = tempScanData.calories || "";
-        document.getElementById('wiz-prot').value = tempScanData.protein || "";
-        document.getElementById('wiz-carb').value = tempScanData.carbs || "";
-        document.getElementById('wiz-fat').value = tempScanData.fat || "";
-        document.getElementById('wiz-sugar').value = tempScanData.sugar || "";
-    } else if (step === 2) {
-        title.innerText = "Step 2: Check Name";
-        s2.style.display = 'block';
-        // Pre-fill
-        document.getElementById('wiz-name').value = tempScanData.name || "";
-    }
+const GW_STEPS = {
+    1: { title: "Step 1: Nutrition", desc: "Take a clear picture of the Nutrition Facts table.", action: "Scan Nutrition Labels", icon: "https://cdn-icons-png.flaticon.com/512/3063/3063822.png" }, // Placeholder icon
+    2: { title: "Step 2: Product Name", desc: "Take a clear picture of the Product Name on the package.", action: "Scan Name", icon: "https://cdn-icons-png.flaticon.com/512/1040/1040241.png" },
+    3: { title: "Step 3: Barcode", desc: "Scan the product barcode to link it.", action: "Scan Barcode", icon: "https://cdn-icons-png.flaticon.com/512/241/241528.png" }
 };
 
-window.closeWizard = () => {
-    document.getElementById('scanner-wizard-modal').style.display = 'none';
+window.closeGuidedWizard = () => {
+    document.getElementById('guided-wizard-overlay').style.display = 'none';
+};
+
+// HELPER: Switch View within Modal
+const setGwView = (viewId) => {
+    ['gw-view-instruction', 'gw-view-loading', 'gw-view-edit-1', 'gw-view-edit-2', 'gw-view-edit-3'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+    document.getElementById(viewId).style.display = 'block';
+};
+
+const updateGwUI = () => {
+    const s = GW_STEPS[gwStep];
+    document.getElementById('gw-step-title').innerText = s.title;
+    document.getElementById('gw-step-desc').innerText = s.desc;
+    // document.getElementById('gw-step-image').src = s.icon; // Use local assets or material icons
+
+    // Update Dots
+    [1, 2, 3].forEach(n => {
+        document.getElementById(`dot-${n}`).className = `dot ${n === gwStep ? 'active' : ''}`;
+        document.getElementById(`dot-${n}`).style.opacity = n === gwStep ? 1 : 0.5;
+    });
+
+    setGwView('gw-view-instruction');
 };
 
 const initSmartScanner = () => {
-    const btnReader = document.getElementById('btn-read-label');
+    const btnStart = document.getElementById('btn-read-label');
     const inputReader = document.getElementById('label-image-input');
-    const statusDiv = document.getElementById('scan-status');
 
-    if (!btnReader || !inputReader) return;
+    // Override Main Button to Open Wizard
+    if (btnStart) {
+        btnStart.onclick = () => {
+            gwStep = 1;
+            gwData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "", barcode: "" };
+            document.getElementById('guided-wizard-overlay').style.display = 'flex';
+            updateGwUI();
+        };
+    }
 
-    // --- WIZARD BUTTON HANDLERS ---
-    // STEP 1 NEXT (Save Macros -> Go to Name Scan)
-    document.getElementById('btn-wiz-next-1').onclick = () => {
-        // Save Edited Data
-        tempScanData.calories = Number(document.getElementById('wiz-cals').value);
-        tempScanData.protein = Number(document.getElementById('wiz-prot').value);
-        tempScanData.carbs = Number(document.getElementById('wiz-carb').value);
-        tempScanData.fat = Number(document.getElementById('wiz-fat').value);
-        tempScanData.sugar = Number(document.getElementById('wiz-sugar').value);
-
-        // Hide Modal & Prepare for Step 2
-        closeWizard();
-        scanStep = 1;
-        btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Name';
-        statusDiv.style.display = 'block';
-        statusDiv.innerText = "Step 2: Tap to Capture Product Name";
-    };
-
-    // STEP 2 NEXT (Save Name -> Go to Barcode Scan)
-    document.getElementById('btn-wiz-next-2').onclick = () => {
-        // Save Edited Data
-        tempScanData.name = document.getElementById('wiz-name').value;
-
-        // Hide Modal & Prepare for Step 3
-        closeWizard();
-        scanStep = 2;
-        btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">qr_code_scanner</i> Scan Barcode';
-        statusDiv.innerText = "Step 3: Tap to Scan Barcode";
-    };
-
-    // MAIN BUTTON CLICK
-    btnReader.onclick = () => {
-        if (scanStep === 2) {
-            startBarcodeScanForLink();
+    // WIZARD ACTION BUTTON (The "Scan Now" button inside modal)
+    document.getElementById('gw-btn-action').onclick = () => {
+        if (gwStep === 3) {
+            startGuidedBarcodeScan();
         } else {
-            inputReader.click(); // Trigger Camera
+            inputReader.click();
         }
     };
 
-    // FILE INPUT CHANGE (OCR)
-    inputReader.onchange = async (e) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
+    // CONFIRM BUTTONS
+    document.getElementById('gw-btn-confirm-1').onclick = () => {
+        gwData.calories = Number(document.getElementById('gw-cals').value) || 0;
+        gwData.protein = Number(document.getElementById('gw-prot').value) || 0;
+        gwData.carbs = Number(document.getElementById('gw-carb').value) || 0;
+        gwData.fat = Number(document.getElementById('gw-fat').value) || 0;
+        gwData.sugar = Number(document.getElementById('gw-sugar').value) || 0;
 
-        btnReader.disabled = true;
-        const originalText = btnReader.innerHTML;
-        btnReader.innerHTML = "Processing...";
-
-        try {
-            const processed = await preprocessImage(file);
-            const worker = await Tesseract.createWorker('eng');
-            const { data: { text } } = await worker.recognize(processed);
-            await worker.terminate();
-
-            if (scanStep === 0) {
-                // Step 1 Output: Macros
-                const findVal = (regex) => { const m = text.match(regex); return m ? parseFloat(m[1]) : 0; };
-
-                tempScanData.calories = findVal(/Calories\D*(\d+)/i) || findVal(/Energy\D*(\d+)/i) || 0;
-                tempScanData.protein = findVal(/Protein\D*(\d+)g?/i) || 0;
-                tempScanData.carbs = findVal(/Total Carb\w*\D*(\d+)g?/i) || findVal(/Carbohydrate\D*(\d+)g?/i) || 0;
-                tempScanData.fat = findVal(/Total Fat\D*(\d+)g?/i) || findVal(/Fat\D*(\d+)g?/i) || 0;
-                tempScanData.sugar = findVal(/Total Sugars?\D*(\d+)g?/i) || findVal(/Sugars?\D*(\d+)g?/i) || 0;
-
-                // SHOW WIZARD STEP 1 (Instead of Alert)
-                showWizard(1);
-
-            } else if (scanStep === 1) {
-                // Step 2 Output: Name
-                const lines = text.split('\n').filter(l => l.trim().length > 3);
-                tempScanData.name = lines[0] || "Scanned Item";
-                tempScanData.name = tempScanData.name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
-
-                // SHOW WIZARD STEP 2
-                showWizard(2);
-            }
-
-        } catch (err) {
-            console.error(err);
-            alert("Error reading image. Try again.");
-        } finally {
-            if (scanStep !== 2) {
-                btnReader.disabled = false;
-                // Restore button text is handled by the Wizard Flow transitions mostly, 
-                // but if error occurred we might want to reset? 
-                // Actually the wizard updates the button text.
-                // Just reset processing state.
-                btnReader.innerHTML = (scanStep === 0) ? '<i class="material-icons" style="vertical-align:middle; font-size:18px;">camera_alt</i> Scan Label' : btnReader.innerHTML;
-                if (scanStep === 1) btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Name';
-            } else {
-                btnReader.disabled = false;
-            }
-            inputReader.value = "";
-        }
+        gwStep = 2;
+        updateGwUI();
     };
+
+    document.getElementById('gw-btn-confirm-2').onclick = () => {
+        gwData.name = document.getElementById('gw-name').value || "Scanned Item";
+
+        gwStep = 3;
+        updateGwUI();
+    };
+
+    document.getElementById('gw-btn-finish').onclick = () => {
+        // Fill Main Form
+        document.getElementById('c-name').value = gwData.name;
+        document.getElementById('c-cals').value = gwData.calories;
+        document.getElementById('c-prot').value = gwData.protein;
+        document.getElementById('c-carb').value = gwData.carbs;
+        document.getElementById('c-fat').value = gwData.fat;
+        document.getElementById('c-sugar').value = gwData.sugar;
+        document.getElementById('c-barcode').value = gwData.barcode;
+
+        closeGuidedWizard();
+
+        if (window.toggleAddMode) window.toggleAddMode('custom');
+        setupCustomSubmit(); // Re-bind
+
+        // Show Success Toast?
+    };
+
+    // FILE INPUT CHANGE (OCR PROCESSOR)
+    if (inputReader) {
+        inputReader.onchange = async (e) => {
+            if (!e.target.files || e.target.files.length === 0) return;
+
+            // Show Loading
+            setGwView('gw-view-loading');
+
+            const file = e.target.files[0];
+            try {
+                const processed = await preprocessImage(file);
+                const worker = await Tesseract.createWorker('eng');
+                const { data: { text } } = await worker.recognize(processed);
+                await worker.terminate();
+
+                if (gwStep === 1) {
+                    // Extract Macros
+                    const findVal = (regex) => { const m = text.match(regex); return m ? parseFloat(m[1]) : 0; };
+                    gwData.calories = findVal(/Calories\D*(\d+)/i) || 0;
+                    gwData.protein = findVal(/Protein\D*(\d+)g?/i) || 0;
+                    gwData.carbs = findVal(/Total Carb\w*\D*(\d+)g?/i) || 0;
+                    gwData.fat = findVal(/Total Fat\D*(\d+)g?/i) || 0;
+                    gwData.sugar = findVal(/Total Sugars?\D*(\d+)g?/i) || findVal(/Sugars?\D*(\d+)g?/i) || 0;
+
+                    // Populate & Show Verify View
+                    document.getElementById('gw-cals').value = gwData.calories;
+                    document.getElementById('gw-prot').value = gwData.protein;
+                    document.getElementById('gw-carb').value = gwData.carbs;
+                    document.getElementById('gw-fat').value = gwData.fat;
+                    document.getElementById('gw-sugar').value = gwData.sugar;
+
+                    setGwView('gw-view-edit-1');
+
+                } else if (gwStep === 2) {
+                    // Extract Name
+                    const lines = text.split('\n').filter(l => l.trim().length > 3);
+                    gwData.name = lines[0] || "Unknown Item";
+                    gwData.name = gwData.name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+
+                    document.getElementById('gw-name').value = gwData.name;
+                    setGwView('gw-view-edit-2');
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert("Scan failed. Please try again.");
+                updateGwUI(); // Go back to instruction
+            }
+            inputReader.value = ""; // Reset
+        };
+    }
 };
 
-function startBarcodeScanForLink() {
-    const readerDiv = document.getElementById('reader');
-    if (!readerDiv) return;
+// FIXED BARCODE SCANNER
+function startGuidedBarcodeScan() {
+    barcodeLock = false; // Reset Lock
+
+    // We basically need to "Hide" the wizard temporarily or overlay the camera?
+    // Actually, fitnit uses full screen camera div "reader". 
+    // We can hide the modal content but keep overlay? Or just hide modal.
+    document.getElementById('guided-wizard-overlay').style.display = 'none';
 
     document.getElementById('mode-scan').style.display = 'block';
-    const btn = document.getElementById('btn-read-label');
-    const statusDiv = document.getElementById('scan-status');
-    btn.style.display = 'none';
-    statusDiv.style.display = 'none'; // Hide status during FS scan
+    const readerDiv = document.getElementById('reader'); // Ensure this is visible/sized
 
     if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (barcode) => {
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (code) => {
+        if (barcodeLock) return; // Ignore if already found
+        barcodeLock = true;
+
+        // BEEP? (Optional)
+        // const audio = new Audio('beep.mp3'); audio.play().catch(()=>{});
+
         html5QrCode.stop().then(() => {
-            // FINISH: Fill Main Form with verified data
-            document.getElementById('c-name').value = tempScanData.name;
-            document.getElementById('c-cals').value = tempScanData.calories;
-            document.getElementById('c-prot').value = tempScanData.protein;
-            document.getElementById('c-carb').value = tempScanData.carbs;
-            document.getElementById('c-fat').value = tempScanData.fat;
-            document.getElementById('c-sugar').value = tempScanData.sugar;
-            document.getElementById('c-barcode').value = barcode;
+            document.getElementById('mode-scan').style.display = 'none'; // Hide Camera UI
 
-            // Switch to Custom View
-            if (window.toggleAddMode) window.toggleAddMode('custom');
+            gwData.barcode = code;
 
-            // Re-bind save button just in case
-            setupCustomSubmit();
+            // Re-open Wizard
+            document.getElementById('guided-wizard-overlay').style.display = 'flex';
+            document.getElementById('gw-barcode-display').innerText = code;
+            setGwView('gw-view-edit-3');
 
-            // Allow User to Edit Final Form
-            // Reset Wizard State for next time
-            scanStep = 0;
-            btn.style.display = 'inline-block';
-            btn.innerHTML = '<i class="material-icons" style="vertical-align:middle; font-size:18px;">camera_alt</i> Scan Label';
-            statusDiv.innerText = "";
-
-            alert(`Wizard Complete! Barcode linked.\nReview details and hit Save.`);
+        }).catch(err => {
+            barcodeLock = false;
         });
-    }).catch(err => { });
+    }).catch(err => {
+        // console.error(err);
+    });
 }
 
 // Initialize

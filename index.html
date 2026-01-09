@@ -472,37 +472,74 @@
         </div>
     </div>
 
-    <!-- SCANNER WIZARD MODAL -->
-    <div id="scanner-wizard-modal" class="modal-overlay" style="display:none; align-items:flex-end;">
-        <div class="modal-content card"
-            style="width:100%; border-radius:15px 15px 0 0; padding:20px; animation: slideUp 0.3s ease;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 id="wiz-title" style="margin:0; color:#8e44ad;">Step 1: Verify Macros</h3>
-                <span onclick="closeWizard()" style="font-size:24px; color:#aaa;">&times;</span>
+    <!-- GUIDED SCANNER WIZARD OVERLAY -->
+    <div id="guided-wizard-overlay" class="modal-overlay"
+        style="display:none; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.95); z-index:9999;">
+
+        <!-- HEADER -->
+        <div style="width:90%; display:flex; justify-content:space-between; color:white; margin-bottom:20px;">
+            <h2 id="gw-step-title" style="margin:0;">Step 1: Nutrition</h2>
+            <span onclick="closeGuidedWizard()" style="font-size:24px; cursor:pointer;">&times;</span>
+        </div>
+
+        <!-- CONTENT CARD -->
+        <div class="card" style="width:90%; max-width:400px; padding:20px; text-align:center;">
+
+            <!-- INSTRUCTION VIEW -->
+            <div id="gw-view-instruction">
+                <img id="gw-step-image" src="" style="width:80px; height:80px; margin-bottom:15px; opacity:0.8;">
+                <p id="gw-step-desc" style="font-size:16px; margin-bottom:20px; color:#555;">Take a clear photo of the
+                    Nutrition Facts label.</p>
+                <button id="gw-btn-action" style="background:#8e44ad; width:100%; padding:15px; font-size:18px;">
+                    <i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Now
+                </button>
             </div>
 
-            <!-- Step 1 Inputs (Macros) -->
-            <div id="wiz-step-1" style="display:none; margin-top:15px;">
+            <!-- PROCESSING VIEW -->
+            <div id="gw-view-loading" style="display:none;">
+                <div class="spinner" style="margin:20px auto;"></div>
+                <p>Analyzing Image...</p>
+                <small style="color:#777;">Please wait</small>
+            </div>
+
+            <!-- EDIT/VERIFY VIEW (Step 1: Macros) -->
+            <div id="gw-view-edit-1" style="display:none; text-align:left;">
+                <p style="text-align:center; margin-top:0;"><strong>Check & Correct Values</strong></p>
                 <div class="highlight-grid">
-                    <input type="number" id="wiz-cals" placeholder="Calories">
-                    <input type="number" id="wiz-prot" placeholder="Protein (g)">
-                    <input type="number" id="wiz-carb" placeholder="Carbs (g)">
-                    <input type="number" id="wiz-fat" placeholder="Fat (g)">
-                    <input type="number" id="wiz-sugar" placeholder="Sugar (g)">
+                    <label>Cals <input type="number" id="gw-cals"></label>
+                    <label>Prot (g) <input type="number" id="gw-prot"></label>
+                    <label>Crbs (g) <input type="number" id="gw-carb"></label>
+                    <label>Fat (g) <input type="number" id="gw-fat"></label>
+                    <label>Sgr (g) <input type="number" id="gw-sugar"></label>
                 </div>
-                <button id="btn-wiz-next-1" style="background:#8e44ad; width:100%; margin-top:10px;">Next: Scan Name
-                    &rarr;</button>
+                <button id="gw-btn-confirm-1" style="background:#27ae60; width:100%; margin-top:15px; padding:12px;">✅
+                    Looks Good, Next</button>
             </div>
 
-            <!-- Step 2 Input (Name) -->
-            <div id="wiz-step-2" style="display:none; margin-top:15px;">
-                <input type="text" id="wiz-name" placeholder="Product Name"
-                    style="width:100%; padding:10px; font-size:16px;">
-                <button id="btn-wiz-next-2" style="background:#8e44ad; width:100%; margin-top:10px;">Next: Scan Barcode
-                    &rarr;</button>
+            <!-- EDIT/VERIFY VIEW (Step 2: Name) -->
+            <div id="gw-view-edit-2" style="display:none; text-align:left;">
+                <p style="text-align:center; margin-top:0;"><strong>Verify Product Name</strong></p>
+                <input type="text" id="gw-name" style="width:100%; padding:10px; font-size:16px; margin-bottom:10px;">
+                <button id="gw-btn-confirm-2" style="background:#27ae60; width:100%; margin-top:5px; padding:12px;">✅
+                    Confirm Name</button>
             </div>
-            <p style="text-align:center; margin-top:10px; font-size:12px; color:#777;">Please correct any errors before
-                continuing.</p>
+
+            <!-- EDIT/VERIFY VIEW (Step 3: Barcode) -->
+            <div id="gw-view-edit-3" style="display:none; text-align:center;">
+                <i class="material-icons" style="font-size:48px; color:#27ae60;">check_circle</i>
+                <p><strong>Barcode Linked!</strong></p>
+                <p id="gw-barcode-display" style="font-family:monospace; background:#eee; padding:5px;"></p>
+                <button id="gw-btn-finish" style="background:#3498db; width:100%; margin-top:15px; padding:12px;">🏁
+                    Finish & Save</button>
+            </div>
+
+        </div>
+
+        <!-- PROGRESS DOTS -->
+        <div style="display:flex; justify-content:center; margin-top:20px; gap:10px;">
+            <div id="dot-1" class="dot active"></div>
+            <div id="dot-2" class="dot"></div>
+            <div id="dot-3" class="dot"></div>
         </div>
     </div>
 
