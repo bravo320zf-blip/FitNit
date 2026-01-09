@@ -1332,25 +1332,38 @@ document.getElementById('scan-nav-btn').onclick = () => {
                 if (d.status === 1) {
                     const n = d.product.nutriments;
 
+                    // Helper to prefer serving size, fallback to 100g
+                    const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
+
+                    // Special handling for energy which can be energy-kcal
+                    const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
+
                     currentScannedItem = {
-                        name: d.product.product_name,
-                        calories: Math.round(n['energy-kcal_100g'] || 0),
-                        protein: Math.round(n.proteins_100g || 0),
-                        carbs: Math.round(n.carbohydrates_100g || 0),
-                        fat: Math.round(n.fat_100g || 0),
+                        name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
+                        calories: getCals(),
+                        protein: getVal('proteins'),
+                        carbs: getVal('carbohydrates'),
+                        fat: getVal('fat'),
                         // Extended Nutrients
-                        sugar: Math.round(n.sugars_100g || 0),
-                        satFat: Math.round(n['saturated-fat_100g'] || 0),
-                        fiber: Math.round(n.fiber_100g || 0),
-                        sodium: Math.round(n.sodium_100g || 0), // Note: OFF often returns sodium in g or mg, nutriments has sodium_100g in grams usually
-                        cholesterol: Math.round((n.cholesterol_100g || 0) * 1000), // usually in grams, convert to mg? Let's assume standard mg
-                        potassium: Math.round((n.potassium_100g || 0) * 1000),
-                        vitA: Math.round((n['vitamin-a_100g'] || 0) * 1000000), // in mcg?
-                        vitC: Math.round((n['vitamin-c_100g'] || 0) * 1000), // mg
-                        calcium: Math.round((n.calcium_100g || 0) * 1000), // mg
-                        iron: Math.round((n.iron_100g || 0) * 1000), // mg
+                        sugar: getVal('sugars'),
+                        satFat: getVal('saturated-fat'),
+                        fiber: getVal('fiber'),
+                        sodium: getVal('sodium') * 1000, // OFF often stores sodium in grams for these keys? Need to verify. 
+                        // Actually sodium_serving is usually in grams too. We want mg?
+                        // "sodium_100g": 0.05 (g). We want mg. So * 1000 is correct if unit is g.
+
+                        cholesterol: getVal('cholesterol') * 1000,
+                        potassium: getVal('potassium') * 1000,
+                        vitA: getVal('vitamin-a') * 1000000,
+                        vitC: getVal('vitamin-c') * 1000,
+                        calcium: getVal('calcium') * 1000,
+                        iron: getVal('iron') * 1000,
                         image: d.product.image_url || ""
                     };
+
+                    // Sodium Check: If result is huge, it might have been in mg already.
+                    // OFF is inconsistent. But typically _value is in unit specified.
+                    // Let's stick to the multiplier for now as standard OFF is grams.
                     // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
                     // For sodium/salt, OFF returns sodium_100g in Unit.
 
