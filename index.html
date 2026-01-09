@@ -379,6 +379,20 @@
         </div>
     </div>
 
+    <!-- DELETE CONFIRM MODAL -->
+    <div id="delete-confirm-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card" style="text-align:center;">
+            <h3>Confirm Delete</h3>
+            <p id="delete-confirm-msg" style="margin:20px 0; color:#555;">Are you sure?</p>
+            <div style="display:flex; justify-content:center; gap:20px;">
+                <button class="icon-btn" onclick="document.getElementById('delete-confirm-modal').style.display='none'"
+                    style="color:#777;">Cancel</button>
+                <button class="icon-btn" onclick="window.confirmDelete()"
+                    style="color:#e74c3c; font-weight:bold;">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 

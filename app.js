@@ -341,9 +341,7 @@ function renderDietHistory(diary) {
                 delBtn.style.borderRadius = "4px";
                 delBtn.onclick = (e) => {
                     e.stopPropagation();
-                    if (confirm(`Remove ${i.name}?`)) {
-                        window.deleteFoodItem(date, type, key);
-                    }
+                    window.promptDeleteFoodItem(date, type, key, i.name);
                 };
 
                 itemEl.appendChild(leftDiv);
@@ -1333,9 +1331,22 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
 }
 
 // --- DELETE & DETAILS ACTIONS ---
-window.deleteFoodItem = (date, type, key) => {
-    set(ref(db, `users/${auth.currentUser.uid}/diary/${date}/${type}/${key}`), null);
-};
+// --- DELETE & DETAILS ACTIONS ---
+
+window.promptDeleteFoodItem = (date, type, key, name) => {
+    window.pendingDelete = { date, type, key };
+    document.getElementById('delete-confirm-msg').innerText = `Remove ${name}?`;
+    document.getElementById('delete-confirm-modal').style.display = 'flex';
+}
+
+window.confirmDelete = () => {
+    if (window.pendingDelete) {
+        const { date, type, key } = window.pendingDelete;
+        set(ref(db, `users/${auth.currentUser.uid}/diary/${date}/${type}/${key}`), null);
+        window.pendingDelete = null;
+    }
+    document.getElementById('delete-confirm-modal').style.display = 'none';
+}
 
 window.showFoodDetails = (item) => {
     const m = document.getElementById('food-details-modal');
