@@ -613,6 +613,19 @@ function renderAchievements(earned, pinned) {
     }
 }
 
+// --- ACHIEVEMENT MODAL LOGIC ---
+const achModal = document.getElementById('achievement-details-modal');
+
+function showAchievementDetails(a, earnedAt) {
+    if (!achModal) return;
+    document.getElementById('ach-detail-icon').src = a.image;
+    document.getElementById('ach-detail-name').innerText = a.name;
+    document.getElementById('ach-detail-desc').innerText = a.desc;
+    document.getElementById('ach-detail-date').innerText = earnedAt ? `Earned on ${new Date(earnedAt).toLocaleDateString()}` : "Locked";
+    document.getElementById('ach-detail-date').style.color = earnedAt ? 'var(--primary-color)' : '#777';
+    achModal.style.display = 'flex';
+}
+
 function renderAllAchievements(earned, pinned) {
     const list = document.getElementById('all-achievements-list');
     list.innerHTML = "";
@@ -623,28 +636,41 @@ function renderAllAchievements(earned, pinned) {
         const item = document.createElement('div');
         item.style.textAlign = "center";
         item.style.position = "relative";
-        item.style.opacity = isUnlocked ? "1" : "0.3";
-        // Pin icon
-        const pinIcon = isPinned ? `<i class="material-icons" style="position:absolute; top:0; right:0; font-size:14px; color:orange;">push_pin</i>` : '';
+        item.style.opacity = isUnlocked ? "1" : "0.5";
+        item.style.padding = "10px";
+        item.style.borderRadius = "8px";
+        item.style.background = isUnlocked ? "rgba(255,255,255,0.05)" : "transparent";
 
-        // USE IMAGE
-        item.innerHTML = `${pinIcon}<img src="${a.image}" style="width:40px; height:40px;"><br><small>${a.name}</small>`;
+        const pinIcon = isPinned ? `<i class="material-icons" style="position:absolute; top:5px; right:5px; font-size:16px; color:orange;">push_pin</i>` : '';
 
-        item.onclick = () => {
-            if (!isUnlocked) return alert("Locked!");
-            // Toggle pin (optimistic + save)
-            let newPinned = pinned ? [...pinned] : [];
-            if (newPinned.includes(a.id)) {
-                newPinned = newPinned.filter(id => id !== a.id);
-            } else {
-                if (newPinned.length >= 3) return alert("You can only pin 3 achievements!");
-                newPinned.push(a.id);
-            }
-            // Save
-            update(ref(db, `users/${auth.currentUser.uid}/settings`), { pinned_achievements: newPinned });
-            // Re-render
-            renderAllAchievements(earned, newPinned);
+        item.innerHTML = `${pinIcon}<img src="${a.image}" style="width:50px; height:50px;"><br><small>${a.name}</small>`;
+
+        // LONG PRESS LOGIC for PIN
+        let pressTimer;
+        item.onmousedown = item.ontouchstart = function () {
+            pressTimer = setTimeout(() => {
+                if (!isUnlocked) return;
+                // Toggle Pin
+                let newPinned = pinned ? [...pinned] : [];
+                if (newPinned.includes(a.id)) {
+                    newPinned = newPinned.filter(id => id !== a.id);
+                } else {
+                    if (newPinned.length >= 3) return alert("max 3 pins");
+                    newPinned.push(a.id);
+                }
+                update(ref(db, `users/${auth.currentUser.uid}/settings`), { pinned_achievements: newPinned });
+                // Optimistic update
+                renderAllAchievements(earned, newPinned);
+            }, 800);
         };
+        item.onmouseup = item.ontouchend = function () {
+            clearTimeout(pressTimer);
+        };
+        item.onclick = (e) => {
+            // Prevent click if long press triggered? (simplest is just show details)
+            showAchievementDetails(a, isUnlocked ? earned[a.id].unlockedAt : null);
+        };
+
         list.appendChild(item);
     });
 }
@@ -875,177 +901,184 @@ document.getElementById('save-profile-btn').onclick = async () => {
 
     if (!h || !wLbs || !a) return alert("Log weight in Weight Tab first!");
 
-    const wKg = wLbs * 0.453592;
-    let bmr = (10 * wKg) + (6.25 * h) - (5 * a);
-    bmr = (g === 'male') ? bmr + 5 : bmr - 161;
-    let target = Math.round((bmr * act) - 500);
+    // 2. Save Settings
+    document.getElementById('save-profile-btn').onclick = async () => {
+        const h = Number(document.getElementById('s-height').value);
+        const w = Number(document.getElementById('s-weight').value);
+        const a = Number(document.getElementById('s-age').value);
+        const g = document.getElementById('s-gender').value;
+        const act = Number(document.getElementById('s-activity').value);
 
-    const updates = {};
-    updates[`users/${auth.currentUser.uid}/goals`] = {
-        calories: target, protein: Math.round((target * 0.3) / 4), carbs: Math.round((target * 0.4) / 4), fat: Math.round((target * 0.3) / 9),
-        height: h, age: a, gender: g, activity: act
+        // Validate
+        if (!h || !a) return alert("Please enter Height and Age.");
+
+        const updates = {};
+        updates[`users/${auth.currentUser.uid}/goals`] = {
+            calories: target, protein: Math.round((target * 0.3) / 4), carbs: Math.round((target * 0.4) / 4), fat: Math.round((target * 0.3) / 9),
+            height: h, age: a, gender: g, activity: act
+        };
+        // Update central directory for search
+        updates[`public_users/${auth.currentUser.uid}`] = {
+            name: displayName,
+            email: auth.currentUser.email, // Be careful with privacy, maybe just public display
+            uid: auth.currentUser.uid
+        };
+
+        update(ref(db), updates).then(() => alert("Profile & Goals Saved!"));
     };
-    // Update central directory for search
-    updates[`public_users/${auth.currentUser.uid}`] = {
-        name: displayName,
-        email: auth.currentUser.email, // Be careful with privacy, maybe just public display
-        uid: auth.currentUser.uid
-    };
 
-    update(ref(db), updates).then(() => alert("Profile & Goals Saved!"));
-};
+    // --- SOCIAL FEATURES ---
 
-// --- SOCIAL FEATURES ---
+    // 1. Search Users
+    document.getElementById('friend-search-btn').onclick = () => {
+        const q = document.getElementById('friend-search-input').value.toLowerCase();
+        const resultList = document.getElementById('friends-list-container');
+        resultList.innerHTML = "Searching...";
 
-// 1. Search Users
-document.getElementById('friend-search-btn').onclick = () => {
-    const q = document.getElementById('friend-search-input').value.toLowerCase();
-    const resultList = document.getElementById('friends-list-container');
-    resultList.innerHTML = "Searching...";
+        // In a real app, use a query. For prototype, fetching all public users (assuming small scale)
+        get(ref(db, 'public_users')).then(snap => {
+            resultList.innerHTML = "";
+            if (!snap.exists()) { resultList.innerHTML = "No users found."; return; }
 
-    // In a real app, use a query. For prototype, fetching all public users (assuming small scale)
-    get(ref(db, 'public_users')).then(snap => {
-        resultList.innerHTML = "";
-        if (!snap.exists()) { resultList.innerHTML = "No users found."; return; }
+            let found = false;
+            snap.forEach(child => {
+                const u = child.val();
+                if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
+                    if (u.uid === auth.currentUser.uid) return; // Don't show self
+                    found = true;
+                    const row = document.createElement('div');
+                    row.className = "meal-item";
+                    row.style.display = 'flex'; row.style.justifyContent = 'space-between';
+                    row.innerHTML = `<span><strong>${u.name}</strong></span>`;
 
-        let found = false;
-        snap.forEach(child => {
-            const u = child.val();
-            if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
-                if (u.uid === auth.currentUser.uid) return; // Don't show self
-                found = true;
-                const row = document.createElement('div');
-                row.className = "meal-item";
-                row.style.display = 'flex'; row.style.justifyContent = 'space-between';
-                row.innerHTML = `<span><strong>${u.name}</strong></span>`;
-
-                const btn = document.createElement('button');
-                btn.innerText = "Follow";
-                btn.onclick = () => followUser(u.uid, u.name);
-                row.appendChild(btn);
-                resultList.appendChild(row);
-            }
+                    const btn = document.createElement('button');
+                    btn.innerText = "Follow";
+                    btn.onclick = () => followUser(u.uid, u.name);
+                    row.appendChild(btn);
+                    resultList.appendChild(row);
+                }
+            });
+            if (!found) resultList.innerHTML = "No matches.";
         });
-        if (!found) resultList.innerHTML = "No matches.";
-    });
-};
-
-// 2. Follow User
-function followUser(targetUid, targetName) {
-    const myUid = auth.currentUser.uid;
-    const updates = {};
-    updates[`users/${myUid}/social/following/${targetUid}`] = true;
-    updates[`users/${targetUid}/social/followers/${myUid}`] = true;
-
-    // Notification for them
-    const notifRef = push(ref(db, `users/${targetUid}/notifications`));
-    updates[`users/${targetUid}/notifications/${notifRef.key}`] = {
-        type: 'follow', message: `${auth.currentUser.email.split('@')[0]} started following you!`, timestamp: Date.now(), read: false
     };
 
-    update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
-}
+    // 2. Follow User
+    function followUser(targetUid, targetName) {
+        const myUid = auth.currentUser.uid;
+        const updates = {};
+        updates[`users/${myUid}/social/following/${targetUid}`] = true;
+        updates[`users/${targetUid}/social/followers/${myUid}`] = true;
 
-// 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
-function renderSocialLists(socialData) {
-    // This requires fetching details for each ID, which is async. 
-    // For simplicity, we just List IDs or fetch names if we cache them.
-    // Ideally we listen to 'public_users' to map IDs to Names.
+        // Notification for them
+        const notifRef = push(ref(db, `users/${targetUid}/notifications`));
+        updates[`users/${targetUid}/notifications/${notifRef.key}`] = {
+            type: 'follow', message: `${auth.currentUser.email.split('@')[0]} started following you!`, timestamp: Date.now(), read: false
+        };
 
-    // TODO: Implement robust list rendering with names.
-    // For now, simpler implementation in UI or lazy load.
-}
+        update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
+    }
 
-let pressTimer;
-function setupLongPress(el, item) {
-    el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name), 800);
-    el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
-}
+    // 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
+    function renderSocialLists(socialData) {
+        // This requires fetching details for each ID, which is async. 
+        // For simplicity, we just List IDs or fetch names if we cache them.
+        // Ideally we listen to 'public_users' to map IDs to Names.
 
-// --- SEARCH & SCAN ---
-document.getElementById('btn-execute-search').onclick = () => {
-    const q = document.getElementById('search-input').value;
-    const list = document.getElementById('search-results-list');
-    list.innerHTML = "Searching...";
-    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&json=true&page_size=20`)
-        .then(r => r.json()).then(d => {
-            list.innerHTML = "";
-            d.products.forEach(p => {
-                const n = p.nutriments;
-                const food = { name: p.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
+        // TODO: Implement robust list rendering with names.
+        // For now, simpler implementation in UI or lazy load.
+    }
+
+    let pressTimer;
+    function setupLongPress(el, item) {
+        el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name), 800);
+        el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
+    }
+
+    // --- SEARCH & SCAN ---
+    document.getElementById('btn-execute-search').onclick = () => {
+        const q = document.getElementById('search-input').value;
+        const list = document.getElementById('search-results-list');
+        list.innerHTML = "Searching...";
+        fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&json=true&page_size=20`)
+            .then(r => r.json()).then(d => {
+                list.innerHTML = "";
+                d.products.forEach(p => {
+                    const n = p.nutriments;
+                    const food = { name: p.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
+                    const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
+                    card.innerHTML = `<strong>${food.name}</strong><br><small>${food.calories} kcal</small>`;
+                    card.onclick = () => { currentScannedItem = food; showConfirm(); };
+                    list.appendChild(card);
+                });
+            });
+    };
+
+    function loadFoodList(path, elId) {
+        get(ref(db, `users/${auth.currentUser.uid}/${path}`)).then(s => {
+            const list = document.getElementById(elId); list.innerHTML = "";
+            if (!s.exists()) { list.innerHTML = "Empty"; return; }
+            Object.values(s.val()).forEach(f => {
                 const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
-                card.innerHTML = `<strong>${food.name}</strong><br><small>${food.calories} kcal</small>`;
-                card.onclick = () => { currentScannedItem = food; showConfirm(); };
+                card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
+                card.onclick = () => { currentScannedItem = f; showConfirm(); };
                 list.appendChild(card);
             });
         });
-};
-
-function loadFoodList(path, elId) {
-    get(ref(db, `users/${auth.currentUser.uid}/${path}`)).then(s => {
-        const list = document.getElementById(elId); list.innerHTML = "";
-        if (!s.exists()) { list.innerHTML = "Empty"; return; }
-        Object.values(s.val()).forEach(f => {
-            const card = document.createElement('div'); card.className = "card"; card.style.padding = "10px";
-            card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
-            card.onclick = () => { currentScannedItem = f; showConfirm(); };
-            list.appendChild(card);
-        });
-    });
-}
-
-function showConfirm() {
-    document.getElementById('scanned-result').style.display = 'block';
-    document.getElementById('food-name').innerText = currentScannedItem.name;
-    document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | ${currentScannedItem.protein}g P`;
-}
-
-document.getElementById('add-food-btn').onclick = () => {
-    const today = getToday();
-    const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
-    const clean = item.name.replace(/[.#$[\]]/g, "");
-    push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
-    update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
-    alert("Added!");
-    window.showView('dashboard-screen');
-};
-
-// --- WEIGHT & GRAPH ---
-document.getElementById('save-weight-btn').onclick = () => {
-    const w = parseFloat(document.getElementById('weight-input').value);
-    if (!w) return;
-    const today = getToday();
-    update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
-    set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
-    alert("Logged!");
-};
-
-// Helper to filter and update graph
-function updateWeightFilter(days) {
-    window._weightRange = days;
-    if (!window._fullWeightHistory) return;
-
-    // Calculate cutoff date
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
-
-    // Filter
-    const filtered = {};
-    Object.keys(window._fullWeightHistory).forEach(k => {
-        if (k >= cutoffStr) filtered[k] = window._fullWeightHistory[k];
-    });
-
-    updateWeightGraph(filtered);
-}
-
-// Add Filter Listener
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.onclick = (e) => {
-        const range = Number(e.target.dataset.range);
-        updateWeightFilter(range);
     }
-});
+
+    function showConfirm() {
+        document.getElementById('scanned-result').style.display = 'block';
+        document.getElementById('food-name').innerText = currentScannedItem.name;
+        document.getElementById('food-info').innerText = `${currentScannedItem.calories} kcal | ${currentScannedItem.protein}g P`;
+    }
+
+    document.getElementById('add-food-btn').onclick = () => {
+        const today = getToday();
+        const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
+        const clean = item.name.replace(/[.#$[\]]/g, "");
+        push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
+        update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
+        alert("Added!");
+        window.showView('dashboard-screen');
+    };
+
+    // --- WEIGHT & GRAPH ---
+    document.getElementById('save-weight-btn').onclick = () => {
+        const w = parseFloat(document.getElementById('weight-input').value);
+        if (!w) return;
+        const today = getToday();
+        update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
+        set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
+        alert("Logged!");
+    };
+
+    // Helper to filter and update graph
+    function updateWeightFilter(days) {
+        window._weightRange = days;
+        if (!window._fullWeightHistory) return;
+
+        // Calculate cutoff date
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        const cutoffStr = cutoff.toISOString().split('T')[0];
+
+        // Filter
+        const filtered = {};
+        Object.keys(window._fullWeightHistory).forEach(k => {
+            if (k >= cutoffStr) filtered[k] = window._fullWeightHistory[k];
+        });
+
+        updateWeightGraph(filtered);
+    }
+
+    // Add Filter Listener
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            const range = Number(e.target.dataset.range);
+            updateWeightFilter(range);
+        }
+    });
+} // End of updateWeightFilter listener
 
 function updateWeightGraph(history) {
     const ctx = document.getElementById('weightHistoryChart').getContext('2d');
@@ -1054,7 +1087,7 @@ function updateWeightGraph(history) {
     if (weightChart) weightChart.destroy();
 
     // Only show if we have data, else empty
-    if (sorted.length === 0 && weightChart) { weightChart.destroy(); return; }
+    if (sorted.length === 0) return;
 
     weightChart = new Chart(ctx, {
         type: 'line',
@@ -1066,13 +1099,17 @@ function updateWeightGraph(history) {
                 borderColor: '#3498db',
                 backgroundColor: 'rgba(52, 152, 219, 0.1)',
                 fill: true,
-                tension: 0.3
+                tension: 0.3,
+                pointRadius: 3
             }]
         },
         options: {
             responsive: true,
+            plugins: {
+                legend: { display: false } // HIDE LEGEND
+            },
             scales: {
-                y: { beginAtZero: false } // Better visual for weight fluctuations
+                y: { beginAtZero: false }
             }
         }
     });
@@ -1411,16 +1448,24 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
 // --- DELETE & DETAILS ACTIONS ---
 // --- DELETE & DETAILS ACTIONS ---
 
-window.promptDeleteFoodItem = (date, type, key, name) => {
-    window.pendingDelete = { date, type, key };
-    document.getElementById('delete-confirm-msg').innerText = `Remove ${name}?`;
+window.promptDeleteItem = (meta) => {
+    // meta: { category: 'food'|'workout', date, subType, key, name }
+    window.pendingDelete = meta;
+    document.getElementById('delete-confirm-msg').innerText = `Remove ${meta.name}?`;
     document.getElementById('delete-confirm-modal').style.display = 'flex';
 }
 
 window.confirmDelete = () => {
     if (window.pendingDelete) {
-        const { date, type, key } = window.pendingDelete;
-        set(ref(db, `users/${auth.currentUser.uid}/diary/${date}/${type}/${key}`), null);
+        const { category, date, subType, key } = window.pendingDelete;
+        const uid = auth.currentUser.uid;
+
+        if (category === 'food') {
+            set(ref(db, `users/${uid}/diary/${date}/${subType}/${key}`), null);
+        } else if (category === 'workout') {
+            set(ref(db, `users/${uid}/workouts/${date}/${key}`), null);
+        }
+
         window.pendingDelete = null;
     }
     document.getElementById('delete-confirm-modal').style.display = 'none';
