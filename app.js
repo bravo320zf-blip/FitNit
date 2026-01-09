@@ -246,48 +246,52 @@ function renderProfileScreen(data, isMe, ownerUid) {
 // --- ACHIEVEMENTS SYSTEM ---
 // Mapping generic types to our new custom assets
 const ICONS = {
-    SHOE: 'assets/icon_shoe.png',
-    SCALE: 'assets/icon_scale.png',
-    TROPHY: 'assets/icon_trophy.png',
-    SOCIAL: 'assets/icon_social.png',
-    DROP: 'assets/icon_drop.png'
+    APPLE: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/AppleIcon.png?raw=true',
+    CALENDAR: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/CalendarIcon.png?raw=true',
+    FIRE: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/FireIcon.png?raw=true',
+    FRIEND: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/FriendIcon.png?raw=true',
+    SCALE: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/ScaleIcon.png?raw=true',
+    SHOE: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/ShoeIcon.png?raw=true',
+    TROPHY: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/TrophieIcon.png?raw=true',
+    WATER: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/WaterIcon.png?raw=true',
+    WEIGHT: 'https://github.com/bravo320zf-blip/FitNit/blob/main/AchivementsIcons/WeightIcon.png?raw=true'
 };
 
 const achievementsList = [
     // General & Profile
     { id: 'first_step', name: 'First Step', desc: 'Log your first weight', image: ICONS.SCALE },
     { id: 'profile_set', name: 'Who Am I?', desc: 'Complete your profile settings', image: ICONS.TROPHY },
-    { id: 'socialite', name: 'Socialite', desc: 'Follow 1 person', image: ICONS.SOCIAL },
-    { id: 'influencer', name: 'Influencer', desc: 'Get 1 follower', image: ICONS.SOCIAL },
+    { id: 'socialite', name: 'Socialite', desc: 'Follow 1 person', image: ICONS.FRIEND },
+    { id: 'influencer', name: 'Influencer', desc: 'Get 1 follower', image: ICONS.FRIEND },
     { id: 'goal_setter', name: 'Dream Big', desc: 'Set a personal goal', image: ICONS.TROPHY },
 
-    // Nutrition (Logging) - Using Drop for "Health/Consumables"
-    { id: 'tracker_1', name: 'Tracker', desc: 'Log food for 1 day', image: ICONS.DROP },
-    { id: 'tracker_3', name: 'Consistency', desc: 'Log food for 3 days in a row', image: ICONS.DROP },
-    { id: 'tracker_7', name: 'On Fire', desc: 'Log food for 7 days in a row', image: ICONS.DROP },
-    { id: 'tracker_30', name: 'Habitual', desc: 'Log food for 30 days in a row', image: ICONS.DROP },
+    // Nutrition (Logging)
+    { id: 'tracker_1', name: 'Tracker', desc: 'Log food for 1 day', image: ICONS.APPLE },
+    { id: 'tracker_3', name: 'Consistency', desc: 'Log food for 3 days in a row', image: ICONS.APPLE },
+    { id: 'tracker_7', name: 'On Fire', desc: 'Log food for 7 days in a row', image: ICONS.FIRE },
+    { id: 'tracker_30', name: 'Habitual', desc: 'Log food for 30 days in a row', image: ICONS.CALENDAR },
     { id: 'century_club', name: 'Century Club', desc: 'Log 100 items total', image: ICONS.TROPHY },
-    { id: 'veg_head', name: 'Veg Head', desc: 'Log 50 vegetables', image: ICONS.DROP },
-    { id: 'protein_king', name: 'Protein King', desc: 'Hit protein goal 5 times', image: ICONS.DROP },
+    { id: 'veg_head', name: 'Veg Head', desc: 'Log 50 vegetables', image: ICONS.APPLE },
+    { id: 'protein_king', name: 'Protein King', desc: 'Hit protein goal 5 times', image: ICONS.APPLE },
 
-    // Workouts - Using Shoe
-    { id: 'gym_rat', name: 'Gym Rat', desc: 'Log 10 workouts', image: ICONS.TROPHY }, // Milestone
-    { id: 'iron_born', name: 'Iron Born', desc: 'Log a Strength workout', image: ICONS.SHOE },
+    // Workouts
+    { id: 'gym_rat', name: 'Gym Rat', desc: 'Log 10 workouts', image: ICONS.WEIGHT },
+    { id: 'iron_born', name: 'Iron Born', desc: 'Log a Strength workout', image: ICONS.WEIGHT },
     { id: 'cardio_bunny', name: 'Cardio Bunny', desc: 'Log a Cardio workout', image: ICONS.SHOE },
-    { id: 'early_bird', name: 'Early Bird', desc: 'Log a workout before 8 AM', image: ICONS.SHOE },
-    { id: 'night_owl', name: 'Night Owl', desc: 'Log a workout after 8 PM', image: ICONS.SHOE },
+    { id: 'early_bird', name: 'Early Bird', desc: 'Log a workout before 8 AM', image: ICONS.CALENDAR },
+    { id: 'night_owl', name: 'Night Owl', desc: 'Log a workout after 8 PM', image: ICONS.CALENDAR },
     { id: 'marathoner', name: 'Marathoner', desc: 'Log 10 cardio sessions', image: ICONS.SHOE },
-    { id: 'heavy_lifter', name: 'Heavy Lifter', desc: 'Log 10 strength sessions', image: ICONS.SHOE },
-    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Log a workout on Sat & Sun', image: ICONS.SHOE },
+    { id: 'heavy_lifter', name: 'Heavy Lifter', desc: 'Log 10 strength sessions', image: ICONS.WEIGHT },
+    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Log a workout on Sat & Sun', image: ICONS.CALENDAR },
 
-    // Weight - Using Scale
+    // Weight
     { id: '5lb_club', name: '5lb Club', desc: 'Lose 5 lbs total', image: ICONS.SCALE },
     { id: '10lb_club', name: '10lb Club', desc: 'Lose 10 lbs total', image: ICONS.SCALE },
     { id: '20lb_club', name: '20lb Club', desc: 'Lose 20 lbs total', image: ICONS.SCALE },
     { id: 'on_target', name: 'On Target', desc: 'Weight trend matches goal', image: ICONS.TROPHY },
 
     // Streaks & Meta
-    { id: 'login_streak_7', name: 'Dedicated', desc: 'Open app 7 days in a row', image: ICONS.TROPHY },
+    { id: 'login_streak_7', name: 'Dedicated', desc: 'Open app 7 days in a row', image: ICONS.FIRE },
     { id: 'jack_of_all', name: 'Jack of All', desc: 'Log food, weight, and workout in 1 day', image: ICONS.TROPHY }
 ];
 
