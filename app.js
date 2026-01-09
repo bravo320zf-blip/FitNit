@@ -1395,7 +1395,12 @@ const GlobalScanner = {
         try {
             await GlobalScanner.stop(); // Force cleanup first
 
-            // Ensure DOM element is clean/ready
+            // UI RESET
+            const cover = document.getElementById('scanner-cover');
+            if (cover) cover.style.display = 'none';
+            document.getElementById('mode-scan').style.display = 'block'; // Ensure container is visible
+
+            // Remove any leftover junk
             const reader = document.getElementById('reader');
             if (reader) reader.innerHTML = "";
 
@@ -1445,39 +1450,20 @@ document.getElementById('scan-nav-btn').onclick = () => {
     window.showView('scanner-screen');
     window.toggleAddMode('scan');
 
-    // Reset any previous specific UI states
-    const resultDiv = document.getElementById('scanned-result');
-    if (resultDiv) resultDiv.style.display = 'none';
-
-    // Lock flag for this session
+    document.getElementById('scanned-result').style.display = 'none';
     let sessionLock = false;
 
     GlobalScanner.start((text) => {
         if (sessionLock) return;
         sessionLock = true;
 
-        // HARD STOP UI PATTERN
-        // 1. Hide Scanner View Immediately
-        // window.showView('dashboard-screen'); // Or just hide reader?
-        // Better: Keep screen but overlay result.
-        // Actually fitnit uses "scanner-screen" as a full page.
-        // We should probably hide the reader div or switch view.
-        // Let's hide the reader to be safe.
-        document.getElementById('reader').style.display = 'none';
-
+        // 1. Process Data Immediately (this shows the confirm modal)
         processNormalScan(text);
 
-        // 2. Stop in background
-        GlobalScanner.stop().then(() => {
-            // Restore display for next time?
-            document.getElementById('reader').style.display = 'block';
-        }).catch(e => {
-            console.warn(e);
-            document.getElementById('reader').style.display = 'block';
-        });
+        // 2. Stop (Shows Cover automatically)
+        GlobalScanner.stop().catch(e => console.warn(e));
 
     }, (err) => {
-        // Only alert if we really failed to start, not frame errors
         if (err?.toString().includes("started")) return;
         alert("Scanner Error: " + err);
     });
@@ -2047,7 +2033,6 @@ const initSmartScanner = () => {
 };
 
 // FIXED BARCODE SCANNER
-// FIXED BARCODE SCANNER
 function startGuidedBarcodeScan() {
     barcodeLock = false; // Reset Lock
 
@@ -2063,10 +2048,9 @@ function startGuidedBarcodeScan() {
         barcodeLock = true;
 
         try {
-            // --- HARD STOP UI IMMEDIATE ---
-            document.getElementById('mode-scan').style.display = 'none';
+            // Show Scanner Cover (handled by stop), but we also want to show Wizard Confirmation
 
-            // Show Wizard Confirmation Step
+            // Show Wizard Confirmation Step Over everything
             const overlay = document.getElementById('guided-wizard-overlay');
             if (!overlay) throw new Error("Overlay not found in DOM");
 
@@ -2080,8 +2064,10 @@ function startGuidedBarcodeScan() {
             // Switch View
             setGwView('gw-view-edit-3');
 
-            // Stop in background via Manager
-            GlobalScanner.stop().catch(e => console.warn(e));
+            // SAFE STOP: Shows cover, stops camera, THEN hides mode-scan container
+            GlobalScanner.stop().then(() => {
+                document.getElementById('mode-scan').style.display = 'none';
+            }).catch(e => console.warn(e));
 
         } catch (err) {
             alert("Scanner Success Error: " + err.message);

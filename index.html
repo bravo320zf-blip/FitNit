@@ -195,8 +195,17 @@
                 </div>
             </div>
 
-            <div id="mode-scan">
+            <div id="mode-scan" style="position:relative;">
                 <div id="reader"></div>
+                <!-- COVER OVERLAY (For Safe Shutdown) -->
+                <div id="scanner-cover"
+                    style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:white; z-index:10; justify-content:center; align-items:center;">
+                    <div style="text-align:center;">
+                        <i class="material-icons" style="font-size:48px; color:#27ae60;">check_circle</i>
+                        <p style="font-weight:bold; margin-top:10px;">Processing...</p>
+                    </div>
+                </div>
+
                 <div style="margin-top:10px; text-align:center;">
                     <p style="margin:5px 0; color:#777;">- OR -</p>
                     <button id="btn-read-label" style="background:#8e44ad; width:auto; padding:8px 15px;"><i
