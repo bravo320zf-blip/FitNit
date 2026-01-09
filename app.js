@@ -156,10 +156,17 @@ function startDataListener(uid) {
 
         if (data.weight_history) updateWeightGraph(data.weight_history);
 
-        // Render Profile (My Profile)
-        renderProfileScreen(data, true, uid);
+        // Render Profile (My Profile) if not currently viewing someone else or overriding mode
+        // We attach totals to data object for convenience so render knows about it
+        data._dailyTotals = { consumed, protein, carbs, fat, burned };
+
+        // Only auto-render if we are NOT in special "viewing public profile" mode, OR if we are me
+        if (!window._isViewingPublicProfile) {
+            renderProfileScreen(data, true, uid);
+        }
     });
 }
+window._isViewingPublicProfile = false; // Global toggle state
 
 // function renderProfileScreen(data, isMe) changed to include ownerUid
 function renderProfileScreen(data, isMe, ownerUid) {
@@ -183,12 +190,30 @@ function renderProfileScreen(data, isMe, ownerUid) {
         document.getElementById('summary-weight-diff').innerText = "--";
     }
 
-    // 2. Goal Status 
-    if (!isMe) {
+    // 2. Goal Status & Macros
+    const daily = data._dailyTotals || { consumed: 0, protein: 0, carbs: 0, fat: 0, burned: 0 };
+
+    // Privacy: If not me, and Diary is hidden, hide these stats? 
+    // Usually goals/progress are public unless hidden. Let's assume hiding Diary hides granular macros but maybe not overall goal %?
+    // User asked for "Protein Carbs Fats" tracker data lost. 
+    // If isMe OR privacy allows:
+
+    if (isMe || !hideDiary) {
+        // Update Profile Widgets
+        const pct = goals.calories > 0 ? Math.min(100, Math.round((daily.consumed / goals.calories) * 100)) : 0;
+        document.getElementById('summary-goal-status').innerText = `${pct}%`;
+
+        // Macros
+        const pPct = goals.protein > 0 ? Math.min(100, (daily.protein / goals.protein) * 100) : 0;
+        const cPct = goals.carbs > 0 ? Math.min(100, (daily.carbs / goals.carbs) * 100) : 0;
+        const fPct = goals.fat > 0 ? Math.min(100, (daily.fat / goals.fat) * 100) : 0;
+
+        document.getElementById('bar-prot').style.width = `${pPct}%`;
+        document.getElementById('bar-carb').style.width = `${cPct}%`;
+        document.getElementById('bar-fat').style.width = `${fPct}%`;
+    } else {
         document.getElementById('summary-goal-status').innerText = "--";
         ['prot', 'carb', 'fat'].forEach(k => document.getElementById(`bar-${k}`).style.width = "0%");
-    } else {
-        // ... (Already handled by data listener updates for 'me')
     }
 
     // 3. Header & buttons
@@ -808,9 +833,79 @@ window.viewPublicProfile = async (uid) => {
     }
 };
 
-document.getElementById('view-my-public-btn').onclick = () => {
-    document.getElementById('settings-modal').style.display = 'none';
-    window.viewPublicProfile(auth.currentUser.uid);
+renderProfileScreen(data, false, uid);
+    }
+};
+
+const toggleBtn = document.getElementById('view-my-public-btn');
+// Initial State text (optional, but handled in logic)
+
+toggleBtn.onclick = async () => {
+    const isPublicMode = window._isViewingPublicProfile; // Current State
+
+    if (!isPublicMode) {
+        // Switch TO Public View
+        window._isViewingPublicProfile = true;
+        toggleBtn.innerText = "Exit Public View";
+        toggleBtn.style.background = "#e74c3c"; // Red to show 'active/exit' state
+        document.getElementById('settings-modal').style.display = 'none'; // Close modal
+
+        // Fetch fresh data or use cached? 
+        // We use viewPublicProfile logic but for SELF.
+        // We need to fetch self data again to pass to renderProfileScreen as 'false' (not me)
+        const uid = auth.currentUser.uid;
+        const snap = await get(ref(db, `users/${uid}`));
+        const data = snap.val();
+
+        // We need calculated totals for display if allowed
+        // OPTIMIZATION: We can just trigger a new renderProfileScreen with current data if we had access to it.
+        // But fetching is safer to simulating 'fresh' view.
+
+        // HOWEVER: 'data' from firebase doesn't have _dailyTotals computed!
+        // We must compute them for self if we want to see them (unless privacy hides them).
+        // A simple trick: use the same data listener but force 'isMe' false?
+        // Let's just update renderProfileScreen to handle 'data' as is. 
+        // BUT wait, renderProfileScreen NEEDS _dailyTotals for macros.
+        // If we fetch raw from DB, we lack totals.
+
+        // Quick Fix: Re-calculate totals locally here or just fetch listeners?
+        // Better: We are the user. We have local data. 
+        // Let's re-use the active data from listener if possible? Hard accessing closed over variable.
+        // Re-fetch is easiest. We'll miss the 'today' stats if we don't recalc them.
+
+        // RE-CALCULATION LOGIC (Simplified for Toggle)
+        const today = getToday();
+        let consumed = 0, protein = 0, carbs = 0, fat = 0;
+        if (data.diary && data.diary[today]) {
+            Object.values(data.diary[today]).forEach(cat => {
+                Object.values(cat).forEach(i => {
+                    consumed += Number(i.calories || 0);
+                    protein += Number(i.protein || 0);
+                    carbs += Number(i.carbs || 0);
+                    fat += Number(i.fat || 0);
+                });
+            });
+        }
+        data._dailyTotals = { consumed, protein, carbs, fat };
+
+        // Add public name
+        const publicSnap = await get(ref(db, `public_users/${uid}`));
+        if (publicSnap.exists()) data.public_users = publicSnap.val();
+
+        // RENDER as public (isMe = false, owner = me)
+        renderProfileScreen(data, false, uid);
+        window.showView('profile-screen');
+
+    } else {
+        // Switch BACK to Private (Normal)
+        window._isViewingPublicProfile = false;
+        toggleBtn.innerText = "View My Public Profile";
+        toggleBtn.style.background = "#3498db";
+        // Trigger generic update by re-fetching or just waiting for listener?
+        // Force refresh:
+        startDataListener(auth.currentUser.uid); // Re-bind/Re-run
+        document.getElementById('settings-modal').style.display = 'none';
+    }
 };
 
 document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'flex';
