@@ -883,16 +883,16 @@ const suggestedGoals = [
     "Hit calorie goal", "Maintain weight", "Bench press bodyweight"
 ];
 
-document.getElementById('add-goal-btn').onclick = () => {
-    document.getElementById('add-goal-modal').style.display = 'flex';
-    document.getElementById('new-goal-input').value = ""; // Clear
-
-    // Render Suggestions
+function renderRandomSuggestions() {
     const grid = document.getElementById('goal-suggestions-list');
     grid.innerHTML = "";
-    suggestedGoals.forEach(g => {
+    // Pick 3 random
+    const shuffled = [...suggestedGoals].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 3);
+
+    selected.forEach(g => {
         const btn = document.createElement('div');
-        btn.className = "suggestion-chip"; // New class for styling needed? Or just inline/reuse
+        btn.className = "suggestion-chip";
         btn.style.background = "#f0f0f0";
         btn.style.padding = "8px";
         btn.style.borderRadius = "20px";
@@ -905,7 +905,16 @@ document.getElementById('add-goal-btn').onclick = () => {
         };
         grid.appendChild(btn);
     });
+}
+// Regenerate Button Handler (will be added to HTML)
+window.regenerateSuggestions = () => renderRandomSuggestions();
+
+document.getElementById('add-goal-btn').onclick = () => {
+    document.getElementById('add-goal-modal').style.display = 'flex';
+    document.getElementById('new-goal-input').value = ""; // Clear
+    renderRandomSuggestions();
 };
+
 
 document.getElementById('confirm-add-goal-btn').onclick = () => {
     const goal = document.getElementById('new-goal-input').value;
