@@ -157,52 +157,51 @@ function startDataListener(uid) {
         if (data.weight_history) updateWeightGraph(data.weight_history);
 
         // Render Profile (My Profile)
-        renderProfileScreen(data, true);
+        renderProfileScreen(data, true, uid);
     });
 }
 
-function renderProfileScreen(data, isMe) {
+// function renderProfileScreen(data, isMe) changed to include ownerUid
+function renderProfileScreen(data, isMe, ownerUid) {
     const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
     const weight = data.latest_weight || 0;
 
     // Privacy Checks (if not me)
     const privacy = data.settings?.privacy || {};
     const hideWeight = !isMe && privacy.weight;
-    const hideDiary = !isMe && privacy.diary; // Not used in profile screen directly yet apart from Summary
-    // Note: Diary/Workouts are separate screens, so we might need View Mode on those too or just hide links.
+    const hideDiary = !isMe && privacy.diary;
 
     // 1. BMI & Stats
     if (goals.height && weight && !hideWeight) {
         const bmi = ((weight * 0.453) / ((goals.height / 100) ** 2)).toFixed(1);
         document.getElementById('summary-bmi').innerText = bmi;
         document.getElementById('summary-bmi-text').innerText = bmi < 25 ? "Normal" : "Overweight";
-        document.getElementById('summary-weight-diff').innerText = weight; // Using raw weight for now in diff box
+        document.getElementById('summary-weight-diff').innerText = weight;
     } else {
         document.getElementById('summary-bmi').innerText = "--";
         document.getElementById('summary-bmi-text').innerText = "Private";
         document.getElementById('summary-weight-diff').innerText = "--";
     }
 
-    // 2. Goal Status (Logic requires diary summation which was calculated in listener... 
-    // Optimization: We could pass calculated totals, but for now we re-calc or just hide if complex.
-    // Simpler: Just hide daily goal for public for now as it requires iterating diary)
+    // 2. Goal Status 
     if (!isMe) {
         document.getElementById('summary-goal-status').innerText = "--";
         ['prot', 'carb', 'fat'].forEach(k => document.getElementById(`bar-${k}`).style.width = "0%");
     } else {
-        // Re-calcing totals here or passing them would be better. 
-        // For refactor speed, assuming 'dash-cals' logic handles the global variables `consumed` etc.
-        // wait, `consumed` is local to startDataListener. 
-        // FIX: We need to move calculating daily totals outside or pass them.
-        // Alternative: Public profile doesn't show Daily Eaten (Privacy implied).
+        // ... (Already handled by data listener updates for 'me')
     }
 
     // 3. Header & buttons
     const header = document.querySelector('#profile-screen h2');
     if (header) header.innerText = isMe ? "Health Summary" : (data.public_users?.name || "User Profile");
 
+    // Show Friend Button: Only if isMe (finding friends) OR if viewing someone else (to follow them?)
+    // Actually friends-btn is "Find Friends". Only show for Me.
     document.getElementById('friends-btn').style.display = isMe ? 'block' : 'none';
-    document.getElementById('open-settings-btn').style.display = isMe ? 'block' : 'none';
+
+    // Show Settings: If isMe OR if I am viewing my own public profile (ownerUid == current)
+    const isOwner = isMe || (ownerUid === auth.currentUser.uid);
+    document.getElementById('open-settings-btn').style.display = isOwner ? 'block' : 'none';
 
     // 4. Achievements
     // 4. Achievements
@@ -805,8 +804,13 @@ window.viewPublicProfile = async (uid) => {
         const publicSnap = await get(ref(db, `public_users/${uid}`));
         if (publicSnap.exists()) data.public_users = publicSnap.val();
 
-        renderProfileScreen(data, false);
+        renderProfileScreen(data, false, uid);
     }
+};
+
+document.getElementById('view-my-public-btn').onclick = () => {
+    document.getElementById('settings-modal').style.display = 'none';
+    window.viewPublicProfile(auth.currentUser.uid);
 };
 
 document.getElementById('open-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'flex';
