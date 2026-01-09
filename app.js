@@ -270,7 +270,7 @@ function renderAchievements(earned, pinned) {
             if (def) {
                 const badge = document.createElement('div');
                 badge.className = 'achievement-badge';
-                badge.innerHTML = `<i class="material-icons" style="color:#f1c40f; font-size:24px;">emoji_events</i><br><small style="font-size:8px;">${def.name}</small>`;
+                badge.innerHTML = `<i class="material-icons" style="color:#f1c40f; font-size:24px;">${def.icon}</i><br><small style="font-size:8px;">${def.name}</small>`;
                 badge.title = def.desc;
                 container.appendChild(badge);
             }
@@ -302,7 +302,7 @@ function renderAllAchievements(earned, pinned) {
         // Pin icon
         const pinIcon = isPinned ? `<i class="material-icons" style="position:absolute; top:0; right:0; font-size:14px; color:orange;">push_pin</i>` : '';
 
-        item.innerHTML = `${pinIcon}<i class="material-icons" style="font-size:30px; color:${isUnlocked ? '#f1c40f' : '#ccc'};">emoji_events</i><br><small>${a.name}</small>`;
+        item.innerHTML = `${pinIcon}<i class="material-icons" style="font-size:30px; color:${isUnlocked ? '#f1c40f' : '#ccc'};">${a.icon}</i><br><small>${a.name}</small>`;
 
         item.onclick = () => {
             if (!isUnlocked) return alert("Locked!");
