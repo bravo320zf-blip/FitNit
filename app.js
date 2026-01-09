@@ -72,11 +72,23 @@ onAuthStateChanged(auth, (u) => {
 function startDataListener(uid) {
     onValue(ref(db, `users/${uid}`), (snap) => {
         const data = snap.val(); if (!data) return;
+        window._lastUserData = data;
+        window._lastUserUid = uid;
 
         const today = getToday();
         const isDark = data.settings?.darkMode || false;
         document.body.classList.toggle('dark-mode', isDark);
         document.getElementById('dark-mode-toggle').checked = isDark;
+
+        window.toggleFav = (name) => {
+            const sanitizedName = name.replace(/[.#$[\]]/g, "");
+            const isFav = window._lastUserData?.favorites?.[sanitizedName];
+            if (isFav) {
+                set(ref(db, `users/${auth.currentUser.uid}/favorites/${sanitizedName}`), null);
+            } else {
+                set(ref(db, `users/${auth.currentUser.uid}/favorites/${sanitizedName}`), { name: name, added: Date.now() });
+            }
+        };
 
         if (data.settings?.privacy) {
             document.getElementById('privacy-weight').checked = data.settings.privacy.weight || false;
@@ -330,7 +342,7 @@ function renderWorkoutHistory(workouts) {
         head.style.padding = "10px";
         head.style.borderBottom = "1px solid #eee";
         head.style.fontWeight = "bold";
-        head.style.background = "#fff";
+        // head.style.background = "#fff"; // Removed for Dark Mode
         head.innerHTML = `<span>${date} (${dayCount} exercises)</span>`;
 
         const box = document.createElement('div');
@@ -1061,7 +1073,8 @@ const suggestedGoals = [
 ];
 
 function renderRandomSuggestions() {
-    const grid = document.getElementById('goal-suggestions-list');
+    const grid = document.getElementById('add-goal-suggestions');
+    if (!grid) return;
     grid.innerHTML = "";
     // Pick 3 random
     const shuffled = [...suggestedGoals].sort(() => 0.5 - Math.random());

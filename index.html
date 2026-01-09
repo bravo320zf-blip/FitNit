@@ -333,6 +333,25 @@
         </div>
     </div>
 
+    <!-- ADD GOAL MODAL -->
+    <div id="add-goal-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>Add Goal</h3><button onclick="document.getElementById('add-goal-modal').style.display='none'"
+                    class="icon-btn"><i class="material-icons">close</i></button>
+            </div>
+            <input type="text" id="new-goal-input" placeholder="e.g. Lose 5 lbs">
+            <div id="add-goal-suggestions" class="list-container"
+                style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; margin-bottom:10px;">
+                <!-- Suggestions render here -->
+            </div>
+            <button onclick="window.regenerateSuggestions()"
+                style="width:100%; background:transparent; border:1px solid #ddd; color:var(--text-color); margin-bottom:10px;">Regenerate
+                Suggestions</button>
+            <button id="confirm-add-goal-btn">Add Goal</button>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <button onclick="window.showView('dashboard-screen')"><i class="material-icons">home</i></button>
         <button id="scan-nav-btn"><i class="material-icons">add_box</i></button>
