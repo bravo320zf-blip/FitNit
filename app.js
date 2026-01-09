@@ -200,17 +200,10 @@ function renderProfileScreen(data, isMe, ownerUid) {
         const pct = goals.calories > 0 ? Math.min(100, Math.round((daily.consumed / goals.calories) * 100)) : 0;
         document.getElementById('summary-goal-status').innerText = `${pct}%`;
 
-        // Macros
-        const pPct = goals.protein > 0 ? Math.min(100, (daily.protein / goals.protein) * 100) : 0;
-        const cPct = goals.carbs > 0 ? Math.min(100, (daily.carbs / goals.carbs) * 100) : 0;
-        const fPct = goals.fat > 0 ? Math.min(100, (daily.fat / goals.fat) * 100) : 0;
-
-        document.getElementById('bar-prot').style.width = `${pPct}%`;
-        document.getElementById('bar-carb').style.width = `${cPct}%`;
-        document.getElementById('bar-fat').style.width = `${fPct}%`;
+        // Macros visual update was moved to Dashboard.
+        // We do NOT update bars here anymore as they don't exist in Profile.
     } else {
         document.getElementById('summary-goal-status').innerText = "--";
-        ['prot', 'carb', 'fat'].forEach(k => document.getElementById(`bar-${k}`).style.width = "0%");
     }
 
     // 3. Header & buttons
@@ -707,7 +700,10 @@ function initExercises() {
             // Attempt seed silently
             set(exRef, defaultExercises).catch(() => { });
         }
-    }).catch(err => console.warn("Firebase permission error (using defaults):", err));
+    }).catch(err => {
+        // console.warn("Firebase permission error (using defaults):", err);
+        // Silent fail - likely rules preventing read of common_exercises
+    });
 }
 // Call init on load
 initExercises();
