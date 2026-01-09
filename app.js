@@ -1,6 +1,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, set, push, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+// Assuming native ES modules are supported or handled by a bundler. 
+// Since the environment seems to be using standard script tags or simple modules, 
+// I'll append the function directly to app.js instead of a separate file 
+// to avoid module loading issues if not configured. 
+// Actually, looking at imports, they are from CDN URLs.
+// Let's stick to appending the function to app.js for safety since I don't see a local import pattern.
+
 
 const firebaseConfig = {
     apiKey: "AIzaSyArqfZP8MyrSmIIgABmDGmusoPaAU0rBnE",
@@ -100,6 +107,7 @@ function startDataListener(uid) {
         const weight = data.latest_weight || 0;
 
         let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
+        let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
 
         // 1. Calculate Stats for TODAY (for Widgets)
         if (data.diary && data.diary[today]) {
@@ -109,6 +117,13 @@ function startDataListener(uid) {
                     protein += Number(i.protein || 0);
                     carbs += Number(i.carbs || 0);
                     fat += Number(i.fat || 0);
+                    sugar += Number(i.sugar || 0);
+                    satFat += Number(i.satFat || 0);
+                    fiber += Number(i.fiber || 0);
+                    sodium += Number(i.sodium * 1000 || 0) / 1000; // Keep decimal precision?
+                    vitC += Number(i.vitC || 0);
+                    calcium += Number(i.calcium || 0);
+                    iron += Number(i.iron || 0);
                 });
             });
         }
@@ -129,8 +144,12 @@ function startDataListener(uid) {
 
         if (document.getElementById('dash-burned')) {
             document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
+
             document.getElementById('dash-net').innerText = Math.round(consumed - burned);
         }
+
+        // Render Extended Setup on Dashboard
+        renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
 
         if (data.weight_history) updateWeightGraph(data.weight_history);
 
@@ -943,7 +962,28 @@ document.getElementById('scan-nav-btn').onclick = () => {
             .then(r => r.json()).then(d => {
                 if (d.status === 1) {
                     const n = d.product.nutriments;
-                    currentScannedItem = { name: d.product.product_name, calories: Math.round(n['energy-kcal_100g'] || 0), protein: Math.round(n.proteins_100g || 0), carbs: Math.round(n.carbohydrates_100g || 0), fat: Math.round(n.fat_100g || 0) };
+
+                    currentScannedItem = {
+                        name: d.product.product_name,
+                        calories: Math.round(n['energy-kcal_100g'] || 0),
+                        protein: Math.round(n.proteins_100g || 0),
+                        carbs: Math.round(n.carbohydrates_100g || 0),
+                        fat: Math.round(n.fat_100g || 0),
+                        // Extended Nutrients
+                        sugar: Math.round(n.sugars_100g || 0),
+                        satFat: Math.round(n['saturated-fat_100g'] || 0),
+                        fiber: Math.round(n.fiber_100g || 0),
+                        sodium: Math.round(n.sodium_100g || 0), // Note: OFF often returns sodium in g or mg, nutriments has sodium_100g in grams usually
+                        cholesterol: Math.round((n.cholesterol_100g || 0) * 1000), // usually in grams, convert to mg? Let's assume standard mg
+                        potassium: Math.round((n.potassium_100g || 0) * 1000),
+                        vitA: Math.round((n['vitamin-a_100g'] || 0) * 1000000), // in mcg?
+                        vitC: Math.round((n['vitamin-c_100g'] || 0) * 1000), // mg
+                        calcium: Math.round((n.calcium_100g || 0) * 1000), // mg
+                        iron: Math.round((n.iron_100g || 0) * 1000) // mg
+                    };
+                    // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
+                    // For sodium/salt, OFF returns sodium_100g in Unit.
+
                     showConfirm();
                 }
             });
@@ -1143,4 +1183,100 @@ function renderGoals(goalsData) {
         row.appendChild(check);
         list.appendChild(row);
     });
+}
+// --- NUTRITION DASHBOARD RENDERER ---
+function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals) {
+    const container = document.getElementById('nutrition-dashboard-container');
+    if (!container) return;
+
+    // Helper for percentage
+    const getPct = (val, max) => max > 0 ? Math.min(100, Math.round((val / max) * 100)) : 0;
+
+    // Use default goals for extended nutrients if not user-defined
+    const gSugar = goals.sugar || 50;
+    const gFiber = goals.fiber || 30;
+    const gSatFat = goals.satFat || 20;
+    const gSodium = goals.sodium || 2300;
+    const gVitC = goals.vitC || 90;
+    const gCalcium = goals.calcium || 1000;
+    const gIron = goals.iron || 18;
+
+    container.innerHTML = `
+        <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">Nutrition Breakdown Today</h3>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
+            <div class="stat-box" style="background:var(--card-bg); border:1px solid #eee; border-radius:10px; padding:10px; text-align:center;">
+                <small style="color:#e74c3c; font-weight:bold;">Protein</small>
+                <div style="font-size:18px; font-weight:bold;">${Math.round(prot)}g</div>
+                <div style="font-size:10px; opacity:0.7;">Goal: ${goals.protein}g</div>
+                <div style="height:4px; width:100%; background:#ddd; margin-top:5px; border-radius:2px;">
+                    <div style="height:100%; width:${getPct(prot, goals.protein)}%; background:#e74c3c; border-radius:2px;"></div>
+                </div>
+            </div>
+            <div class="stat-box" style="background:var(--card-bg); border:1px solid #eee; border-radius:10px; padding:10px; text-align:center;">
+                <small style="color:#f1c40f; font-weight:bold;">Carbs</small>
+                <div style="font-size:18px; font-weight:bold;">${Math.round(carbs)}g</div>
+                <div style="font-size:10px; opacity:0.7;">Goal: ${goals.carbs}g</div>
+                <div style="height:4px; width:100%; background:#ddd; margin-top:5px; border-radius:2px;">
+                    <div style="height:100%; width:${getPct(carbs, goals.carbs)}%; background:#f1c40f; border-radius:2px;"></div>
+                </div>
+            </div>
+            <div class="stat-box" style="background:var(--card-bg); border:1px solid #eee; border-radius:10px; padding:10px; text-align:center;">
+                <small style="color:#3498db; font-weight:bold;">Fats</small>
+                <div style="font-size:18px; font-weight:bold;">${Math.round(fat)}g</div>
+                <div style="font-size:10px; opacity:0.7;">Goal: ${goals.fat}g</div>
+                <div style="height:4px; width:100%; background:#ddd; margin-top:5px; border-radius:2px;">
+                    <div style="height:100%; width:${getPct(fat, goals.fat)}%; background:#3498db; border-radius:2px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <h4 style="margin:10px 0; font-size:14px; opacity:0.8;">Detailed Breakdown</h4>
+        <div class="list-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            
+            <div style="padding:10px; background:var(--bg-color); border:1px solid #eee; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Sugar</span><span>${Math.round(sugar)} / ${gSugar}g</span>
+                </div>
+                <div class="progress" style="height:6px; margin-top:5px;"><div class="fill" style="width:${getPct(sugar, gSugar)}%; background:#e67e22;"></div></div>
+            </div>
+
+            <div style="padding:10px; background:var(--bg-color); border:1px solid #eee; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Fiber</span><span>${Math.round(fiber)} / ${gFiber}g</span>
+                </div>
+                <div class="progress" style="height:6px; margin-top:5px;"><div class="fill" style="width:${getPct(fiber, gFiber)}%; background:#27ae60;"></div></div>
+            </div>
+
+            <div style="padding:10px; background:var(--bg-color); border:1px solid #eee; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Saturated Fat</span><span>${Math.round(satFat)} / ${gSatFat}g</span>
+                </div>
+                <div class="progress" style="height:6px; margin-top:5px;"><div class="fill" style="width:${getPct(satFat, gSatFat)}%; background:#c0392b;"></div></div>
+            </div>
+
+            <div style="padding:10px; background:var(--bg-color); border:1px solid #eee; border-radius:8px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px;">
+                    <span>Sodium</span><span>${Math.round(sodium)} / ${gSodium}mg</span>
+                </div>
+                <div class="progress" style="height:6px; margin-top:5px;"><div class="fill" style="width:${getPct(sodium, gSodium)}%; background:#7f8c8d;"></div></div>
+            </div>
+        </div>
+
+        <h4 style="margin:15px 0 5px 0; font-size:14px; opacity:0.8;">Vitamins & Minerals</h4>
+        <div style="display:flex; justify-content:space-between; background:var(--bg-color); padding:10px; border-radius:8px; font-size:12px; border:1px solid #eee;">
+            <div style="text-align:center;">
+                <span style="display:block; font-weight:bold; color:#8e44ad;">Vit C</span>
+                <span>${Math.round(vitC)}mg</span>
+            </div>
+             <div style="text-align:center;">
+                <span style="display:block; font-weight:bold; color:#2980b9;">Calcium</span>
+                <span>${Math.round(calcium)}mg</span>
+            </div>
+             <div style="text-align:center;">
+                <span style="display:block; font-weight:bold; color:#c0392b;">Iron</span>
+                <span>${Math.round(iron)}mg</span>
+            </div>
+        </div>
+    `;
 }

@@ -49,15 +49,15 @@
                     <p id="dash-weight">--</p>
                 </div>
             </div>
+            <div id="nutrition-dashboard-container" class="card">
+                <!-- Extended nutrition details rendered here by renderNutritionDashboard -->
+            </div>
             <div id="diet-history-container"></div>
         </section>
 
         <!-- NUTRITION -->
         <section id="nutrition-screen" class="view" style="display:none;">
-            <div class="card">
-                <h3>Macro Balance</h3>
-                <canvas id="macroChart"></canvas>
-            </div>
+            <!-- Could be used for history graphs later -->
         </section>
 
         <!-- WEIGHT -->
@@ -168,23 +168,7 @@
             <div id="last-workout-container" class="card" style="display:none; margin-bottom:10px;">
                 <!-- Last workout inserted via JS -->
             </div>
-            <div class="card">
-                <h3>Macros</h3>
-                <div class="macro-bar-container">
-                    <span>Protein</span>
-                    <div class="progress">
-                        <div id="bar-prot" class="fill"></div>
-                    </div>
-                    <span>Carbs</span>
-                    <div class="progress">
-                        <div id="bar-carb" class="fill"></div>
-                    </div>
-                    <span>Fats</span>
-                    <div class="progress">
-                        <div id="bar-fat" class="fill"></div>
-                    </div>
-                </div>
-            </div>
+            </div> <!-- End of Profile screen -->
         </section>
 
         <!-- ADD FOOD -->
