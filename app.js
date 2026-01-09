@@ -833,10 +833,6 @@ window.viewPublicProfile = async (uid) => {
     }
 };
 
-renderProfileScreen(data, false, uid);
-    }
-};
-
 const toggleBtn = document.getElementById('view-my-public-btn');
 // Initial State text (optional, but handled in logic)
 
