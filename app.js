@@ -243,6 +243,55 @@ function renderProfileScreen(data, isMe, ownerUid) {
     }
 }
 
+// --- ACHIEVEMENTS SYSTEM ---
+// Mapping generic types to our new custom assets
+const ICONS = {
+    SHOE: 'assets/icon_shoe.png',
+    SCALE: 'assets/icon_scale.png',
+    TROPHY: 'assets/icon_trophy.png',
+    SOCIAL: 'assets/icon_social.png',
+    DROP: 'assets/icon_drop.png'
+};
+
+const achievementsList = [
+    // General & Profile
+    { id: 'first_step', name: 'First Step', desc: 'Log your first weight', image: ICONS.SCALE },
+    { id: 'profile_set', name: 'Who Am I?', desc: 'Complete your profile settings', image: ICONS.TROPHY },
+    { id: 'socialite', name: 'Socialite', desc: 'Follow 1 person', image: ICONS.SOCIAL },
+    { id: 'influencer', name: 'Influencer', desc: 'Get 1 follower', image: ICONS.SOCIAL },
+    { id: 'goal_setter', name: 'Dream Big', desc: 'Set a personal goal', image: ICONS.TROPHY },
+
+    // Nutrition (Logging) - Using Drop for "Health/Consumables"
+    { id: 'tracker_1', name: 'Tracker', desc: 'Log food for 1 day', image: ICONS.DROP },
+    { id: 'tracker_3', name: 'Consistency', desc: 'Log food for 3 days in a row', image: ICONS.DROP },
+    { id: 'tracker_7', name: 'On Fire', desc: 'Log food for 7 days in a row', image: ICONS.DROP },
+    { id: 'tracker_30', name: 'Habitual', desc: 'Log food for 30 days in a row', image: ICONS.DROP },
+    { id: 'century_club', name: 'Century Club', desc: 'Log 100 items total', image: ICONS.TROPHY },
+    { id: 'veg_head', name: 'Veg Head', desc: 'Log 50 vegetables', image: ICONS.DROP },
+    { id: 'protein_king', name: 'Protein King', desc: 'Hit protein goal 5 times', image: ICONS.DROP },
+
+    // Workouts - Using Shoe
+    { id: 'gym_rat', name: 'Gym Rat', desc: 'Log 10 workouts', image: ICONS.TROPHY }, // Milestone
+    { id: 'iron_born', name: 'Iron Born', desc: 'Log a Strength workout', image: ICONS.SHOE },
+    { id: 'cardio_bunny', name: 'Cardio Bunny', desc: 'Log a Cardio workout', image: ICONS.SHOE },
+    { id: 'early_bird', name: 'Early Bird', desc: 'Log a workout before 8 AM', image: ICONS.SHOE },
+    { id: 'night_owl', name: 'Night Owl', desc: 'Log a workout after 8 PM', image: ICONS.SHOE },
+    { id: 'marathoner', name: 'Marathoner', desc: 'Log 10 cardio sessions', image: ICONS.SHOE },
+    { id: 'heavy_lifter', name: 'Heavy Lifter', desc: 'Log 10 strength sessions', image: ICONS.SHOE },
+    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Log a workout on Sat & Sun', image: ICONS.SHOE },
+
+    // Weight - Using Scale
+    { id: '5lb_club', name: '5lb Club', desc: 'Lose 5 lbs total', image: ICONS.SCALE },
+    { id: '10lb_club', name: '10lb Club', desc: 'Lose 10 lbs total', image: ICONS.SCALE },
+    { id: '20lb_club', name: '20lb Club', desc: 'Lose 20 lbs total', image: ICONS.SCALE },
+    { id: 'on_target', name: 'On Target', desc: 'Weight trend matches goal', image: ICONS.TROPHY },
+
+    // Streaks & Meta
+    { id: 'login_streak_7', name: 'Dedicated', desc: 'Open app 7 days in a row', image: ICONS.TROPHY },
+    { id: 'jack_of_all', name: 'Jack of All', desc: 'Log food, weight, and workout in 1 day', image: ICONS.TROPHY }
+];
+
+// Update renderers to use 'image' prop
 function renderAchievements(earned, pinned) {
     const container = document.getElementById('profile-achievements-preview');
     if (!earned) return;
@@ -270,7 +319,8 @@ function renderAchievements(earned, pinned) {
             if (def) {
                 const badge = document.createElement('div');
                 badge.className = 'achievement-badge';
-                badge.innerHTML = `<i class="material-icons" style="color:#f1c40f; font-size:24px;">${def.icon}</i><br><small style="font-size:8px;">${def.name}</small>`;
+                // USE IMAGE
+                badge.innerHTML = `<img src="${def.image}" style="width:24px; height:24px;"><br><small style="font-size:8px;">${def.name}</small>`;
                 badge.title = def.desc;
                 container.appendChild(badge);
             }
@@ -302,7 +352,8 @@ function renderAllAchievements(earned, pinned) {
         // Pin icon
         const pinIcon = isPinned ? `<i class="material-icons" style="position:absolute; top:0; right:0; font-size:14px; color:orange;">push_pin</i>` : '';
 
-        item.innerHTML = `${pinIcon}<i class="material-icons" style="font-size:30px; color:${isUnlocked ? '#f1c40f' : '#ccc'};">${a.icon}</i><br><small>${a.name}</small>`;
+        // USE IMAGE
+        item.innerHTML = `${pinIcon}<img src="${a.image}" style="width:40px; height:40px;"><br><small>${a.name}</small>`;
 
         item.onclick = () => {
             if (!isUnlocked) return alert("Locked!");
@@ -322,46 +373,6 @@ function renderAllAchievements(earned, pinned) {
         list.appendChild(item);
     });
 }
-
-// --- ACHIEVEMENTS SYSTEM ---
-const achievementsList = [
-    // General & Profile
-    { id: 'first_step', name: 'First Step', desc: 'Log your first weight', icon: 'scale' },
-    { id: 'profile_set', name: 'Who Am I?', desc: 'Complete your profile settings', icon: 'user' },
-    { id: 'socialite', name: 'Socialite', desc: 'Follow 1 person', icon: 'social' },
-    { id: 'influencer', name: 'Influencer', desc: 'Get 1 follower', icon: 'social' },
-    { id: 'goal_setter', name: 'Dream Big', desc: 'Set a personal goal', icon: 'target' },
-
-    // Nutrition (Logging)
-    { id: 'tracker_1', name: 'Tracker', desc: 'Log food for 1 day', icon: 'apple' },
-    { id: 'tracker_3', name: 'Consistency', desc: 'Log food for 3 days in a row', icon: 'flame' },
-    { id: 'tracker_7', name: 'On Fire', desc: 'Log food for 7 days in a row', icon: 'flame' },
-    { id: 'tracker_30', name: 'Habitual', desc: 'Log food for 30 days in a row', icon: 'flame' },
-    { id: 'century_club', name: 'Century Club', desc: 'Log 100 items total', icon: 'apple' },
-    { id: 'veg_head', name: 'Veg Head', desc: 'Log 50 vegetables', icon: 'apple' }, // Placeholder logic
-    { id: 'protein_king', name: 'Protein King', desc: 'Hit protein goal 5 times', icon: 'muscle' },
-
-    // Workouts
-    { id: 'gym_rat', name: 'Gym Rat', desc: 'Log 10 workouts', icon: 'dumbbell' },
-    { id: 'iron_born', name: 'Iron Born', desc: 'Log a Strength workout', icon: 'dumbbell' },
-    { id: 'cardio_bunny', name: 'Cardio Bunny', desc: 'Log a Cardio workout', icon: 'shoe' },
-    { id: 'early_bird', name: 'Early Bird', desc: 'Log a workout before 8 AM', icon: 'sun' },
-    { id: 'night_owl', name: 'Night Owl', desc: 'Log a workout after 8 PM', icon: 'moon' },
-    { id: 'marathoner', name: 'Marathoner', desc: 'Log 10 cardio sessions', icon: 'shoe' },
-    { id: 'heavy_lifter', name: 'Heavy Lifter', desc: 'Log 10 strength sessions', icon: 'dumbbell' },
-    { id: 'weekend_warrior', name: 'Weekend Warrior', desc: 'Log a workout on Sat & Sun', icon: 'calendar' },
-
-    // Weight
-    { id: '5lb_club', name: '5lb Club', desc: 'Lose 5 lbs total', icon: 'scale' },
-    { id: '10lb_club', name: '10lb Club', desc: 'Lose 10 lbs total', icon: 'scale' },
-    { id: '20lb_club', name: '20lb Club', desc: 'Lose 20 lbs total', icon: 'scale' },
-    { id: 'on_target', name: 'On Target', desc: 'Weight trend matches goal', icon: 'target' },
-
-    // Streaks & Meta
-    { id: 'login_streak_7', name: 'Dedicated', desc: 'Open app 7 days in a row', icon: 'flame' },
-    { id: 'jack_of_all', name: 'Jack of All', desc: 'Log food, weight, and workout in 1 day', icon: 'trophy' }
-    // ... (Can expand to 50 easily with variations of numbers)
-];
 
 function checkAchievements(data, uid) {
     const earned = data.achievements || {};
