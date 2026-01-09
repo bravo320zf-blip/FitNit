@@ -17,11 +17,20 @@ const db = getDatabase(app);
 
 let html5QrCode, currentScannedItem, weightChart;
 
-// --- EXPOSED FUNCTIONS ---
+// HELPER: Get Today's Date in Local YYYY-MM-DD (Prevents 0 calorie bug)
+const getToday = () => new Date().toLocaleDateString('en-CA');
+
+// --- NAVIGATION ---
 window.showView = (v) => {
     document.querySelectorAll('.view').forEach(s => s.style.display = 'none');
-    document.getElementById(v).style.display = 'block';
+    const target = document.getElementById(v);
+    if (target) target.style.display = 'block';
+    
+    // Cleanup scanner
     if (html5QrCode && v !== 'scanner-screen') html5QrCode.stop().catch(() => {});
+    
+    // Default workout mode
+    if (v === 'workout-screen') window.setWorkoutMode('strength');
 };
 
 window.toggleAddMode = (m) => {
@@ -32,6 +41,11 @@ window.toggleAddMode = (m) => {
     if (m === 'recent') loadFoodList('recent_items', 'recent-list');
     if (m === 'favs') loadFoodList('favorites', 'favs-list');
     if (m !== 'scan' && html5QrCode) html5QrCode.stop().catch(() => {});
+};
+
+window.setWorkoutMode = (m) => {
+    document.getElementById('add-strength').style.display = m === 'strength' ? 'block' : 'none';
+    document.getElementById('add-cardio').style.display = m === 'cardio' ? 'block' : 'none';
 };
 
 // --- AUTH ---
@@ -50,29 +64,29 @@ onAuthStateChanged(auth, (u) => {
     }
 });
 
-// --- DATA WATCHER ---
+// --- DATA WATCHER (DASHBOARD & WORKOUTS) ---
 function startDataListener(uid) {
-    const today = new Date().toISOString().split('T')[0];
     onValue(ref(db, `users/${uid}`), (snap) => {
         const data = snap.val(); if (!data) return;
 
-        // Dark Mode Sync
+        const today = getToday();
         const isDark = data.settings?.darkMode || false;
         document.body.classList.toggle('dark-mode', isDark);
         document.getElementById('dark-mode-toggle').checked = isDark;
 
-        const goals = data.goals || { calories: 2000, protein: 150 };
+        const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
         const weight = data.latest_weight || 0;
-        let c=0, p=0, cr=0, f=0;
         
-        const list = document.getElementById('today-meal-list');
-        list.innerHTML = "";
+        let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
         
+        // 1. MEAL ACCORDIONS
+        const mealList = document.getElementById('today-meal-list');
+        if(mealList) mealList.innerHTML = "";
         if (data.diary) {
             Object.keys(data.diary).sort().reverse().forEach(date => {
                 const dateHeader = document.createElement('div');
                 dateHeader.className = "date-accordion";
-                dateHeader.innerHTML = `<span>${date}</span><i class="material-icons">expand_more</i>`;
+                dateHeader.innerHTML = `<span>${date} ${date === today ? '(Today)' : ''}</span><i class="material-icons">expand_more</i>`;
                 
                 const mealBox = document.createElement('div');
                 mealBox.className = "meal-container-collapsible";
@@ -80,38 +94,61 @@ function startDataListener(uid) {
 
                 Object.keys(data.diary[date]).forEach(type => {
                     Object.values(data.diary[date][type]).forEach(i => {
-                        if (date === today) { c+=i.calories; p+=i.protein; cr+=i.carbs; f+=i.fat; }
+                        if (date === today) { 
+                            consumed += Number(i.calories || 0); 
+                            protein += Number(i.protein || 0);
+                            carbs += Number(i.carbs || 0);
+                            fat += Number(i.fat || 0);
+                        }
                         const itemEl = document.createElement('div');
                         itemEl.className = "meal-item";
                         const isFav = data.favorites?.[i.name.replace(/[.#$[\]]/g, "")];
-                        itemEl.innerHTML = `
-                            <div style="display:flex; align-items:center;">
-                                <i class="material-icons fav-icon" onclick="event.stopPropagation(); window.toggleFav('${i.name}')">
-                                    ${isFav ? 'star' : 'star_outline'}
-                                </i>
-                                <div><strong>${i.name}</strong><br><small>${i.calories} kcal | ${type}</small></div>
-                            </div>
-                        `;
+                        itemEl.innerHTML = `<div style="display:flex; align-items:center;"><i class="material-icons fav-icon" onclick="event.stopPropagation(); window.toggleFav('${i.name}')">${isFav ? 'star' : 'star_outline'}</i><div><strong>${i.name}</strong><br><small>${i.calories} kcal | ${type}</small></div></div>`;
                         setupLongPress(itemEl, i);
                         mealBox.appendChild(itemEl);
                     });
                 });
                 dateHeader.onclick = () => mealBox.classList.toggle('active');
-                list.appendChild(dateHeader);
-                list.appendChild(mealBox);
+                mealList.appendChild(dateHeader);
+                mealList.appendChild(mealBox);
             });
         }
 
-        document.getElementById('dash-cals').innerText = `${c} / ${goals.calories}`;
-        document.getElementById('dash-prot').innerText = `${p} / ${goals.protein}g`;
+        // 2. WORKOUT LIST
+        const workList = document.getElementById('workout-list-daily');
+        if(workList) workList.innerHTML = "";
+        if (data.workouts) {
+            Object.keys(data.workouts).sort().reverse().forEach(date => {
+                const head = document.createElement('div');
+                head.className = "date-accordion";
+                head.innerHTML = `<span>Exercises: ${date}</span>`;
+                workList.appendChild(head);
+
+                Object.values(data.workouts[date]).forEach(w => {
+                    if (date === today) burned += Number(w.burned || 0);
+                    const el = document.createElement('div');
+                    el.className = "meal-item";
+                    el.innerHTML = `<strong>${w.name}</strong><br><small>${w.sets ? w.sets+' sets x '+w.reps : w.duration+' mins'} | ${w.burned} kcal burned</small>`;
+                    workList.appendChild(el);
+                });
+            });
+        }
+
+        // 3. STATS & WIDGETS
+        document.getElementById('dash-cals').innerText = `${Math.round(consumed)} / ${goals.calories}`;
+        document.getElementById('dash-prot').innerText = `${Math.round(protein)} / ${goals.protein}g`;
         document.getElementById('dash-weight').innerText = `${weight} lbs`;
 
-        // Widgets
-        const perc = Math.min(Math.round((c / goals.calories) * 100), 100);
+        if(document.getElementById('dash-burned')) {
+            document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
+            document.getElementById('dash-net').innerText = Math.round(consumed - burned);
+        }
+
+        const perc = Math.min(Math.round((consumed / goals.calories) * 100), 100);
         document.getElementById('summary-goal-status').innerText = perc + "%";
-        document.getElementById('bar-prot').style.width = Math.min((p/goals.protein)*100, 100) + "%";
-        document.getElementById('bar-carb').style.width = Math.min((cr/(goals.carbs||250))*100, 100) + "%";
-        document.getElementById('bar-fat').style.width = Math.min((f/(goals.fat||70))*100, 100) + "%";
+        document.getElementById('bar-prot').style.width = Math.min((protein/goals.protein)*100, 100) + "%";
+        document.getElementById('bar-carb').style.width = Math.min((carbs/goals.carbs)*100, 100) + "%";
+        document.getElementById('bar-fat').style.width = Math.min((fat/goals.fat)*100, 100) + "%";
 
         if (goals.height && weight) {
             const bmi = ((weight * 0.453) / ((goals.height/100)**2)).toFixed(1);
@@ -122,7 +159,41 @@ function startDataListener(uid) {
     });
 }
 
-// --- GOALS (Mifflin-St Jeor) ---
+// --- WORKOUT LOGGING ---
+document.getElementById('btn-save-strength').onclick = async () => {
+    const name = document.getElementById('ex-name').value;
+    const sets = document.getElementById('ex-sets').value;
+    const reps = document.getElementById('ex-reps').value;
+    if(!name || !sets) return alert("Enter exercise and sets");
+
+    // Estimate: 10 cals per set
+    const burned = Number(sets) * 10;
+    const entry = { name, sets, reps, burned, timestamp: Date.now() };
+    
+    push(ref(db, `users/${auth.currentUser.uid}/workouts/${getToday()}`), entry);
+    alert("Strength Logged!");
+    document.getElementById('ex-name').value = "";
+};
+
+document.getElementById('btn-save-cardio').onclick = async () => {
+    const met = document.getElementById('cardio-type').value;
+    const time = document.getElementById('car-time').value;
+    const typeName = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
+    
+    const weightSnap = await get(ref(db, `users/${auth.currentUser.uid}/latest_weight`));
+    const userW_kg = (weightSnap.val() || 200) * 0.453;
+
+    if(!time) return alert("Enter duration");
+
+    // Calories = MET * weight_kg * (mins/60)
+    const burned = Math.round(met * userW_kg * (time / 60));
+    const entry = { name: typeName, duration: time, burned, timestamp: Date.now() };
+
+    push(ref(db, `users/${auth.currentUser.uid}/workouts/${getToday()}`), entry);
+    alert("Cardio Logged!");
+};
+
+// --- GOAL CALCULATION ---
 document.getElementById('save-profile-btn').onclick = async () => {
     const h = parseFloat(document.getElementById('p-height').value);
     const a = parseInt(document.getElementById('p-age').value);
@@ -163,7 +234,7 @@ function setupLongPress(el, item) {
     el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
 }
 
-// --- SEARCH & ADD ---
+// --- SEARCH & SCAN ---
 document.getElementById('btn-execute-search').onclick = () => {
     const q = document.getElementById('search-input').value;
     const list = document.getElementById('search-results-list');
@@ -202,7 +273,7 @@ function showConfirm() {
 }
 
 document.getElementById('add-food-btn').onclick = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getToday();
     const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}), timestamp: Date.now() };
     const clean = item.name.replace(/[.#$[\]]/g, "");
     push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
@@ -215,7 +286,7 @@ document.getElementById('add-food-btn').onclick = () => {
 document.getElementById('save-weight-btn').onclick = () => {
     const w = parseFloat(document.getElementById('weight-input').value);
     if (!w) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getToday();
     update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
     set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
     alert("Logged!");
@@ -234,7 +305,7 @@ function updateWeightGraph(history) {
     });
 }
 
-// --- SCANNER TRIGGER ---
+// --- SCANNER ---
 document.getElementById('scan-nav-btn').onclick = () => {
     window.showView('scanner-screen');
     window.toggleAddMode('scan');
