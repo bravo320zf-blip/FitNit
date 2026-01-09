@@ -80,7 +80,7 @@ function startDataListener(uid) {
 
         if (data.settings?.privacy) {
             document.getElementById('privacy-weight').checked = data.settings.privacy.weight || false;
-            document.getElementById('privacy-diary').checked = data.settings.privacy.diary || false;
+            document.getElementById('privacy-goals').checked = data.settings.privacy.goals || false;
             document.getElementById('privacy-workouts').checked = data.settings.privacy.workouts || false;
         }
 
@@ -944,7 +944,7 @@ document.getElementById('dark-mode-toggle').onchange = (e) => {
     document.body.classList.toggle('dark-mode', isDark);
     update(ref(db, `users/${auth.currentUser.uid}/settings`), { darkMode: isDark });
 };
-['weight', 'diary', 'workouts'].forEach(type => {
+['weight', 'goals', 'workouts'].forEach(type => {
     document.getElementById(`privacy-${type}`).onchange = (e) => {
         update(ref(db, `users/${auth.currentUser.uid}/settings/privacy`), { [type]: e.target.checked });
     };
