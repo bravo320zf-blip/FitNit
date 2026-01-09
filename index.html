@@ -38,6 +38,11 @@
 
         <!-- DASHBOARD (HOME) -->
         <section id="dashboard-screen" class="view" style="display:none;">
+            <!-- ACTIVE GOALS WIDGET -->
+            <div id="goals-widget-container" class="card" style="display:none; overflow-x:auto;">
+                <div id="goals-widget-content" style="display:flex; gap:10px;"></div>
+            </div>
+
             <div class="card highlight-grid">
                 <div class="stat-box"><small>CALORIES</small>
                     <p id="dash-cals">0/0</p>
@@ -157,10 +162,17 @@
             <div class="card" id="personal-goals-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <h3>My Goals</h3>
-                    <button id="add-goal-btn" class="icon-btn"
-                        style="color:var(--accent-color); font-size:20px;">+</button>
+                    <button id="add-goal-btn" class="icon-btn" onclick="showAddGoalModal()"
+                        style="color:var(--accent-color); font-size:24px; font-weight:bold;">+</button>
                 </div>
-                <div id="goals-list-container"></div>
+                <div id="goals-widget-content" style="margin-top:10px;"></div>
+
+                <!-- COMPLETED GOALS SECTION -->
+                <div id="completed-goals-section"
+                    style="margin-top:20px; border-top:1px solid #eee; padding-top:10px; display:none;">
+                    <h4 style="margin:0 0 10px 0; color:#27ae60; font-size:14px;">Completed</h4>
+                    <div id="completed-goals-list" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+                </div>
             </div>
 
             <div class="dashboard-grid">
@@ -347,22 +359,26 @@
         </div>
     </div>
 
-    <!-- ADD GOAL MODAL -->
-    <div id="add-goal-modal" class="modal-overlay" style="display:none;">
-        <div class="modal-content card">
+    <!-- ADD GOAL MODAL (Updated for Preset System) -->
+    <div id="add-goal-modal" class="modal-overlay" style="display:none; justify-content:center; align-items:center;">
+        <div class="modal-content card"
+            style="width:90%; max-width:500px; max-height:85vh; overflow-y:auto; display:flex; flex-direction:column;">
             <div class="modal-header">
-                <h3>Add Goal</h3><button onclick="document.getElementById('add-goal-modal').style.display='none'"
-                    class="icon-btn"><i class="material-icons">close</i></button>
+                <h3>Select a Goal</h3>
+                <button onclick="document.getElementById('add-goal-modal').style.display='none'" class="icon-btn"><i
+                        class="material-icons">close</i></button>
             </div>
-            <input type="text" id="new-goal-input" placeholder="e.g. Lose 5 lbs">
-            <div id="add-goal-suggestions" class="list-container"
-                style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px; margin-bottom:10px;">
-                <!-- Suggestions render here -->
+
+            <p style="color:#777; font-size:14px; margin-bottom:15px;">Choose from our preset goals to track your
+                progress automatically.</p>
+
+            <input type="text" id="goal-search-input" placeholder="Search goals (e.g. 'Lose' or 'Streak')..."
+                style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px; font-size:16px;">
+
+            <div id="goal-list-container"
+                style="display:flex; flex-direction:column; gap:10px; flex-grow:1; overflow-y:auto;">
+                <!-- Goals injected here by JS -->
             </div>
-            <button onclick="window.regenerateSuggestions()"
-                style="width:100%; background:transparent; border:1px solid #ddd; color:var(--text-color); margin-bottom:10px;">Regenerate
-                Suggestions</button>
-            <button id="confirm-add-goal-btn">Add Goal</button>
         </div>
     </div>
 
@@ -575,7 +591,34 @@
         </div>
     </div>
 
-    <!-- HIDDEN REPORT CONTAINER -->
+    <!-- CELEBRATION OVERLAY -->
+    <div id="celebration-overlay"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; background:rgba(0,0,0,0.85); flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center;">
+        <canvas id="confetti-canvas"
+            style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></canvas>
+
+        <h1 style="font-size:4rem; color:#f1c40f; text-shadow:0 0 20px rgba(243, 156, 18, 0.8); margin:0;">
+            CONGRATULATIONS!</h1>
+        <p style="font-size:1.5rem; margin-top:20px;">You Reached a Goal!</p>
+
+        <div
+            style="background:white; color:#333; padding:20px 40px; border-radius:15px; margin-top:30px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <i id="cel-icon" class="material-icons"
+                style="font-size:64px; color:var(--accent-color);">fitness_center</i>
+            <h2 id="cel-title" style="margin:10px 0;">Lose 5 lbs</h2>
+            <p id="cel-desc" style="color:#777;">Great job sticking to it!</p>
+        </div>
+
+        <button onclick="document.getElementById('celebration-overlay').style.display='none'"
+            style="margin-top:40px; background:var(--primary-color); padding:15px 40px; font-size:18px; border-radius:30px; border:none; color:white; cursor:pointer; box-shadow:0 5px 15px rgba(52, 152, 219, 0.5);">
+            Awesome!
+        </button>
+    </div>
+
+    <!-- SCRIPT INCLUDES -->
+    <!-- Simple Confetti Lib (inline for reliability if external fetch fails, but let's try external first logic in app.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
     <div id="report-container"
         style="position:fixed; top:-9999px; left:-9999px; width:800px; background:white; color:black; padding:40px; font-family:'Helvetica', sans-serif;">
         <!-- Content injected here -->

@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "public_barcodes": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "public_foods": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "users": {
+        "$uid": {
+            ".read": "$uid === auth.uid",
+            ".write": "$uid === auth.uid"
+        }
+    }
+  }
+}

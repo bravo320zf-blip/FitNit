@@ -18,6 +18,29 @@ const firebaseConfig = {
     appId: "1:375638255257:web:c2d92fd129e7e01dbd7a08"
 };
 
+const PRESET_GOALS = [
+    // WEIGHT LOSS
+    { id: 'lose_5_lbs', title: "Lose 5 lbs", type: "weight_loss", target: 5, icon: "fitness_center", desc: "Drop 5 pounds from your start weight." },
+    { id: 'lose_10_lbs', title: "Lose 10 lbs", type: "weight_loss", target: 10, icon: "fitness_center", desc: "Drop 10 pounds from your start weight." },
+    { id: 'lose_15_lbs', title: "Lose 15 lbs", type: "weight_loss", target: 15, icon: "fitness_center", desc: "Drop 15 pounds from your start weight." },
+    { id: 'lose_20_lbs', title: "Lose 20 lbs", type: "weight_loss", target: 20, icon: "fitness_center", desc: "Drop 20 pounds from your start weight." },
+    { id: 'lose_25_lbs', title: "Lose 25 lbs", type: "weight_loss", target: 25, icon: "fitness_center", desc: "Drop 25 pounds from your start weight." },
+
+    // LOGGING STREAKS
+    { id: 'streak_3', title: "3 Day Log Streak", type: "streak", target: 3, icon: "local_fire_department", desc: "Log food for 3 days in a row." },
+    { id: 'streak_7', title: "7 Day Log Streak", type: "streak", target: 7, icon: "local_fire_department", desc: "Log food for 7 days in a row." },
+    { id: 'streak_14', title: "14 Day Log Streak", type: "streak", target: 14, icon: "local_fire_department", desc: "Log food for 2 weeks in a row." },
+    { id: 'streak_30', title: "30 Day Log Streak", type: "streak", target: 30, icon: "local_fire_department", desc: "Log food for a month in a row." },
+
+    // MACROS / NUTRITION (Daily Targets met X times - simplified for now to "Log X meals")
+    { id: 'log_10_meals', title: "Log 10 Meals", type: "total_logs", target: 10, icon: "restaurant", desc: "Log 10 separate meals." },
+    { id: 'log_50_meals', title: "Log 50 Meals", type: "total_logs", target: 50, icon: "restaurant", desc: "Log 50 separate meals." },
+    { id: 'log_100_meals', title: "Log 100 Meals", type: "total_logs", target: 100, icon: "restaurant", desc: "Log 100 separate meals." },
+
+    // WATER (Assumes water logging is added later, or tracked via "water" item)
+    // Placeholder for now
+];
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
@@ -115,6 +138,11 @@ function startDataListener(uid) {
         let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
 
         // 1. Calculate Stats for TODAY (for Widgets)
+
+        // --- NEW GOALS SYSTEM HOOKS ---
+        checkGoalsProgress(data);
+        renderGoals(data.goals);
+
         if (data.diary && data.diary[today]) {
             Object.values(data.diary[today]).forEach(cat => {
                 Object.values(cat).forEach(i => {
@@ -237,6 +265,7 @@ function renderProfileScreen(data, isMe, ownerUid) {
 
     // 5. Goals
     // 5. Goals logic
+    // 5. Goals logic
     const goalsCard = document.getElementById('personal-goals-card');
     if (goalsCard) {
         if (!isMe && hideGoals) {
@@ -245,7 +274,12 @@ function renderProfileScreen(data, isMe, ownerUid) {
             goalsCard.style.display = 'block';
             if (isMe) document.getElementById('add-goal-btn').style.display = 'block';
             else document.getElementById('add-goal-btn').style.display = 'none';
-            renderGoals(data.active_goals);
+
+            // Render Active
+            renderGoals(data.goals);
+
+            // Render Completed
+            renderCompletedGoals(data.goals);
         }
     }
 
@@ -717,7 +751,36 @@ function checkAchievements(data, uid) {
     if (data.diary) {
         unlock('tracker_1');
         const dates = Object.keys(data.diary).sort();
-        // Simple streak check could go here
+
+        // Streak Logic matches Goals logic (could be refactored)
+        let streak = 0;
+        let currentStreak = 0;
+        let lastDate = null;
+
+        dates.forEach(d => {
+            // d is YYYY-MM-DD
+            const dateObj = new Date(d);
+            if (!lastDate) {
+                currentStreak = 1;
+            } else {
+                // Difference in days
+                const diffTime = Math.abs(dateObj - lastDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays === 1) {
+                    currentStreak++;
+                } else if (diffDays > 1) {
+                    // Reset if gap > 1 day
+                    currentStreak = 1;
+                }
+            }
+            lastDate = dateObj;
+            streak = Math.max(streak, currentStreak);
+        });
+
+        if (streak >= 3) unlock('streak_3');
+        if (streak >= 7) unlock('streak_7');
+        if (streak >= 30) unlock('streak_30');
     }
 
     // 5. Workouts
@@ -1471,50 +1534,61 @@ document.getElementById('scan-nav-btn').onclick = () => {
 
 function processNormalScan(text) {
     // 1. Check Community DB (public_barcodes)
-    get(ref(db, `public_barcodes/${text}`)).then((snap) => {
-        if (snap.exists()) {
-            currentScannedItem = { ...snap.val(), image: "" };
-            showConfirm();
-        } else {
-            // 2. Fallback to OpenFoodFacts
-            fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
-                .then(r => r.json()).then(d => {
-                    if (d.status === 1) {
-                        const n = d.product.nutriments;
-                        const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
-                        const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
+    // NOTE: If permission is denied (no public read access), we catch it and fallback to OFF.
+    get(ref(db, `public_barcodes/${text}`))
+        .then((snap) => {
+            if (snap.exists()) {
+                currentScannedItem = { ...snap.val(), image: "" };
+                showConfirm();
+            } else {
+                fetchOpenFoodFacts(text);
+            }
+        })
+        .catch((err) => {
+            console.warn("Community DB check failed (likely permission):", err);
+            // Fallback to External API on permission error
+            fetchOpenFoodFacts(text);
+        });
+}
 
-                        currentScannedItem = {
-                            name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
-                            calories: getCals(),
-                            protein: getVal('proteins'),
-                            carbs: getVal('carbohydrates'),
-                            fat: getVal('fat'),
-                            sugar: getVal('sugars'),
-                            satFat: getVal('saturated-fat'),
-                            fiber: getVal('fiber'),
-                            sodium: getVal('sodium') * 1000,
-                            cholesterol: getVal('cholesterol') * 1000,
-                            potassium: getVal('potassium') * 1000,
-                            vitA: getVal('vitamin-a') * 1000000,
-                            vitC: getVal('vitamin-c') * 1000,
-                            calcium: getVal('calcium') * 1000,
-                            iron: getVal('iron') * 1000,
-                            image: d.product.image_url || ""
-                        };
-                        showConfirm();
-                    } else {
-                        alert("Item not found. Try custom entry.");
-                        window.showView('dashboard-screen');
-                    }
-                })
-                .catch(error => {
-                    console.error("OFF Error", error);
-                    alert("Network error.");
-                    window.showView('dashboard-screen');
-                });
-        }
-    });
+function fetchOpenFoodFacts(text) {
+    // 2. Fallback to OpenFoodFacts
+    fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
+        .then(r => r.json()).then(d => {
+            if (d.status === 1) {
+                const n = d.product.nutriments;
+                const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
+                const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
+
+                currentScannedItem = {
+                    name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
+                    calories: getCals(),
+                    protein: getVal('proteins'),
+                    carbs: getVal('carbohydrates'),
+                    fat: getVal('fat'),
+                    sugar: getVal('sugars'),
+                    satFat: getVal('saturated-fat'),
+                    fiber: getVal('fiber'),
+                    sodium: getVal('sodium') * 1000,
+                    cholesterol: getVal('cholesterol') * 1000,
+                    potassium: getVal('potassium') * 1000,
+                    vitA: getVal('vitamin-a') * 1000000,
+                    vitC: getVal('vitamin-c') * 1000,
+                    calcium: getVal('calcium') * 1000,
+                    iron: getVal('iron') * 1000,
+                    image: d.product.image_url || ""
+                };
+                showConfirm();
+            } else {
+                alert("Item not found. Try custom entry.");
+                window.showView('dashboard-screen');
+            }
+        })
+        .catch(error => {
+            console.error("OFF Error", error);
+            alert("Network error.");
+            window.showView('dashboard-screen');
+        });
 }
 
 // --- SETTINGS ---
@@ -2300,37 +2374,356 @@ async function saveCustomFood(item, saveToPublic) {
     const uid = auth.currentUser.uid;
     const type = 'snack'; // Default
 
-    // 1. Save to Diary
-    await push(ref(db, `users/${uid}/diary/${date}/${type}`), item);
+    try {
+        // 1. Save to Diary (Private - Should always work)
+        await push(ref(db, `users/${uid}/diary/${date}/${type}`), item);
 
-    // 2. Save to Public DB (if requested and valid)
-    if (saveToPublic) {
-        // Add minimal metadata
-        const publicItem = {
-            ...item,
-            name_lower: item.name.toLowerCase(),
-            created: Date.now()
-        };
-        // Push to public_foods
-        const pubRef = await push(ref(db, 'public_foods'), publicItem);
+        // 2. Save to Public DB (if requested)
+        if (saveToPublic) {
+            try {
+                // Add minimal metadata
+                const publicItem = {
+                    ...item,
+                    name_lower: item.name.toLowerCase(),
+                    created: Date.now()
+                };
+                // Push to public_foods
+                const pubRef = await push(ref(db, 'public_foods'), publicItem);
 
-        // 3. Save Barcode Link (If present) - Critical for Scanner
-        const code = document.getElementById('c-barcode').value; // Get from input again to be sure
-        if (code) {
-            set(ref(db, `public_barcodes/${code}`), {
-                name: item.name,
-                calories: item.calories,
-                protein: item.protein,
-                carbs: item.carbs,
-                fat: item.fat,
-                sugar: item.sugar,
-                publicId: pubRef.key, // Link to full record if needed
-                source: "FitNit Community"
-            });
+                // 3. Save Barcode Link
+                const code = document.getElementById('c-barcode').value;
+                if (code) {
+                    await set(ref(db, `public_barcodes/${code}`), {
+                        name: item.name,
+                        calories: item.calories,
+                        protein: item.protein,
+                        carbs: item.carbs,
+                        fat: item.fat,
+                        sugar: item.sugar,
+                        publicId: pubRef.key,
+                        source: "FitNit Community"
+                    });
+                }
+            } catch (pubErr) {
+                console.warn("Public Save Failed (Permission Denied?):", pubErr);
+                alert("Saved to Diary! (Community share skipped)");
+                if (document.getElementById('mode-custom')) document.getElementById('mode-custom').style.display = 'none';
+                return; // Exit early
+            }
         }
-    }
 
-    alert(`Item Added! ${saveToPublic ? '(And shared with Community)' : ''}`);
-    if (document.getElementById('mode-custom')) document.getElementById('mode-custom').style.display = 'none';
+        alert(`Item Added! ${saveToPublic ? '(And shared)' : ''}`);
+        if (document.getElementById('mode-custom')) document.getElementById('mode-custom').style.display = 'none';
+
+    } catch (err) {
+        console.error("Save Failed:", err);
+        alert("Error saving item: " + err.message);
+    }
 }
 
+// --- PRESET GOALS LOGIC ---
+
+// 1. Render Add Goal Modal with Presets
+window.showAddGoalModal = function () {
+    // Clear existing
+    document.getElementById('goal-search-input').value = "";
+    const list = document.getElementById('goal-list-container');
+    list.innerHTML = "";
+
+    renderPresetList(PRESET_GOALS); // Render all initially
+
+    // Setup Search Listener
+    document.getElementById('goal-search-input').onkeyup = (e) => {
+        const query = e.target.value.toLowerCase();
+        const filtered = PRESET_GOALS.filter(g => g.title.toLowerCase().includes(query) || g.type.includes(query));
+        renderPresetList(filtered);
+    };
+
+    document.getElementById('add-goal-modal').style.display = 'flex';
+}
+
+// Global available for HTML button
+window.regenerateSuggestions = function () {
+    // If we kept the old button, map it to show modal
+    showAddGoalModal();
+}
+
+function renderPresetList(goals) {
+    const list = document.getElementById('goal-list-container');
+    list.innerHTML = "";
+
+    if (goals.length === 0) {
+        list.innerHTML = `<p style="text-align:center; color:#999;">No goals found.</p>`;
+        return;
+    }
+
+    goals.forEach(goal => {
+        const item = document.createElement('div');
+        item.style.cssText = "display:flex; align-items:center; padding:15px; background:#f9f9f9; border-radius:10px; cursor:pointer; transition:0.2s;";
+        item.onmouseover = () => item.style.background = "#eee";
+        item.onmouseout = () => item.style.background = "#f9f9f9";
+
+        item.innerHTML = `
+            <div style="background:var(--accent-color); color:white; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px;">
+                <i class="material-icons">${goal.icon}</i>
+            </div>
+            <div style="flex-grow:1;">
+                <h4 style="margin:0; color:#333;">${goal.title}</h4>
+                <p style="margin:2px 0 0 0; color:#777; font-size:12px;">${goal.desc}</p>
+            </div>
+            <i class="material-icons" style="color:#ccc;">add_circle_outline</i>
+        `;
+
+        item.onclick = () => addPresetGoal(goal);
+        list.appendChild(item);
+    });
+}
+
+// 2. Add Preset Goal Logic
+async function addPresetGoal(goalTemplate) {
+    const uid = auth.currentUser.uid;
+
+    // Check Active Goals Count
+    const snapGoals = await get(ref(db, `users/${uid}/goals`));
+    const goals = snapGoals.val() || {};
+    const activeCount = Object.values(goals).filter(g => g.status === 'active').length;
+
+    if (activeCount >= 3) {
+        alert("You can only have 3 active goals at a time. Please complete or delete one first.");
+        return;
+    }
+
+    // Calculate Start Values based on Type
+    let startValue = 0;
+    const snapUser = await get(ref(db, `users/${uid}`));
+    const userData = snapUser.val() || {};
+
+    if (goalTemplate.type === 'weight_loss') {
+        startValue = userData.profile ? parseFloat(userData.profile.weight) : 0;
+        if (!startValue || isNaN(startValue)) {
+            // Fallback: check history
+            if (userData.weight_history) {
+                const history = Object.values(userData.weight_history);
+                if (history.length > 0) startValue = parseFloat(history[history.length - 1]);
+            }
+        }
+        if (!startValue) {
+            // Prompt user if no weight found
+            const w = prompt("Current weight needed for this goal. Enter current weight (lbs):");
+            startValue = parseFloat(w);
+            if (!startValue) return; // Cancel
+        }
+    }
+    else if (goalTemplate.type === 'streak') {
+        startValue = 0; // Streak starts at 0
+    }
+
+    const newGoal = {
+        id: goalTemplate.id,
+        title: goalTemplate.title,
+        type: goalTemplate.type,
+        target: goalTemplate.target,
+        icon: goalTemplate.icon,
+        startValue: startValue,
+        startDate: Date.now(),
+        status: 'active',
+        progress: 0
+    };
+
+    // Save
+    await push(ref(db, `users/${uid}/goals`), newGoal);
+
+    document.getElementById('add-goal-modal').style.display = 'none';
+    alert("Goal Added! Track your progress on the Dashboard.");
+}
+
+
+// 3. Check Goal Progress (Runs on Main Data Sync)
+function checkGoalsProgress(userData) {
+    if (!userData.goals) return;
+
+    Object.entries(userData.goals).forEach(([key, goal]) => {
+        if (goal.status !== 'active') return;
+
+        let currentProgress = 0; // 0-100
+        let isComplete = false;
+
+        // A. Weight Loss Logic
+        if (goal.type === 'weight_loss') {
+            // Logic: Target is amount to lose (e.g. 5)
+            let latestWeight = goal.startValue;
+            if (userData.weight_history) {
+                const history = Object.values(userData.weight_history);
+                if (history.length > 0) latestWeight = parseFloat(history[history.length - 1]);
+            }
+
+            // Progress = (Start - Current) / Target
+            const lost = goal.startValue - latestWeight;
+            if (lost > 0) {
+                currentProgress = (lost / goal.target) * 100;
+            } else {
+                currentProgress = 0;
+            }
+
+            if (currentProgress >= 100) isComplete = true;
+        }
+
+        // B. Streak Logic
+        else if (goal.type === 'streak') {
+            // Simplified: Assume today's streak is stored in userData.stats.current_streak
+            // If not, we skip implementation for now or build a helper.
+            // Let's rely on manual check for prototype if no streak engine.
+            // Placeholder:
+            const streak = 0; // TODO: Implement Streak Engine
+            if (streak >= goal.target) {
+                currentProgress = 100;
+                isComplete = true;
+            } else {
+                currentProgress = (streak / goal.target) * 100;
+            }
+        }
+
+        // UPDATE DB if changed significantly or complete
+        if (isComplete) {
+            // MARK COMPLETE
+            update(ref(db, `users/${auth.currentUser.uid}/goals/${key}`), {
+                status: 'completed',
+                completedAt: Date.now(),
+                progress: 100
+            });
+
+            // CELEBRATION
+            showCelebration(goal);
+        } else if (Math.abs(currentProgress - (goal.progress || 0)) > 1) {
+            update(ref(db, `users/${auth.currentUser.uid}/goals/${key}`), {
+                progress: Math.min(100, Math.max(0, currentProgress))
+            });
+        }
+    });
+}
+
+function showCelebration(goal) {
+    const overlay = document.getElementById('celebration-overlay');
+    document.getElementById('cel-title').innerText = goal.title;
+    document.getElementById('cel-icon').innerText = goal.icon || 'star';
+
+    overlay.style.display = 'flex';
+
+    // Confetti!
+    if (window.confetti) {
+        var duration = 3000;
+        var end = Date.now() + duration;
+
+        (function frame() {
+            confetti({
+                particleCount: 5,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#3498db', '#e74c3c', '#f1c40f']
+            });
+            confetti({
+                particleCount: 5,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#3498db', '#e74c3c', '#f1c40f']
+            });
+
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+    }
+}
+
+// --- OVERRIDE RENDER GOALS ---
+// Replaces any existing renderGoals logic
+// --- OVERRIDE RENDER GOALS ---
+// Reused for Dashboard and Profile (Active Goals)
+window.renderGoals = function (goalsData) {
+    // 1. Render Dashboard Widget
+    renderGoalsWidget(goalsData, 'goals-widget-content');
+
+    // 2. Render Profile Widget (Active) - ID is same but in different container? 
+    // Wait, IDs must be unique. The Profile card uses #goals-widget-content too currently.
+    // I should have named them differently in HTML.
+    // FIX: Render to likely IDs if they exist.
+    // Dashboard: #goals-widget-container -> #goals-widget-content
+    // Profile: #personal-goals-card -> #goals-widget-content ?? Duplicate ID.
+    // Hack: Select both?
+    const widgets = document.querySelectorAll('#goals-widget-content');
+    widgets.forEach(w => renderGoalsWidget(goalsData, w));
+}
+
+// Helper: Render Active Goals to a specific element
+function renderGoalsWidget(goalsData, containerOrId) {
+    const widget = typeof containerOrId === 'string' ? document.getElementById(containerOrId) : containerOrId;
+    if (!widget) return;
+
+    widget.innerHTML = "";
+    widget.style.display = "flex";
+    widget.style.gap = "10px";
+    widget.style.overflowX = "auto";
+
+    if (!goalsData) {
+        widget.innerHTML = `<p style="opacity:0.6; font-size:14px; width:100%; text-align:center;">No active goals.</p>`;
+        return;
+    }
+
+    const activeGoals = Object.values(goalsData).filter(g => g.status === 'active');
+
+    if (activeGoals.length === 0) {
+        widget.innerHTML = `<p style="opacity:0.6; font-size:14px; width:100%; text-align:center;">No active goals.</p>`;
+        return;
+    }
+
+    // Show max 3
+    activeGoals.slice(0, 3).forEach(g => {
+        const card = document.createElement('div');
+        // Stylized Mini Card
+        card.style.cssText = "background:rgba(255,255,255,0.1); padding:10px; min-width:100px; flex:1; border-radius:10px; text-align:center; position:relative; color:var(--text-color); box-shadow:0 1px 3px rgba(0,0,0,0.1);";
+        // Dark mode adjustment via CSS var? --text-color handles it.
+
+        const pct = Math.round(g.progress || 0);
+
+        card.innerHTML = `
+            <i class="material-icons" style="font-size:24px; margin-bottom:5px; color:var(--accent-color);">${g.icon || 'flag'}</i>
+            <div style="font-weight:bold; font-size:13px; margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${g.title}</div>
+            <div style="background:rgba(127,127,127,0.2); height:6px; border-radius:3px; width:100%; overflow:hidden;">
+                <div style="background:var(--secondary-color); width:${pct}%; height:100%; border-radius:3px;"></div>
+            </div>
+            <small style="font-size:10px; opacity:0.8; display:block; margin-top:2px;">${pct}%</small>
+            `;
+        widget.appendChild(card);
+    });
+}
+
+// Render Completed Goals (Profile Only)
+function renderCompletedGoals(goalsData) {
+    const container = document.getElementById('completed-goals-section');
+    const list = document.getElementById('completed-goals-list');
+    if (!container || !list) return;
+
+    if (!goalsData) {
+        container.style.display = 'none';
+        return;
+    }
+
+    const completed = Object.values(goalsData).filter(g => g.status === 'completed');
+
+    if (completed.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    list.innerHTML = "";
+
+    completed.forEach(g => {
+        const chip = document.createElement('div');
+        chip.style.cssText = "display:flex; align-items:center; gap:5px; padding:5px 10px; background:rgba(39, 174, 96, 0.1); border:1px solid rgba(39, 174, 96, 0.2); border-radius:20px; font-size:12px; color:#27ae60;";
+        chip.innerHTML = `<i class="material-icons" style="font-size:16px;">check_circle</i> ${g.title}`;
+        list.appendChild(chip);
+    });
+}
