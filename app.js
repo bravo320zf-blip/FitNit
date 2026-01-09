@@ -27,7 +27,9 @@ window.showView = (v) => {
     if (target) target.style.display = 'block';
 
     // Cleanup scanner
-    if (html5QrCode && v !== 'scanner-screen') html5QrCode.stop().catch(() => { });
+    if (html5QrCode && v !== 'scanner-screen') {
+        try { html5QrCode.stop().catch(() => { }); } catch (e) { }
+    }
 
     // Default workout mode
     if (v === 'workout-screen') window.setWorkoutMode('strength');
@@ -40,7 +42,9 @@ window.toggleAddMode = (m) => {
     document.getElementById('scanned-result').style.display = 'none';
     if (m === 'recent') loadFoodList('recent_items', 'recent-list');
     if (m === 'favs') loadFoodList('favorites', 'favs-list');
-    if (m !== 'scan' && html5QrCode) html5QrCode.stop().catch(() => { });
+    if (m !== 'scan' && html5QrCode) {
+        try { html5QrCode.stop().catch(() => { }); } catch (e) { }
+    }
 };
 
 window.setWorkoutMode = (m) => {
@@ -160,29 +164,40 @@ function startDataListener(uid) {
 }
 
 // --- EXERCISE AUTOCOMPLETE ---
-let allExercises = [];
-const defaultExercises = [
+let allExercises = [
     "Bench Press", "Squat", "Deadlift", "Overhead Press", "Barbell Row",
     "Dumbbell Press", "Lunges", "Pull Ups", "Push Ups", "Plank",
     "Bicep Curls", "Tricep Extensions", "Leg Press", "Lat Pulldown",
     "Shoulder Press", "Chest Fly", "Leg Curls", "Leg Extensions",
-    "Calf Raises", "Russian Twists", "Mountain Climbers", "Burpees"
+    "Calf Raises", "Russian Twists", "Mountain Climbers", "Burpees",
+    "Dips", "Face Pulls", "Lateral Raises", "Front Squat", "Romanian Deadlift",
+    "Incline Bench Press", "Decline Bench Press", "Skullcrushers", "Hammer Curls",
+    "Cable Crossovers", "T-Bar Row", "Seated Row", "Pull Down", "Leg Raises"
 ];
 
 function initExercises() {
+    // 1. Fetch free online database
+    fetch('https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json')
+        .then(r => r.json())
+        .then(data => {
+            const externalNames = data.map(d => d.name);
+            const combined = new Set([...allExercises, ...externalNames]);
+            allExercises = Array.from(combined);
+        })
+        .catch(err => console.warn("Could not fetch external exercises:", err));
+
+    // 2. Fetch custom/common from Firebase
     const exRef = ref(db, 'common_exercises');
     get(exRef).then(snap => {
-        if (!snap.exists()) {
-            // Attempt to seed, but if it fails (permissions), we still have local defaults
-            set(exRef, defaultExercises).catch(e => console.warn("Could not seed exercises:", e));
-            allExercises = defaultExercises;
+        if (snap.exists()) {
+            const dbNames = snap.val();
+            const combined = new Set([...allExercises, ...dbNames]);
+            allExercises = Array.from(combined);
         } else {
-            allExercises = snap.val();
+            // Attempt seed silently
+            set(exRef, defaultExercises).catch(() => { });
         }
-    }).catch(err => {
-        console.warn("Error fetching exercises (likely permissions), using defaults:", err);
-        allExercises = defaultExercises;
-    });
+    }).catch(err => console.warn("Firebase permission error (using defaults):", err));
 }
 // Call init on load
 initExercises();
