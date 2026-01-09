@@ -1083,7 +1083,8 @@ function renderRandomSuggestions() {
     selected.forEach(g => {
         const btn = document.createElement('div');
         btn.className = "suggestion-chip";
-        btn.style.background = "#f0f0f0";
+        btn.style.background = "#3498db";
+        btn.style.color = "#fff";
         btn.style.padding = "8px";
         btn.style.borderRadius = "20px";
         btn.style.fontSize = "12px";
