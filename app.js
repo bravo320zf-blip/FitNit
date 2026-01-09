@@ -151,7 +151,14 @@ function startDataListener(uid) {
         // Render Extended Setup on Dashboard
         renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
 
-        if (data.weight_history) updateWeightGraph(data.weight_history);
+        if (data.weight_history) {
+            window._fullWeightHistory = data.weight_history;
+            // Initial render with 1 year check or default (last 30 days) if no pref? 
+            // Let's default to full year or everything.
+            // Check if active range set?
+            const currentRange = window._weightRange || 365;
+            updateWeightFilter(currentRange);
+        }
 
         // Render Profile (My Profile) if not currently viewing someone else or overriding mode
         // We attach totals to data object for convenience so render knows about it
@@ -341,7 +348,7 @@ function renderDietHistory(diary) {
                 delBtn.style.borderRadius = "4px";
                 delBtn.onclick = (e) => {
                     e.stopPropagation();
-                    window.promptDeleteFoodItem(date, type, key, i.name);
+                    window.promptDeleteItem({ category: 'food', date: date, subType: type, key: key, name: i.name });
                 };
 
                 itemEl.appendChild(leftDiv);
@@ -413,12 +420,38 @@ function renderWorkoutHistory(workouts) {
         box.style.display = "none";
         box.style.paddingLeft = "10px";
 
-        Object.values(workouts[date]).forEach(w => {
+        Object.entries(workouts[date]).forEach(([key, w]) => {
             const el = document.createElement('div');
             el.className = "meal-item";
-            el.style.padding = "5px 0";
+            el.style.padding = "10px 0";
             el.style.borderBottom = "1px solid #f0f0f0";
-            el.innerHTML = `<strong>${w.name}</strong><br><small>${w.sets ? w.sets + ' sets x ' + w.reps : w.duration + ' mins'} | ${w.burned} kcal</small>`;
+            el.style.display = "flex";
+            el.style.justifyContent = "space-between";
+            el.style.alignItems = "center";
+
+            // Workout Content
+            const content = document.createElement('div');
+            content.style.flexGrow = 1;
+            content.innerHTML = `<strong>${w.name}</strong><br><small style="color:#777;">${w.sets ? w.sets + ' sets x ' + w.reps : w.duration + ' mins'} | ${w.burned} kcal</small>`;
+
+            // Delete Button
+            const delBtn = document.createElement('button');
+            delBtn.className = "icon-btn delete-btn";
+            delBtn.innerHTML = `<i class="material-icons">delete</i>`;
+            delBtn.style.color = "#e74c3c";
+            // delBtn.style.marginLeft = "10px"; // already flex spaced
+            delBtn.style.padding = "5px";
+            delBtn.style.height = "fit-content";
+            delBtn.style.background = "rgba(231, 76, 60, 0.1)";
+            delBtn.style.borderRadius = "4px";
+
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                window.promptDeleteItem({ category: 'workout', date: date, key: key, name: w.name });
+            };
+
+            el.appendChild(content);
+            el.appendChild(delBtn);
             box.appendChild(el);
         });
 
@@ -987,15 +1020,60 @@ document.getElementById('save-weight-btn').onclick = () => {
     alert("Logged!");
 };
 
+// Helper to filter and update graph
+function updateWeightFilter(days) {
+    window._weightRange = days;
+    if (!window._fullWeightHistory) return;
+
+    // Calculate cutoff date
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    // Filter
+    const filtered = {};
+    Object.keys(window._fullWeightHistory).forEach(k => {
+        if (k >= cutoffStr) filtered[k] = window._fullWeightHistory[k];
+    });
+
+    updateWeightGraph(filtered);
+}
+
+// Add Filter Listener
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.onclick = (e) => {
+        const range = Number(e.target.dataset.range);
+        updateWeightFilter(range);
+    }
+});
+
 function updateWeightGraph(history) {
     const ctx = document.getElementById('weightHistoryChart').getContext('2d');
     const sorted = Object.keys(history).sort();
+
     if (weightChart) weightChart.destroy();
+
+    // Only show if we have data, else empty
+    if (sorted.length === 0 && weightChart) { weightChart.destroy(); return; }
+
     weightChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: sorted.map(d => d.split('-').slice(1).join('/')),
-            datasets: [{ label: 'Weight', data: sorted.map(d => history[d]), borderColor: '#3498db', tension: 0.3 }]
+            datasets: [{
+                label: 'Weight',
+                data: sorted.map(d => history[d]),
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: false } // Better visual for weight fluctuations
+            }
         }
     });
 }

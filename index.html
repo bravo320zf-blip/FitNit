@@ -62,7 +62,19 @@
 
         <!-- WEIGHT -->
         <section id="weight-screen" class="view" style="display:none;">
-            <div class="card"><canvas id="weightHistoryChart"></canvas></div>
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <button class="filter-btn" data-range="365"
+                        style="border:1px solid #3498db; background:transparent; color:#3498db; border-radius:4px; padding:5px 10px; font-size:12px;">1Y</button>
+                    <button class="filter-btn" data-range="180"
+                        style="border:1px solid #f1c40f; background:transparent; color:#f1c40f; border-radius:4px; padding:5px 10px; font-size:12px;">6M</button>
+                    <button class="filter-btn" data-range="30"
+                        style="border:1px solid #e67e22; background:transparent; color:#e67e22; border-radius:4px; padding:5px 10px; font-size:12px;">1M</button>
+                    <button class="filter-btn" data-range="7"
+                        style="border:1px solid #27ae60; background:transparent; color:#27ae60; border-radius:4px; padding:5px 10px; font-size:12px;">1W</button>
+                </div>
+                <canvas id="weightHistoryChart"></canvas>
+            </div>
             <div class="card">
                 <input type="number" id="weight-input" placeholder="Weight (lbs)">
                 <button id="save-weight-btn">Log Weight</button>
