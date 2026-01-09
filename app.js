@@ -874,10 +874,46 @@ document.getElementById('close-settings-btn').onclick = () => document.getElemen
 document.getElementById('friends-btn').onclick = () => document.getElementById('friends-modal').style.display = 'flex';
 
 // --- CUSTOM GOALS ---
+const suggestedGoals = [
+    "Lose 5 lbs", "Lose 10 lbs", "Drink 8 cups water", "Walk 10,000 steps",
+    "Run a 5k", "Run a 10k", "Do 50 pushups", "Do 10 pullups",
+    "Eat 150g protein", "Veg with every meal", "No sugar for 1 week",
+    "Workout 3x/week", "Workout 5x/week", "Sleep 8 hours",
+    "Meditate 10 mins", "Meal prep for week", "Track all calories",
+    "Hit calorie goal", "Maintain weight", "Bench press bodyweight"
+];
+
 document.getElementById('add-goal-btn').onclick = () => {
-    const goal = prompt("Enter a new goal (e.g. 'Reach 150lbs'):");
+    document.getElementById('add-goal-modal').style.display = 'flex';
+    document.getElementById('new-goal-input').value = ""; // Clear
+
+    // Render Suggestions
+    const grid = document.getElementById('goal-suggestions-list');
+    grid.innerHTML = "";
+    suggestedGoals.forEach(g => {
+        const btn = document.createElement('div');
+        btn.className = "suggestion-chip"; // New class for styling needed? Or just inline/reuse
+        btn.style.background = "#f0f0f0";
+        btn.style.padding = "8px";
+        btn.style.borderRadius = "20px";
+        btn.style.fontSize = "12px";
+        btn.style.textAlign = "center";
+        btn.style.cursor = "pointer";
+        btn.innerText = g;
+        btn.onclick = () => {
+            document.getElementById('new-goal-input').value = g;
+        };
+        grid.appendChild(btn);
+    });
+};
+
+document.getElementById('confirm-add-goal-btn').onclick = () => {
+    const goal = document.getElementById('new-goal-input').value;
     if (goal) {
         push(ref(db, `users/${auth.currentUser.uid}/active_goals`), { text: goal, created: Date.now(), completed: false });
+        document.getElementById('add-goal-modal').style.display = 'none';
+        // If viewing self profile, it updates automatically via listener?
+        // Yes, listener is active.
     }
 };
 
