@@ -1816,9 +1816,41 @@ window.showFoodDetails = (item) => {
     m.style.display = 'flex';
 }
 
-// --- ENHANCED SMART SCANNER (MULTI-STEP) ---
+// --- ENHANCED SMART SCANNER (INTERACTIVE WIZARD) ---
 let scanStep = 0; // 0=Macros, 1=Name, 2=Barcode
 let tempScanData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "" };
+
+// Helper: Show Wizard Modal Step
+const showWizard = (step) => {
+    const modal = document.getElementById('scanner-wizard-modal');
+    const title = document.getElementById('wiz-title');
+    const s1 = document.getElementById('wiz-step-1');
+    const s2 = document.getElementById('wiz-step-2');
+
+    modal.style.display = 'flex';
+    s1.style.display = 'none';
+    s2.style.display = 'none';
+
+    if (step === 1) {
+        title.innerText = "Step 1: Check Macros";
+        s1.style.display = 'block';
+        // Pre-fill
+        document.getElementById('wiz-cals').value = tempScanData.calories || "";
+        document.getElementById('wiz-prot').value = tempScanData.protein || "";
+        document.getElementById('wiz-carb').value = tempScanData.carbs || "";
+        document.getElementById('wiz-fat').value = tempScanData.fat || "";
+        document.getElementById('wiz-sugar').value = tempScanData.sugar || "";
+    } else if (step === 2) {
+        title.innerText = "Step 2: Check Name";
+        s2.style.display = 'block';
+        // Pre-fill
+        document.getElementById('wiz-name').value = tempScanData.name || "";
+    }
+};
+
+window.closeWizard = () => {
+    document.getElementById('scanner-wizard-modal').style.display = 'none';
+};
 
 const initSmartScanner = () => {
     const btnReader = document.getElementById('btn-read-label');
@@ -1827,16 +1859,46 @@ const initSmartScanner = () => {
 
     if (!btnReader || !inputReader) return;
 
+    // --- WIZARD BUTTON HANDLERS ---
+    // STEP 1 NEXT (Save Macros -> Go to Name Scan)
+    document.getElementById('btn-wiz-next-1').onclick = () => {
+        // Save Edited Data
+        tempScanData.calories = Number(document.getElementById('wiz-cals').value);
+        tempScanData.protein = Number(document.getElementById('wiz-prot').value);
+        tempScanData.carbs = Number(document.getElementById('wiz-carb').value);
+        tempScanData.fat = Number(document.getElementById('wiz-fat').value);
+        tempScanData.sugar = Number(document.getElementById('wiz-sugar').value);
+
+        // Hide Modal & Prepare for Step 2
+        closeWizard();
+        scanStep = 1;
+        btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Name';
+        statusDiv.style.display = 'block';
+        statusDiv.innerText = "Step 2: Tap to Capture Product Name";
+    };
+
+    // STEP 2 NEXT (Save Name -> Go to Barcode Scan)
+    document.getElementById('btn-wiz-next-2').onclick = () => {
+        // Save Edited Data
+        tempScanData.name = document.getElementById('wiz-name').value;
+
+        // Hide Modal & Prepare for Step 3
+        closeWizard();
+        scanStep = 2;
+        btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">qr_code_scanner</i> Scan Barcode';
+        statusDiv.innerText = "Step 3: Tap to Scan Barcode";
+    };
+
+    // MAIN BUTTON CLICK
     btnReader.onclick = () => {
         if (scanStep === 2) {
-            // Trigger Barcode Scanner
             startBarcodeScanForLink();
         } else {
-            // Trigger Camera for OCR
-            inputReader.click();
+            inputReader.click(); // Trigger Camera
         }
     };
 
+    // FILE INPUT CHANGE (OCR)
     inputReader.onchange = async (e) => {
         if (!e.target.files || e.target.files.length === 0) return;
         const file = e.target.files[0];
@@ -1852,7 +1914,7 @@ const initSmartScanner = () => {
             await worker.terminate();
 
             if (scanStep === 0) {
-                // Step 1: Parse Macros
+                // Step 1 Output: Macros
                 const findVal = (regex) => { const m = text.match(regex); return m ? parseFloat(m[1]) : 0; };
 
                 tempScanData.calories = findVal(/Calories\D*(\d+)/i) || findVal(/Energy\D*(\d+)/i) || 0;
@@ -1861,27 +1923,17 @@ const initSmartScanner = () => {
                 tempScanData.fat = findVal(/Total Fat\D*(\d+)g?/i) || findVal(/Fat\D*(\d+)g?/i) || 0;
                 tempScanData.sugar = findVal(/Total Sugars?\D*(\d+)g?/i) || findVal(/Sugars?\D*(\d+)g?/i) || 0;
 
-                alert(`Macros Found!\nCals: ${tempScanData.calories}, P: ${tempScanData.protein}g\n\nNext: Take a picture of the PRODUCT NAME.`);
-
-                scanStep = 1;
-                btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Name';
-                statusDiv.style.display = 'block';
-                statusDiv.innerText = "Step 2: Capture Product Name";
+                // SHOW WIZARD STEP 1 (Instead of Alert)
+                showWizard(1);
 
             } else if (scanStep === 1) {
-                // Step 2: Parse Name
-                // Simple heuristic: Take the longest line or just the whole text capitalized? 
-                // Let's filter for valid lines and take the first likely candidate (UPPERCASE often title)
+                // Step 2 Output: Name
                 const lines = text.split('\n').filter(l => l.trim().length > 3);
                 tempScanData.name = lines[0] || "Scanned Item";
-                // Clean up name
                 tempScanData.name = tempScanData.name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
 
-                alert(`Name Found: "${tempScanData.name}"\n\nNext: Scan the BARCODE to link it.`);
-
-                scanStep = 2;
-                btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">qr_code_scanner</i> Scan Barcode';
-                statusDiv.innerText = "Step 3: Scan Barcode";
+                // SHOW WIZARD STEP 2
+                showWizard(2);
             }
 
         } catch (err) {
@@ -1890,7 +1942,12 @@ const initSmartScanner = () => {
         } finally {
             if (scanStep !== 2) {
                 btnReader.disabled = false;
-                if (scanStep === 0) btnReader.innerHTML = originalText;
+                // Restore button text is handled by the Wizard Flow transitions mostly, 
+                // but if error occurred we might want to reset? 
+                // Actually the wizard updates the button text.
+                // Just reset processing state.
+                btnReader.innerHTML = (scanStep === 0) ? '<i class="material-icons" style="vertical-align:middle; font-size:18px;">camera_alt</i> Scan Label' : btnReader.innerHTML;
+                if (scanStep === 1) btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Name';
             } else {
                 btnReader.disabled = false;
             }
@@ -1900,21 +1957,20 @@ const initSmartScanner = () => {
 };
 
 function startBarcodeScanForLink() {
-    // Switch to Scanner View momentarily to capture barcode
-    // We reuse the existing reader div but override its callback
     const readerDiv = document.getElementById('reader');
     if (!readerDiv) return;
 
     document.getElementById('mode-scan').style.display = 'block';
     const btn = document.getElementById('btn-read-label');
-    btn.style.display = 'none'; // Hide button during scan
+    const statusDiv = document.getElementById('scan-status');
+    btn.style.display = 'none';
+    statusDiv.style.display = 'none'; // Hide status during FS scan
 
     if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
     html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (barcode) => {
-        // Barcode Found!
         html5QrCode.stop().then(() => {
-            // Fill Form with ALL Data
+            // FINISH: Fill Main Form with verified data
             document.getElementById('c-name').value = tempScanData.name;
             document.getElementById('c-cals').value = tempScanData.calories;
             document.getElementById('c-prot').value = tempScanData.protein;
@@ -1926,18 +1982,16 @@ function startBarcodeScanForLink() {
             // Switch to Custom View
             if (window.toggleAddMode) window.toggleAddMode('custom');
 
-            // Reset Wizard
+            // Allow User to Edit Final Form
+            // Reset Wizard State for next time
             scanStep = 0;
             btn.style.display = 'inline-block';
             btn.innerHTML = '<i class="material-icons" style="vertical-align:middle; font-size:18px;">camera_alt</i> Scan Label';
-            document.getElementById('scan-status').style.display = 'none';
-            document.getElementById('scan-status').innerText = "";
+            statusDiv.innerText = "";
 
-            alert(`Wizard Complete!\nBarcode: ${barcode}\nPlease verify and Save.`);
+            alert(`Wizard Complete! Barcode linked.\nReview details and hit Save.`);
         });
-    }).catch(err => {
-        // handle
-    });
+    }).catch(err => { });
 }
 
 // Initialize
