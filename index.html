@@ -248,6 +248,11 @@
                 <p style="text-align:center; color:#777;">You are following 0 people.</p>
             </div>
             <hr>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span>Invite Friends</span>
+                <button id="share-app-btn" style="width:auto; padding:5px 15px;">Share</button>
+            </div>
+            <hr>
             <h4>Your Followers</h4>
             <div id="followers-list-container" class="list-container">
                 <p style="text-align:center; color:#777;">No followers yet.</p>
@@ -311,20 +316,6 @@
             <div class="settings-row" style="margin-top:10px;"><button id="view-my-public-btn"
                     style="width:100%; background:#3498db;">View My Public Profile</button></div>
             <hr>
-            <div class="settings-row"><span>Invite</span><button id="share-app-btn"
-                    style="width:auto; padding:5px 15px;">Share</button></div>
-            <hr>
-            <input type="number" id="p-height" placeholder="Height (cm)">
-            <input type="number" id="p-age" placeholder="Age">
-            <select id="p-gender">
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-            </select>
-            <select id="p-activity">
-                <option value="1.2">Sedentary</option>
-                <option value="1.55">Moderate</option>
-                <option value="1.9">Athlete</option>
-            </select>
             <button id="save-profile-btn">Recalculate Goals</button>
         </div>
     </div>
