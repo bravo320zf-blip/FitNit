@@ -1957,13 +1957,12 @@ const initSmartScanner = () => {
 function startGuidedBarcodeScan() {
     barcodeLock = false; // Reset Lock
 
-    // We basically need to "Hide" the wizard temporarily or overlay the camera?
-    // Actually, fitnit uses full screen camera div "reader". 
-    // We can hide the modal content but keep overlay? Or just hide modal.
     document.getElementById('guided-wizard-overlay').style.display = 'none';
-
     document.getElementById('mode-scan').style.display = 'block';
-    const readerDiv = document.getElementById('reader'); // Ensure this is visible/sized
+
+    // Ensure reader is clean
+    const readerDiv = document.getElementById('reader');
+    readerDiv.innerHTML = "";
 
     if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
@@ -1971,24 +1970,31 @@ function startGuidedBarcodeScan() {
         if (barcodeLock) return; // Ignore if already found
         barcodeLock = true;
 
-        // BEEP? (Optional)
-        // const audio = new Audio('beep.mp3'); audio.play().catch(()=>{});
+        // --- HARD STOP UI IMMEDIATE ---
+        // Don't wait for stop() promise. Hide UI immediately so user sees "Success" instantly.
+        document.getElementById('mode-scan').style.display = 'none';
 
+        // Show Wizard Confirmation Step
+        document.getElementById('guided-wizard-overlay').style.display = 'flex';
+        document.getElementById('gw-barcode-display').innerText = code;
+        gwData.barcode = code;
+        setGwView('gw-view-edit-3');
+
+        // Stop in background
         html5QrCode.stop().then(() => {
-            document.getElementById('mode-scan').style.display = 'none'; // Hide Camera UI
-
-            gwData.barcode = code;
-
-            // Re-open Wizard
-            document.getElementById('guided-wizard-overlay').style.display = 'flex';
-            document.getElementById('gw-barcode-display').innerText = code;
-            setGwView('gw-view-edit-3');
-
+            console.log("Scanner stopped successfully.");
+            // html5QrCode.clear(); // Optional cleanup
         }).catch(err => {
-            barcodeLock = false;
+            console.warn("Scanner stop error (ignored as UI is already updated):", err);
         });
+
     }).catch(err => {
         // console.error(err);
+        if (!barcodeLock) {
+            alert("Camera error: " + err);
+            // Fallback / Exit logic?
+            document.getElementById('guided-wizard-overlay').style.display = 'flex';
+        }
     });
 }
 
