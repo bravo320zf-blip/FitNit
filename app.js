@@ -1385,58 +1385,111 @@ window.updateWeightGraph = (history) => {
     });
 }
 
-// --- SCANNER ---
+// --- GLOBAL SCANNER MANAGER ---
+const GlobalScanner = {
+    instance: null,
+    isScanning: false,
+
+    // SAFE START: Ensures any previous instance is killed first
+    start: async (onScan, onError) => {
+        try {
+            await GlobalScanner.stop(); // Force cleanup first
+
+            // Re-init
+            GlobalScanner.instance = new Html5Qrcode("reader");
+            GlobalScanner.isScanning = true;
+
+            await GlobalScanner.instance.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                (code) => {
+                    if (onScan) onScan(code);
+                }
+            );
+        } catch (err) {
+            console.error("GlobalScanner Start Error:", err);
+            GlobalScanner.isScanning = false;
+            if (onError) onError(err);
+        }
+    },
+
+    // SAFE STOP: Checks state, stops, clears
+    stop: async () => {
+        if (!GlobalScanner.instance) return;
+
+        try {
+            if (GlobalScanner.instance.isScanning) {
+                await GlobalScanner.instance.stop();
+            }
+            // Always clear
+            GlobalScanner.instance.clear();
+        } catch (err) {
+            console.warn("GlobalScanner Stop/Clear Warning:", err);
+        } finally {
+            GlobalScanner.instance = null;
+            GlobalScanner.isScanning = false;
+        }
+    }
+};
+
+// --- NORMAL SCANNER (Nav Button) ---
 document.getElementById('scan-nav-btn').onclick = () => {
     window.showView('scanner-screen');
     window.toggleAddMode('scan');
-    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-        // 1. Check Community DB (public_barcodes)
-        get(ref(db, `public_barcodes/${text}`)).then((snap) => {
-            if (snap.exists()) {
-                // Found in Community -> STOP & SHOW
-                html5QrCode.stop().then(() => {
-                    currentScannedItem = { ...snap.val(), image: "" };
-                    showConfirm();
-                }).catch(e => console.error(e));
-            } else {
-                // 2. Fallback to OpenFoodFacts
-                fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
-                    .then(r => r.json()).then(d => {
-                        if (d.status === 1) {
-                            // Found in OFF -> STOP & SHOW
-                            html5QrCode.stop().then(() => {
-                                const n = d.product.nutriments;
-                                const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
-                                const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
 
-                                currentScannedItem = {
-                                    name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
-                                    calories: getCals(),
-                                    protein: getVal('proteins'),
-                                    carbs: getVal('carbohydrates'),
-                                    fat: getVal('fat'),
-                                    sugar: getVal('sugars'),
-                                    satFat: getVal('saturated-fat'),
-                                    fiber: getVal('fiber'),
-                                    sodium: getVal('sodium') * 1000,
-                                    cholesterol: getVal('cholesterol') * 1000,
-                                    potassium: getVal('potassium') * 1000,
-                                    vitA: getVal('vitamin-a') * 1000000,
-                                    vitC: getVal('vitamin-c') * 1000,
-                                    calcium: getVal('calcium') * 1000,
-                                    iron: getVal('iron') * 1000,
-                                    image: d.product.image_url || ""
-                                };
-                                showConfirm();
-                            }).catch(e => console.error(e));
-                        }
-                    })
-                    .catch(error => { console.error("OFF Error", error); });
-            }
+    GlobalScanner.start((text) => {
+        // FOUND
+        // 1. HARD STOP UI Handling within the specific scanner logic if needed, 
+        // or just rely on manager stop.
+        // For Normal Scanner, we stop immediately upon find.
+        GlobalScanner.stop().then(() => {
+            processNormalScan(text);
         });
+    }, (err) => {
+        alert("Scanner Error: " + err);
     });
 };
+
+function processNormalScan(text) {
+    // 1. Check Community DB (public_barcodes)
+    get(ref(db, `public_barcodes/${text}`)).then((snap) => {
+        if (snap.exists()) {
+            currentScannedItem = { ...snap.val(), image: "" };
+            showConfirm();
+        } else {
+            // 2. Fallback to OpenFoodFacts
+            fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
+                .then(r => r.json()).then(d => {
+                    if (d.status === 1) {
+                        const n = d.product.nutriments;
+                        const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
+                        const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
+
+                        currentScannedItem = {
+                            name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
+                            calories: getCals(),
+                            protein: getVal('proteins'),
+                            carbs: getVal('carbohydrates'),
+                            fat: getVal('fat'),
+                            sugar: getVal('sugars'),
+                            satFat: getVal('saturated-fat'),
+                            fiber: getVal('fiber'),
+                            sodium: getVal('sodium') * 1000,
+                            cholesterol: getVal('cholesterol') * 1000,
+                            potassium: getVal('potassium') * 1000,
+                            vitA: getVal('vitamin-a') * 1000000,
+                            vitC: getVal('vitamin-c') * 1000,
+                            calcium: getVal('calcium') * 1000,
+                            iron: getVal('iron') * 1000,
+                            image: d.product.image_url || ""
+                        };
+                        showConfirm();
+                    }
+                })
+                .catch(error => { console.error("OFF Error", error); });
+        }
+    });
+}
 
 // --- SETTINGS ---
 document.getElementById('dark-mode-toggle').onchange = (e) => {
@@ -1954,6 +2007,7 @@ const initSmartScanner = () => {
 };
 
 // FIXED BARCODE SCANNER
+// FIXED BARCODE SCANNER
 function startGuidedBarcodeScan() {
     barcodeLock = false; // Reset Lock
 
@@ -1964,72 +2018,44 @@ function startGuidedBarcodeScan() {
     const readerDiv = document.getElementById('reader');
     readerDiv.innerHTML = "";
 
-    // CLEANUP OLD INSTANCE SAFELY
-    const startScanner = () => {
-        if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+    GlobalScanner.start((code) => {
+        if (barcodeLock) return;
+        barcodeLock = true;
 
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (code) => {
-            if (barcodeLock) return;
-            barcodeLock = true;
+        try {
+            // --- HARD STOP UI IMMEDIATE ---
+            document.getElementById('mode-scan').style.display = 'none';
 
-            try {
-                // --- HARD STOP UI IMMEDIATE ---
-                document.getElementById('mode-scan').style.display = 'none';
+            // Show Wizard Confirmation Step
+            const overlay = document.getElementById('guided-wizard-overlay');
+            if (!overlay) throw new Error("Overlay not found in DOM");
 
-                // Show Wizard Confirmation Step
-                const overlay = document.getElementById('guided-wizard-overlay');
-                if (!overlay) throw new Error("Overlay not found in DOM");
+            overlay.style.display = 'flex';
+            document.getElementById('gw-barcode-display').innerText = code;
 
-                overlay.style.display = 'flex';
-                document.getElementById('gw-barcode-display').innerText = code;
+            // Ensure Data Object exists
+            if (!gwData) gwData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "Scanned Item", barcode: "" };
+            gwData.barcode = code;
 
-                // Ensure Data Object exists
-                if (!gwData) gwData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "Scanned Item", barcode: "" };
-                gwData.barcode = code;
+            // Switch View
+            setGwView('gw-view-edit-3');
 
-                // Switch View
-                setGwView('gw-view-edit-3');
+            // Stop in background via Manager
+            GlobalScanner.stop().catch(e => console.warn(e));
 
-                // Stop in background (Delayed to prevent UI race conditions)
-                setTimeout(() => {
-                    if (html5QrCode) {
-                        html5QrCode.stop().then(() => {
-                            // html5QrCode.clear();
-                        }).catch(e => console.warn(e));
-                    }
-                }, 500);
-            } catch (err) {
-                alert("Scanner Success Error: " + err.message);
-                // Fallback: try to show wizard anyway
-                document.getElementById('guided-wizard-overlay').style.display = 'flex';
-            }
-
-        }).catch(err => {
-            // If error is "Scanning is already in progress", ignore it or retry?
-            console.error("Start Error: ", err);
-            if (!barcodeLock) {
-                alert("Scanner Error: " + err);
-                document.getElementById('mode-scan').style.display = 'none';
-                document.getElementById('guided-wizard-overlay').style.display = 'flex';
-            }
-        });
-    };
-
-    // Attempt to stop/clear existing instance before starting
-    if (html5QrCode) {
-        if (html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                html5QrCode.clear().then(startScanner);
-            }).catch(() => {
-                // Force clear if stop fails
-                startScanner();
-            });
-        } else {
-            startScanner();
+        } catch (err) {
+            alert("Scanner Success Error: " + err.message);
+            document.getElementById('guided-wizard-overlay').style.display = 'flex';
         }
-    } else {
-        startScanner();
-    }
+
+    }, (err) => {
+        console.error("Scanner Error: ", err);
+        if (!barcodeLock) {
+            alert("Scanner Error: " + err);
+            document.getElementById('mode-scan').style.display = 'none';
+            document.getElementById('guided-wizard-overlay').style.display = 'flex';
+        }
+    });
 }
 
 // Initialize
