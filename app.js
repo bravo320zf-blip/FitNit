@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, set, push, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // Assuming native ES modules are supported or handled by a bundler. 
 // Since the environment seems to be using standard script tags or simple modules, 
 // I'll append the function directly to app.js instead of a separate file 
@@ -1084,6 +1084,207 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         window.updateWeightFilter(range);
     }
 });
+
+// Open Report Modal
+document.getElementById('open-report-btn').onclick = () => {
+    document.getElementById('report-modal').style.display = 'flex';
+    document.getElementById('settings-modal').style.display = 'none';
+};
+
+// GENERATE PDF LOGIC
+document.getElementById('generate-pdf-btn').onclick = async () => {
+    const includeProfile = document.getElementById('rep-profile').checked;
+    const includeWeight = document.getElementById('rep-weight').checked;
+    const includeDiet = document.getElementById('rep-diet').checked;
+    const includeWorkouts = document.getElementById('rep-workouts').checked;
+    const days = Number(document.getElementById('rep-range').value);
+
+    const btn = document.getElementById('generate-pdf-btn');
+    btn.innerText = "Generating..."; btn.disabled = true;
+
+    const container = document.getElementById('report-container');
+    container.innerHTML = "";
+
+    // 1. HEADER
+    const header = document.createElement('div');
+    header.innerHTML = `
+            <div style="border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:end;">
+                <div>
+                    <h1 style="margin:0; font-size:28px;">FitNit Report</h1>
+                    <p style="margin:0; color:#555;">Generated on ${new Date().toLocaleDateString()}</p>
+                </div>
+                <div style="text-align:right;">
+                    <h3 style="margin:0;">${auth.currentUser.email}</h3>
+                </div>
+            </div>
+        `;
+    container.appendChild(header);
+
+    // 2. PROFILE & GOALS
+    if (includeProfile) {
+        // Using window._lastUserData directly if available, else fetch? 
+        // We'll rely on global data for simplicity or quick fetch
+        const g = (window._lastUserData && window._lastUserData.goals) || {};
+        const section = document.createElement('div');
+        section.style.marginBottom = "30px";
+        section.innerHTML = `
+                <h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">User Profile & Goals</h2>
+                <table style="width:100%; border-collapse:collapse;">
+                    <tr>
+                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Height:</strong> ${g.height || '-'} cm</td>
+                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Age:</strong> ${g.age || '-'}</td>
+                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Activity Level:</strong> ${g.activity || '-'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Calorie Goal:</strong> ${g.calories || 2000} kcal</td>
+                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Protein Goal:</strong> ${g.protein || 150}g</td>
+                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Latest Weight:</strong> ${window._lastUserData ? window._lastUserData.latest_weight : '-'} lbs</td>
+                    </tr>
+                </table>
+            `;
+        container.appendChild(section);
+    }
+
+    // Helper for Date Filtering
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    // 3. WEIGHT HISTORY (Table + Graph placeholder?)
+    if (includeWeight && window._fullWeightHistory) {
+        const section = document.createElement('div');
+        section.style.marginBottom = "30px";
+        section.innerHTML = `<h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">Weight History</h2>`;
+
+        // Filter Data
+        const rows = [];
+        Object.keys(window._fullWeightHistory).sort().reverse().forEach(date => {
+            if (date >= cutoffStr) {
+                rows.push(`<tr><td style="padding:4px; border-bottom:1px solid #eee;">${date}</td><td style="padding:4px; border-bottom:1px solid #eee;"><strong>${window._fullWeightHistory[date]} lbs</strong></td></tr>`);
+            }
+        });
+
+        // If we could clone the canvas that would be cool, but html2pdf handles canvas well if visible.
+        // Since the report is "hidden" off-screen, a live canvas clone might be tricky.
+        // For now, Just a clean data table.
+        if (rows.length > 0) {
+            section.innerHTML += `
+                    <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                        <tr style="background:#f9f9f9; text-align:left;">
+                            <th style="padding:5px;">Date</th><th style="padding:5px;">Weight</th>
+                        </tr>
+                        ${rows.join('')}
+                    </table>
+                `;
+        } else {
+            section.innerHTML += `<p>No weight data in selected range.</p>`;
+        }
+        container.appendChild(section);
+    }
+
+    // 4. DIET LOG
+    if (includeDiet) {
+        const section = document.createElement('div');
+        section.style.marginBottom = "30px";
+        section.innerHTML = `<h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">Diet Log</h2>`;
+
+        // Fetch relevant days? This is expensive if "All Time". 
+        // We need to query range. 
+        // For "Pro" fetch, we use startAt/endAt.
+        // Simplified: Fetch 'diary' node? (Might be huge).
+        // Let's rely on cached data or fetch specific range asynchronously.
+        // fetching...
+        const diaryRef = query(ref(db, `users/${auth.currentUser.uid}/diary`), orderByKey(), startAt(cutoffStr));
+        const snap = await get(diaryRef);
+
+        if (snap.exists()) {
+            let html = "";
+            snap.forEach(daySnap => {
+                const date = daySnap.key;
+                let dayHtml = `<h4 style="margin:10px 0 5px 0; border-bottom:1px solid #ccc;">${date}</h4><table style="width:100%; font-size:12px; margin-bottom:10px;">`;
+
+                let dayTotal = 0;
+                daySnap.forEach(mealSnap => {
+                    // meal type
+                    mealSnap.forEach(itemSnap => {
+                        const item = itemSnap.val();
+                        dayTotal += item.calories;
+                        dayHtml += `<tr>
+                                <td style="width:50%;">${item.name}</td>
+                                <td>${item.calories} kcal</td>
+                                <td>P: ${item.protein}g</td>
+                                <td>C: ${item.carbs}g</td>
+                                <td>F: ${item.fat}g</td>
+                            </tr>`;
+                    });
+                });
+                dayHtml += `<tr><td colspan="5" style="text-align:right; font-weight:bold; padding-top:5px;">Day Total: ${dayTotal} kcal</td></tr></table>`;
+                html += dayHtml; // Reverse order?
+            });
+            section.innerHTML += html || "<p>No entries found.</p>";
+        } else {
+            section.innerHTML += `<p>No diet data found.</p>`;
+        }
+        container.appendChild(section);
+    }
+
+    // 5. WORKOUT LOG
+    if (includeWorkouts) {
+        const section = document.createElement('div');
+        section.style.marginBottom = "30px";
+        section.innerHTML = `<h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">Workout Log</h2>`;
+
+        const workRef = query(ref(db, `users/${auth.currentUser.uid}/workouts`), orderByKey(), startAt(cutoffStr));
+        const snap = await get(workRef);
+
+        if (snap.exists()) {
+            let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <tr style="background:#f9f9f9; text-align:left;">
+                            <th style="padding:5px;">Date</th><th style="padding:5px;">Exercise</th>
+                            <th style="padding:5px;">Sets/Time</th><th style="padding:5px;">Burned</th>
+                        </tr>`;
+
+            snap.forEach(daySnap => {
+                const date = daySnap.key;
+                daySnap.forEach(exSnap => {
+                    const ex = exSnap.val();
+                    const details = ex.duration ? `${ex.duration} min` : `${ex.sets} x ${ex.reps}`;
+                    html += `<tr>
+                            <td style="padding:4px; border-bottom:1px solid #eee;">${date}</td>
+                            <td style="padding:4px; border-bottom:1px solid #eee;">${ex.name}</td>
+                            <td style="padding:4px; border-bottom:1px solid #eee;">${details}</td>
+                            <td style="padding:4px; border-bottom:1px solid #eee;">${ex.burned} kcal</td>
+                         </tr>`;
+                });
+            });
+            html += "</table>";
+            section.innerHTML += html;
+        } else {
+            section.innerHTML += `<p>No workouts found.</p>`;
+        }
+        container.appendChild(section);
+    }
+
+    // EXPORT
+    const opt = {
+        margin: 0.5,
+        filename: `FitNit_Report_${cutoffStr}_to_Now.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    if (window.html2pdf) {
+        window.html2pdf().set(opt).from(container).save().then(() => {
+            btn.innerText = "Download PDF"; btn.disabled = false;
+            document.getElementById('report-modal').style.display = 'none';
+        });
+    } else {
+        alert("PDF library not ready.");
+        btn.innerText = "Download PDF"; btn.disabled = false;
+    }
+};
 
 window.updateWeightGraph = (history) => {
     const ctx = document.getElementById('weightHistoryChart').getContext('2d');
