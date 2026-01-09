@@ -1972,20 +1972,37 @@ function startGuidedBarcodeScan() {
             if (barcodeLock) return;
             barcodeLock = true;
 
-            // --- HARD STOP UI IMMEDIATE ---
-            document.getElementById('mode-scan').style.display = 'none';
+            try {
+                // --- HARD STOP UI IMMEDIATE ---
+                document.getElementById('mode-scan').style.display = 'none';
 
-            // Show Wizard Confirmation Step
-            document.getElementById('guided-wizard-overlay').style.display = 'flex';
-            document.getElementById('gw-barcode-display').innerText = code;
-            gwData.barcode = code;
-            setGwView('gw-view-edit-3');
+                // Show Wizard Confirmation Step
+                const overlay = document.getElementById('guided-wizard-overlay');
+                if (!overlay) throw new Error("Overlay not found in DOM");
 
-            // Stop in background
-            html5QrCode.stop().then(() => {
-                console.log("Scanner stopped.");
-                html5QrCode.clear(); // Important to free resources
-            }).catch(e => console.warn(e));
+                overlay.style.display = 'flex';
+                document.getElementById('gw-barcode-display').innerText = code;
+
+                // Ensure Data Object exists
+                if (!gwData) gwData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "Scanned Item", barcode: "" };
+                gwData.barcode = code;
+
+                // Switch View
+                setGwView('gw-view-edit-3');
+
+                // Stop in background (Delayed to prevent UI race conditions)
+                setTimeout(() => {
+                    if (html5QrCode) {
+                        html5QrCode.stop().then(() => {
+                            // html5QrCode.clear();
+                        }).catch(e => console.warn(e));
+                    }
+                }, 500);
+            } catch (err) {
+                alert("Scanner Success Error: " + err.message);
+                // Fallback: try to show wizard anyway
+                document.getElementById('guided-wizard-overlay').style.display = 'flex';
+            }
 
         }).catch(err => {
             // If error is "Scanning is already in progress", ignore it or retry?
