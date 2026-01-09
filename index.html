@@ -77,7 +77,10 @@
 
     <!-- Add Strength -->
     <div id="add-strength" class="card" style="display:none;">
-        <input type="text" id="ex-name" placeholder="Exercise (e.g. Bench Press)">
+        <div style="position:relative;">
+            <input type="text" id="ex-name" placeholder="Exercise (e.g. Bench Press)" autocomplete="off">
+            <div id="ex-suggestions" class="suggestions-list" style="display:none;"></div>
+        </div>
         <div class="highlight-grid">
             <input type="number" id="ex-sets" placeholder="Sets">
             <input type="number" id="ex-reps" placeholder="Reps">

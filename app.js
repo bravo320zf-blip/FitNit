@@ -159,6 +159,64 @@ function startDataListener(uid) {
     });
 }
 
+// --- EXERCISE AUTOCOMPLETE ---
+let allExercises = [];
+const defaultExercises = [
+    "Bench Press", "Squat", "Deadlift", "Overhead Press", "Barbell Row",
+    "Dumbbell Press", "Lunges", "Pull Ups", "Push Ups", "Plank",
+    "Bicep Curls", "Tricep Extensions", "Leg Press", "Lat Pulldown",
+    "Shoulder Press", "Chest Fly", "Leg Curls", "Leg Extensions",
+    "Calf Raises", "Russian Twists", "Mountain Climbers", "Burpees"
+];
+
+function initExercises() {
+    const exRef = ref(db, 'common_exercises');
+    get(exRef).then(snap => {
+        if (!snap.exists()) {
+            set(exRef, defaultExercises);
+            allExercises = defaultExercises;
+        } else {
+            allExercises = snap.val();
+        }
+    });
+}
+// Call init on load
+initExercises();
+
+// Input Listener
+const exInput = document.getElementById('ex-name');
+const exList = document.getElementById('ex-suggestions');
+
+exInput.addEventListener('input', (e) => {
+    const val = e.target.value.toLowerCase();
+    exList.innerHTML = '';
+    if (!val) { exList.style.display = 'none'; return; }
+
+    const matches = allExercises.filter(ex => ex.toLowerCase().includes(val));
+    if (matches.length > 0) {
+        exList.style.display = 'block';
+        matches.forEach(ex => {
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            div.innerText = ex;
+            div.onclick = () => {
+                exInput.value = ex;
+                exList.style.display = 'none';
+            };
+            exList.appendChild(div);
+        });
+    } else {
+        exList.style.display = 'none';
+    }
+});
+
+// Hide on click outside
+document.addEventListener('click', (e) => {
+    if (!exInput.contains(e.target) && !exList.contains(e.target)) {
+        exList.style.display = 'none';
+    }
+});
+
 // --- WORKOUT LOGGING ---
 document.getElementById('btn-save-strength').onclick = async () => {
     const name = document.getElementById('ex-name').value;

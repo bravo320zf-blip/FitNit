@@ -46,3 +46,16 @@ button { background: var(--accent-color); color: white; border: none; font-weigh
 .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
 .icon-btn { background: none; color: var(--text-color); width: auto; border: none; }
 .list-container { max-height: 250px; overflow-y: auto; }
+
+/* Suggestions */
+.suggestions-list {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: var(--card-bg); border: 1px solid var(--border-color);
+    border-radius: 0 0 8px 8px; z-index: 200; max-height: 200px; overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.suggestion-item {
+    padding: 10px; cursor: pointer; border-bottom: 1px solid var(--border-color);
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover { background-color: var(--bg-color); }
