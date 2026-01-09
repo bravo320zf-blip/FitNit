@@ -1968,6 +1968,9 @@ function startBarcodeScanForLink() {
             // Switch to Custom View
             if (window.toggleAddMode) window.toggleAddMode('custom');
 
+            // Re-bind save button just in case
+            setupCustomSubmit();
+
             // Allow User to Edit Final Form
             // Reset Wizard State for next time
             scanStep = 0;
@@ -2028,38 +2031,63 @@ function preprocessImage(file) {
 
 // EXTENDED CUSTOM FOOD HANDLER
 // EXTENDED CUSTOM FOOD HANDLER & DUPLICATE CHECK
-const customBtn = document.getElementById('btn-submit-custom');
-if (customBtn) {
-    customBtn.onclick = async () => {
-        const name = document.getElementById('c-name').value;
-        const cals = Number(document.getElementById('c-cals').value);
-        const prot = Number(document.getElementById('c-prot').value || 0);
-        const carbs = Number(document.getElementById('c-carb').value || 0);
-        const fat = Number(document.getElementById('c-fat').value || 0);
-        const sugar = Number(document.getElementById('c-sugar').value || 0);
-        const barcode = document.getElementById('c-barcode').value || null;
+// Wrapper to ensure we can re-attach if DOM is replaced
+function setupCustomSubmit() {
+    const customBtn = document.getElementById('btn-submit-custom');
+    if (!customBtn) return;
 
-        if (!name || !cals) return alert("Name and Calories are required.");
+    // Remove old listener to avoid duplicates if called multiple times
+    const newBtn = customBtn.cloneNode(true);
+    customBtn.parentNode.replaceChild(newBtn, customBtn);
 
-        // 1. Search for duplicates (Public DB + API)
-        const dupItem = await checkDuplicate(name);
+    newBtn.onclick = async () => {
+        newBtn.disabled = true;
+        newBtn.innerText = "Saving...";
 
-        const currentItem = {
-            name, calories: cals, protein: prot, carbs, fat, sugar, timestamp: Date.now(),
-            createdBy: auth.currentUser.uid
-        };
-        // Attach barcode to item if present
-        if (barcode) currentItem.barcode = barcode;
+        try {
+            const name = document.getElementById('c-name').value;
+            const cals = Number(document.getElementById('c-cals').value);
+            const prot = Number(document.getElementById('c-prot').value || 0);
+            const carbs = Number(document.getElementById('c-carb').value || 0);
+            const fat = Number(document.getElementById('c-fat').value || 0);
+            const sugar = Number(document.getElementById('c-sugar').value || 0);
+            const barcode = document.getElementById('c-barcode').value || null;
 
-        if (dupItem) {
-            // Show Modal
-            showDuplicateModal(dupItem, currentItem);
-        } else {
-            // No duplicate, save normally (Public + Private)
-            saveCustomFood(currentItem, true);
+            if (!name || cals === undefined || cals === null || cals === "") {
+                alert("Name and Calories are required.");
+                newBtn.disabled = false;
+                newBtn.innerText = "Save Custom";
+                return;
+            }
+
+            // 1. Search for duplicates (Public DB + API)
+            const dupItem = await checkDuplicate(name);
+
+            const currentItem = {
+                name, calories: cals, protein: prot, carbs, fat, sugar, timestamp: Date.now(),
+                createdBy: auth.currentUser.uid
+            };
+            // Attach barcode to item if present
+            if (barcode) currentItem.barcode = barcode;
+
+            if (dupItem) {
+                // Show Modal
+                showDuplicateModal(dupItem, currentItem);
+            } else {
+                // No duplicate, save normally (Public + Private)
+                await saveCustomFood(currentItem, true);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error saving item: " + err.message);
+        } finally {
+            newBtn.disabled = false;
+            newBtn.innerText = "Save Custom";
         }
     };
 }
+// Call initially
+setupCustomSubmit();
 
 // Check for duplicates
 async function checkDuplicate(queryName) {
@@ -2096,7 +2124,7 @@ async function checkDuplicate(queryName) {
                 return { ...match, source: "FitNit Community" };
             }
         }
-    } catch (e) { }
+    } catch (e) { console.error("Dup check error", e); }
 
     // B. Check External API (OpenFoodFacts)
     try {
