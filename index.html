@@ -61,6 +61,51 @@
             </div>
         </section>
 
+<!-- WORKOUT SCREEN -->
+<section id="workout-screen" class="view" style="display:none;">
+    <div class="card highlight-grid">
+        <div class="stat-box"><small>BURNED TODAY</small><p id="dash-burned">0 kcal</p></div>
+        <div class="stat-box"><small>NET CALS</small><p id="dash-net">0</p></div>
+    </div>
+
+    <div class="card">
+        <div class="filter-bar" style="display:flex; gap:10px;">
+            <button onclick="window.setWorkoutMode('strength')">Strength</button>
+            <button onclick="window.setWorkoutMode('cardio')">Cardio</button>
+        </div>
+    </div>
+
+    <!-- Add Strength -->
+    <div id="add-strength" class="card" style="display:none;">
+        <input type="text" id="ex-name" placeholder="Exercise (e.g. Bench Press)">
+        <div class="highlight-grid">
+            <input type="number" id="ex-sets" placeholder="Sets">
+            <input type="number" id="ex-reps" placeholder="Reps">
+            <input type="number" id="ex-weight" placeholder="Lbs">
+        </div>
+        <button id="btn-save-strength">Log Sets</button>
+    </div>
+
+    <!-- Add Cardio -->
+    <div id="add-cardio" class="card" style="display:none;">
+        <select id="cardio-type">
+            <option value="8">Running (approx 5mph)</option>
+            <option value="10">Running (fast)</option>
+            <option value="3.5">Walking</option>
+            <option value="7">Cycling</option>
+            <option value="9">Elliptical</option>
+        </select>
+        <div class="highlight-grid">
+            <input type="number" id="car-time" placeholder="Mins">
+            <input type="number" id="car-speed" placeholder="MPH">
+        </div>
+        <button id="btn-save-cardio">Log Cardio</button>
+    </div>
+
+    <div id="workout-list-daily"></div>
+</section>
+        
+
         <!-- PROFILE -->
         <section id="profile-screen" class="view" style="display:none;">
             <div class="profile-header">
@@ -146,8 +191,10 @@
         <button id="scan-nav-btn"><i class="material-icons">add_box</i></button>
         <button onclick="window.showView('weight-screen')"><i class="material-icons">show_chart</i></button>
         <button onclick="window.showView('profile-screen')"><i class="material-icons">person</i></button>
+        <button onclick="window.showView('workout-screen')"><i class="material-icons">fitness_center</i></button>
     </nav>
 
     <script type="module" src="app.js"></script>
 </body>
 </html>
+
