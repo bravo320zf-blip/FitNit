@@ -1391,49 +1391,64 @@ document.getElementById('scan-nav-btn').onclick = () => {
     window.toggleAddMode('scan');
     if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
     html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-        fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
-            .then(r => r.json()).then(d => {
-                if (d.status === 1) {
-                    const n = d.product.nutriments;
+        // 1. Check Community DB (public_barcodes)
+        get(ref(db, `public_barcodes/${text}`)).then((snap) => {
+            if (snap.exists()) {
+                // Found in Community
+                currentScannedItem = { ...snap.val(), image: "" };
+                showConfirm();
+            } else {
+                // 2. Fallback to OpenFoodFacts
+                fetch(`https://world.openfoodfacts.org/api/v0/product/${text}.json`)
+                    .then(r => r.json()).then(d => {
+                        if (d.status === 1) {
+                            const n = d.product.nutriments;
 
-                    // Helper to prefer serving size, fallback to 100g
-                    const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
+                            // Helper to prefer serving size, fallback to 100g
+                            const getVal = (key) => Math.round(n[key + '_serving'] || n[key + '_100g'] || n[key + '_value'] || 0);
 
-                    // Special handling for energy which can be energy-kcal
-                    const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
+                            // Special handling for energy which can be energy-kcal
+                            const getCals = () => Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal_value'] || 0);
 
-                    currentScannedItem = {
-                        name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
-                        calories: getCals(),
-                        protein: getVal('proteins'),
-                        carbs: getVal('carbohydrates'),
-                        fat: getVal('fat'),
-                        // Extended Nutrients
-                        sugar: getVal('sugars'),
-                        satFat: getVal('saturated-fat'),
-                        fiber: getVal('fiber'),
-                        sodium: getVal('sodium') * 1000, // OFF often stores sodium in grams for these keys? Need to verify. 
-                        // Actually sodium_serving is usually in grams too. We want mg?
-                        // "sodium_100g": 0.05 (g). We want mg. So * 1000 is correct if unit is g.
+                            currentScannedItem = {
+                                name: d.product.product_name + (d.product.serving_size ? ` (${d.product.serving_size})` : ''),
+                                calories: getCals(),
+                                protein: getVal('proteins'),
+                                carbs: getVal('carbohydrates'),
+                                fat: getVal('fat'),
+                                // Extended Nutrients
+                                sugar: getVal('sugars'),
+                                satFat: getVal('saturated-fat'),
+                                fiber: getVal('fiber'),
+                                sodium: getVal('sodium') * 1000, // OFF often stores sodium in grams for these keys? Need to verify. 
+                                // Actually sodium_serving is usually in grams too. We want mg?
+                                // "sodium_100g": 0.05 (g). We want mg. So * 1000 is correct if unit is g.
 
-                        cholesterol: getVal('cholesterol') * 1000,
-                        potassium: getVal('potassium') * 1000,
-                        vitA: getVal('vitamin-a') * 1000000,
-                        vitC: getVal('vitamin-c') * 1000,
-                        calcium: getVal('calcium') * 1000,
-                        iron: getVal('iron') * 1000,
-                        image: d.product.image_url || ""
-                    };
+                                cholesterol: getVal('cholesterol') * 1000,
+                                potassium: getVal('potassium') * 1000,
+                                vitA: getVal('vitamin-a') * 1000000,
+                                vitC: getVal('vitamin-c') * 1000,
+                                calcium: getVal('calcium') * 1000,
+                                iron: getVal('iron') * 1000,
+                                image: d.product.image_url || ""
+                            };
 
-                    // Sodium Check: If result is huge, it might have been in mg already.
-                    // OFF is inconsistent. But typically _value is in unit specified.
-                    // Let's stick to the multiplier for now as standard OFF is grams.
-                    // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
-                    // For sodium/salt, OFF returns sodium_100g in Unit.
+                            // Sodium Check: If result is huge, it might have been in mg already.
+                            // OFF is inconsistent. But typically _value is in unit specified.
+                            // Let's stick to the multiplier for now as standard OFF is grams.
+                            // Basic sanity checks / unit conversions might be needed depending on strict API return, but this is a Start.
+                            // For sodium/salt, OFF returns sodium_100g in Unit.
 
-                    showConfirm();
-                }
-            });
+                            showConfirm();
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error fetching from OpenFoodFacts:", error);
+                        // Optionally, show an alert to the user
+                        // alert("Could not find product on OpenFoodFacts or an error occurred.");
+                    });
+            }
+        });
     });
 };
 
@@ -1801,77 +1816,132 @@ window.showFoodDetails = (item) => {
     m.style.display = 'flex';
 }
 
-// --- SMART LABEL READER (OCR) ---
-const initLabelReader = () => {
+// --- ENHANCED SMART SCANNER (MULTI-STEP) ---
+let scanStep = 0; // 0=Macros, 1=Name, 2=Barcode
+let tempScanData = { calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, name: "" };
+
+const initSmartScanner = () => {
     const btnReader = document.getElementById('btn-read-label');
     const inputReader = document.getElementById('label-image-input');
+    const statusDiv = document.getElementById('scan-status');
 
     if (!btnReader || !inputReader) return;
 
-    btnReader.onclick = () => inputReader.click();
+    btnReader.onclick = () => {
+        if (scanStep === 2) {
+            // Trigger Barcode Scanner
+            startBarcodeScanForLink();
+        } else {
+            // Trigger Camera for OCR
+            inputReader.click();
+        }
+    };
 
     inputReader.onchange = async (e) => {
         if (!e.target.files || e.target.files.length === 0) return;
-
         const file = e.target.files[0];
-        const originalText = btnReader.innerHTML;
-        btnReader.innerHTML = 'Analyzing...';
+
         btnReader.disabled = true;
+        const originalText = btnReader.innerHTML;
+        btnReader.innerHTML = "Processing...";
 
         try {
-            // 1. Preprocess Image (Resize + Grayscale + Contrast)
-            const processedImage = await preprocessImage(file);
-
-            // 2. Recognize
+            const processed = await preprocessImage(file);
             const worker = await Tesseract.createWorker('eng');
-            // Using whitelist to improve accuracy for numbers? 
-            // await worker.setParameters({ tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ:.-% ' });
-
-            const { data: { text } } = await worker.recognize(processedImage);
-            console.log("OCR Result:", text);
+            const { data: { text } } = await worker.recognize(processed);
             await worker.terminate();
 
-            // 3. Parse Logic (Improved Regex)
-            const findVal = (regex) => {
-                const match = text.match(regex);
-                return match ? parseFloat(match[1]) : 0;
-            };
+            if (scanStep === 0) {
+                // Step 1: Parse Macros
+                const findVal = (regex) => { const m = text.match(regex); return m ? parseFloat(m[1]) : 0; };
 
-            // Loose regex for nutrition facts
-            const cals = findVal(/Calories\D*(\d+)/i) || findVal(/Energy\D*(\d+)/i) || 0;
-            const prot = findVal(/Protein\D*(\d+)g?/i) || 0;
-            const carbs = findVal(/Total Carb\w*\D*(\d+)g?/i) || findVal(/Carbohydrate\D*(\d+)g?/i) || 0;
-            const fat = findVal(/Total Fat\D*(\d+)g?/i) || findVal(/Fat\D*(\d+)g?/i) || 0;
-            const sugar = findVal(/Total Sugars?\D*(\d+)g?/i) || findVal(/Sugars?\D*(\d+)g?/i) || 0;
+                tempScanData.calories = findVal(/Calories\D*(\d+)/i) || findVal(/Energy\D*(\d+)/i) || 0;
+                tempScanData.protein = findVal(/Protein\D*(\d+)g?/i) || 0;
+                tempScanData.carbs = findVal(/Total Carb\w*\D*(\d+)g?/i) || findVal(/Carbohydrate\D*(\d+)g?/i) || 0;
+                tempScanData.fat = findVal(/Total Fat\D*(\d+)g?/i) || findVal(/Fat\D*(\d+)g?/i) || 0;
+                tempScanData.sugar = findVal(/Total Sugars?\D*(\d+)g?/i) || findVal(/Sugars?\D*(\d+)g?/i) || 0;
 
-            // Fill Form
-            document.getElementById('c-name').value = "Scanned Item (Edit Me)";
-            document.getElementById('c-cals').value = cals || "";
-            document.getElementById('c-prot').value = prot || "";
-            document.getElementById('c-carb').value = carbs || "";
-            document.getElementById('c-fat').value = fat || "";
-            document.getElementById('c-sugar').value = sugar || "";
+                alert(`Macros Found!\nCals: ${tempScanData.calories}, P: ${tempScanData.protein}g\n\nNext: Take a picture of the PRODUCT NAME.`);
 
-            // Switch View
-            if (window.toggleAddMode) window.toggleAddMode('custom');
-            else {
-                document.getElementById('mode-scan').style.display = 'none';
-                document.getElementById('mode-custom').style.display = 'block';
+                scanStep = 1;
+                btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">camera_alt</i> Scan Name';
+                statusDiv.style.display = 'block';
+                statusDiv.innerText = "Step 2: Capture Product Name";
+
+            } else if (scanStep === 1) {
+                // Step 2: Parse Name
+                // Simple heuristic: Take the longest line or just the whole text capitalized? 
+                // Let's filter for valid lines and take the first likely candidate (UPPERCASE often title)
+                const lines = text.split('\n').filter(l => l.trim().length > 3);
+                tempScanData.name = lines[0] || "Scanned Item";
+                // Clean up name
+                tempScanData.name = tempScanData.name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+
+                alert(`Name Found: "${tempScanData.name}"\n\nNext: Scan the BARCODE to link it.`);
+
+                scanStep = 2;
+                btnReader.innerHTML = '<i class="material-icons" style="vertical-align:middle;">qr_code_scanner</i> Scan Barcode';
+                statusDiv.innerText = "Step 3: Scan Barcode";
             }
-
-            alert(`Scan Complete!\nFound: ${cals} kcal\nP: ${prot}g, C: ${carbs}g, F: ${fat}g, S: ${sugar}g\n\nPlease verify values.`);
 
         } catch (err) {
             console.error(err);
-            alert("Error scanning label. Try better lighting.");
+            alert("Error reading image. Try again.");
         } finally {
-            btnReader.innerHTML = originalText;
-            btnReader.disabled = false;
-            inputReader.value = ""; // Reset
+            if (scanStep !== 2) {
+                btnReader.disabled = false;
+                if (scanStep === 0) btnReader.innerHTML = originalText;
+            } else {
+                btnReader.disabled = false;
+            }
+            inputReader.value = "";
         }
     };
 };
 
+function startBarcodeScanForLink() {
+    // Switch to Scanner View momentarily to capture barcode
+    // We reuse the existing reader div but override its callback
+    const readerDiv = document.getElementById('reader');
+    if (!readerDiv) return;
+
+    document.getElementById('mode-scan').style.display = 'block';
+    const btn = document.getElementById('btn-read-label');
+    btn.style.display = 'none'; // Hide button during scan
+
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (barcode) => {
+        // Barcode Found!
+        html5QrCode.stop().then(() => {
+            // Fill Form with ALL Data
+            document.getElementById('c-name').value = tempScanData.name;
+            document.getElementById('c-cals').value = tempScanData.calories;
+            document.getElementById('c-prot').value = tempScanData.protein;
+            document.getElementById('c-carb').value = tempScanData.carbs;
+            document.getElementById('c-fat').value = tempScanData.fat;
+            document.getElementById('c-sugar').value = tempScanData.sugar;
+            document.getElementById('c-barcode').value = barcode;
+
+            // Switch to Custom View
+            if (window.toggleAddMode) window.toggleAddMode('custom');
+
+            // Reset Wizard
+            scanStep = 0;
+            btn.style.display = 'inline-block';
+            btn.innerHTML = '<i class="material-icons" style="vertical-align:middle; font-size:18px;">camera_alt</i> Scan Label';
+            document.getElementById('scan-status').style.display = 'none';
+            document.getElementById('scan-status').innerText = "";
+
+            alert(`Wizard Complete!\nBarcode: ${barcode}\nPlease verify and Save.`);
+        });
+    }).catch(err => {
+        // handle
+    });
+}
+
+// Initialize
+initSmartScanner();
 // Helper: Preprocess Image for Better OCR
 function preprocessImage(file) {
     return new Promise((resolve) => {
@@ -1915,8 +1985,6 @@ function preprocessImage(file) {
     });
 }
 
-// Initialize
-initLabelReader();
 
 // EXTENDED CUSTOM FOOD HANDLER
 // EXTENDED CUSTOM FOOD HANDLER & DUPLICATE CHECK
@@ -1929,6 +1997,7 @@ if (customBtn) {
         const carbs = Number(document.getElementById('c-carb').value || 0);
         const fat = Number(document.getElementById('c-fat').value || 0);
         const sugar = Number(document.getElementById('c-sugar').value || 0);
+        const barcode = document.getElementById('c-barcode').value || null;
 
         if (!name || !cals) return alert("Name and Calories are required.");
 
@@ -1939,6 +2008,8 @@ if (customBtn) {
             name, calories: cals, protein: prot, carbs, fat, sugar, timestamp: Date.now(),
             createdBy: auth.currentUser.uid
         };
+        // Attach barcode to item if present
+        if (barcode) currentItem.barcode = barcode;
 
         if (dupItem) {
             // Show Modal
@@ -2072,9 +2143,25 @@ async function saveCustomFood(item, saveToPublic) {
             created: Date.now()
         };
         // Push to public_foods
-        push(ref(db, 'public_foods'), publicItem);
+        const pubRef = await push(ref(db, 'public_foods'), publicItem);
+
+        // 3. Save Barcode Link (If present) - Critical for Scanner
+        const code = document.getElementById('c-barcode').value; // Get from input again to be sure
+        if (code) {
+            set(ref(db, `public_barcodes/${code}`), {
+                name: item.name,
+                calories: item.calories,
+                protein: item.protein,
+                carbs: item.carbs,
+                fat: item.fat,
+                sugar: item.sugar,
+                publicId: pubRef.key, // Link to full record if needed
+                source: "FitNit Community"
+            });
+        }
     }
 
     alert(`Item Added! ${saveToPublic ? '(And shared with Community)' : ''}`);
     if (document.getElementById('mode-custom')) document.getElementById('mode-custom').style.display = 'none';
 }
+
