@@ -127,6 +127,8 @@
             <div class="profile-header">
                 <h2>Health Summary</h2>
                 <div style="display:flex; gap:10px;">
+                    <button id="notif-btn" class="icon-btn"><i class="material-icons"
+                            id="notif-icon">notifications</i></button>
                     <button id="friends-btn" class="icon-btn" style="color:var(--accent-color); font-weight:bold;">Find
                         Friends</button>
                     <button id="open-settings-btn" class="icon-btn"><i class="material-icons">settings</i></button>
@@ -137,7 +139,20 @@
             <div class="card" id="profile-achievements-preview"
                 style="display:flex; justify-content:space-around; align-items:center; min-height:60px;">
                 <em style="color:#777;">Log activity to earn badges!</em>
+                style="display:flex; justify-content:space-around; align-items:center; min-height:60px;">
+                <em style="color:#777;">Log activity to earn badges!</em>
             </div>
+
+            <!-- PERSONAL GOALS -->
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3>My Goals</h3>
+                    <button id="add-goal-btn" class="icon-btn"
+                        style="color:var(--accent-color); font-size:20px;">+</button>
+                </div>
+                <div id="goals-list-container"></div>
+            </div>
+
             <div class="dashboard-grid">
                 <div class="card widget"><small>BMI</small>
                     <h2 id="summary-bmi">--</h2>
@@ -258,6 +273,19 @@
         </div>
     </div>
 
+    <!-- NOTIFICATIONS MODAL -->
+    <div id="notif-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>Notifications</h3><button onclick="document.getElementById('notif-modal').style.display='none'"
+                    class="icon-btn"><i class="material-icons">close</i></button>
+            </div>
+            <div id="notif-list" class="list-container">
+                <p style="text-align:center; color:#777;">No new notifications.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="modal-overlay" style="display:none;">
         <div class="modal-content card">
@@ -267,6 +295,15 @@
             </div>
             <div class="settings-row"><span>Dark Mode</span><input type="checkbox" id="dark-mode-toggle"
                     style="width:auto;"></div>
+            <hr>
+            <h4>Privacy</h4>
+            <div class="settings-row"><span>Hide Weight</span><input type="checkbox" id="privacy-weight"
+                    style="width:auto;"></div>
+            <div class="settings-row"><span>Hide Diary</span><input type="checkbox" id="privacy-diary"
+                    style="width:auto;"></div>
+            <div class="settings-row"><span>Hide Workouts</span><input type="checkbox" id="privacy-workouts"
+                    style="width:auto;"></div>
+            <hr>
             <div class="settings-row"><span>Invite</span><button id="share-app-btn"
                     style="width:auto; padding:5px 15px;">Share</button></div>
             <hr>
