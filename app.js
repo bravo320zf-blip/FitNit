@@ -2727,3 +2727,46 @@ function renderCompletedGoals(goalsData) {
         list.appendChild(chip);
     });
 }
+
+// --- FIRST RUN / PERMISSION LOGIC ---
+window.checkFirstRun = function () {
+    // Check if "Installed" (Standalone mode) - OR just enforce on mobile web too for better UX
+    // We check specifically for standalone to target the "Downloaded" use case the user mentioned.
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const hasSetup = localStorage.getItem('fitnit_setup_complete');
+
+    // Run if installed AND not setup
+    // Added 1s delay to ensure DOM is ready and not jarring
+    if (isStandalone && !hasSetup) {
+        setTimeout(() => {
+            const m = document.getElementById('permission-modal');
+            if (m) m.style.display = 'flex';
+        }, 1000);
+    }
+}
+
+window.requestCameraPermission = function () {
+    const btn = document.getElementById('btn-enable-permissions');
+    const msg = document.getElementById('perm-error-msg');
+
+    btn.innerText = "Requesting...";
+    btn.disabled = true;
+
+    // We use Html5Qrcode.getCameras() to trigger the prompt
+    Html5Qrcode.getCameras().then(devices => {
+        // Success!
+        localStorage.setItem('fitnit_setup_complete', 'true');
+        document.getElementById('permission-modal').style.display = 'none';
+        alert("Camera Access Granted! You can now scan items.");
+    }).catch(err => {
+        // Failed
+        console.error("Permission Request Failed", err);
+        btn.innerText = "Retry Camera Access";
+        btn.disabled = false;
+        msg.style.display = 'block';
+        msg.innerText = "Access Denied. Please enable Camera permissions in your device Settings.";
+    });
+}
+
+// Check on load
+checkFirstRun();
