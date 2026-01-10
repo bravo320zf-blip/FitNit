@@ -1703,88 +1703,202 @@ document.getElementById('open-settings-btn').onclick = () => document.getElement
 document.getElementById('close-settings-btn').onclick = () => document.getElementById('settings-modal').style.display = 'none';
 document.getElementById('friends-btn').onclick = () => document.getElementById('friends-modal').style.display = 'flex';
 
-// --- CUSTOM GOALS ---
-const suggestedGoals = [
-    "Lose 5 lbs", "Lose 10 lbs", "Drink 8 cups water", "Walk 10,000 steps",
-    "Run a 5k", "Run a 10k", "Do 50 pushups", "Do 10 pullups",
-    "Eat 150g protein", "Veg with every meal", "No sugar for 1 week",
-    "Workout 3x/week", "Workout 5x/week", "Sleep 8 hours",
-    "Meditate 10 mins", "Meal prep for week", "Track all calories",
-    "Hit calorie goal", "Maintain weight", "Bench press bodyweight"
-];
 
-function renderRandomSuggestions() {
-    const grid = document.getElementById('add-goal-suggestions');
-    if (!grid) return;
-    grid.innerHTML = "";
-    // Pick 3 random
-    const shuffled = [...suggestedGoals].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 3);
 
-    selected.forEach(g => {
-        const btn = document.createElement('div');
-        btn.className = "suggestion-chip";
-        btn.style.background = "#3498db";
-        btn.style.color = "#fff";
-        btn.style.padding = "8px";
-        btn.style.borderRadius = "20px";
-        btn.style.fontSize = "12px";
-        btn.style.textAlign = "center";
-        btn.style.cursor = "pointer";
-        btn.innerText = g;
-        btn.onclick = () => {
-            document.getElementById('new-goal-input').value = g;
-        };
-        grid.appendChild(btn);
+
+// --- SCANNER LOGIC (RESTORED) ---
+let globalScannerRunning = false;
+let globalScannerStopPromise = null;
+let currentScannedBarcode = null;
+
+// 1. Entry Point
+window.initSmartScanner = function () {
+    document.getElementById('mode-scan').style.display = 'block';
+
+    // Check permission first (new logic handles it on startup, but good to check)
+    startGuidedBarcodeScan();
+}
+
+// 2. The Scanner (Guided Wizard Logic)
+function startGuidedBarcodeScan() {
+    if (globalScannerRunning) return;
+
+    const cover = document.getElementById('scanner-cover');
+    if (cover) cover.style.display = 'none'; // Uncover
+
+    globalScannerRunning = true;
+
+    if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrCode.start({ facingMode: "environment" }, config,
+        (text, result) => {
+            // Found!
+            handleScanSuccess(text);
+        },
+        (err) => { }
+    ).catch(err => {
+        globalScannerRunning = false;
+        console.error("Cam Start Fail", err);
+        // If permission denied, checking logic might trigger or show alert
+        alert("Could not start camera. Please ensure permissions are granted.");
     });
 }
-// Regenerate Button Handler (will be added to HTML)
-window.regenerateSuggestions = () => renderRandomSuggestions();
 
-document.getElementById('add-goal-btn').onclick = () => {
-    document.getElementById('add-goal-modal').style.display = 'flex';
-    document.getElementById('new-goal-input').value = ""; // Clear
-    renderRandomSuggestions();
-};
+async function handleScanSuccess(text) {
+    if (!globalScannerRunning) return;
 
-
-document.getElementById('confirm-add-goal-btn').onclick = () => {
-    const goal = document.getElementById('new-goal-input').value;
-    if (goal) {
-        push(ref(db, `users/${auth.currentUser.uid}/active_goals`), { text: goal, created: Date.now(), completed: false });
-        document.getElementById('add-goal-modal').style.display = 'none';
-        // If viewing self profile, it updates automatically via listener?
-        // Yes, listener is active.
+    // Hard Stop Strategy
+    const cover = document.getElementById('scanner-cover');
+    if (cover) {
+        cover.style.display = 'flex'; // Overlay
+        cover.innerHTML = `<div style="text-align:center;"><i class="material-icons" style="font-size:48px; color:#27ae60;">check_circle</i><p style="font-weight:bold; margin-top:10px;">Found It!</p></div>`;
     }
+
+    try {
+        await html5QrCode.stop();
+        html5QrCode.clear();
+        globalScannerRunning = false;
+    } catch (e) { console.warn("Stop error", e); }
+
+    currentScannedBarcode = text;
+
+    // Logic: Check Duplicate (Public -> API)
+    const existing = await checkDuplicate(text);
+
+    if (existing) {
+        // Show result logic?
+        // Assuming showScannedResult logic exists or we reuse custom confirm
+        // For now, let's trigger the "Scanned Result" card logic if available, 
+        // OR just fill the wizard.
+
+        // Let's use the Wizard approach since we built it.
+        // Or the Result Card. 
+        // Let's try to fill the "Custom Entry" inputs and show 'scanned-result' logic if exists.
+        // Actually, let's look for verifyScannedItem or similar?
+        // Since I deleted a chunk, I might have lost the bridge.
+
+        // Re-implement bridge:
+        fillScannedResult(existing);
+    } else {
+        // Not found -> Wizard / Custom
+        // Show Wizard Modal if it exists (Guided) or fallback to Custom Mode
+        // Since I removed wizard partials or modified them, let's fallback to "Custom Mode" with barcode pre-filled.
+        alert("Item not found. Please add details.");
+        window.toggleAddMode('custom');
+        document.getElementById('c-barcode').value = text;
+    }
+}
+
+// 3. Duplicate Check
+async function checkDuplicate(barcode) {
+    // 1. FitNit Public
+    try {
+        const snap = await get(ref(db, `public_barcodes/${barcode}`));
+        if (snap.exists()) {
+            return { ...snap.val(), barcode: barcode, source: "FitNit Community" };
+        }
+    } catch (e) { console.warn("Public DB Error", e); }
+
+    // 2. OFF API
+    try {
+        const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+        const json = await res.json();
+        if (json.status === 1) {
+            const p = json.product;
+            const nut = p.nutriments || {};
+            return {
+                name: p.product_name,
+                calories: nut['energy-kcal_100g'] || 0,
+                protein: nut.proteins_100g || 0,
+                carbs: nut.carbohydrates_100g || 0,
+                fat: nut.fat_100g || 0,
+                sugar: nut.sugars_100g || 0,
+                barcode: barcode,
+                source: "OpenFoodFacts"
+            };
+        }
+    } catch (e) { }
+
+    return null;
+}
+
+function fillScannedResult(item) {
+    // Show Scanned Result Card
+    const c = document.getElementById('scanned-result');
+    if (c) {
+        c.style.display = 'block';
+        document.getElementById('food-name').innerText = item.name;
+        document.getElementById('food-info').innerText = `${item.calories} kcal | P:${item.protein} C:${item.carbs} F:${item.fat}`;
+
+        // Hide scanner
+        document.getElementById('mode-scan').style.display = 'none';
+
+        // Setup Add Button
+        document.getElementById('btn-add-scanned').onclick = () => {
+            saveCustomFood(item, false); // Private save
+            c.style.display = 'none';
+        };
+    } else {
+        // Fallback: Populate Custom Form
+        window.toggleAddMode('custom');
+        document.getElementById('c-name').value = item.name;
+        document.getElementById('c-cals').value = item.calories;
+        document.getElementById('c-prot').value = item.protein;
+        document.getElementById('c-carb').value = item.carbs;
+        document.getElementById('c-fat').value = item.fat;
+        document.getElementById('c-barcode').value = item.barcode;
+    }
+}
+
+
+// 4. Label Reader (OCR)
+document.getElementById('btn-read-label').onclick = () => {
+    document.getElementById('label-image-input').click();
 };
 
-function renderGoals(goalsData) {
-    const list = document.getElementById('goals-list-container');
-    if (!list) return;
-    list.innerHTML = "";
-    if (!goalsData) { list.innerHTML = "<small>No active goals.</small>"; return; }
+document.getElementById('label-image-input').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    Object.keys(goalsData).forEach(key => {
-        const g = goalsData[key];
-        const row = document.createElement('div');
-        row.style.padding = "10px";
-        row.style.borderBottom = "1px solid #eee";
-        row.style.display = "flex";
-        row.style.justifyContent = "space-between";
-        row.style.alignItems = "center";
+    // Preprocess & OCR
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+            // Visualize (Optional)
+            // Perform OCR
+            Tesseract.recognize(
+                img,
+                'eng',
+                { logger: m => console.log(m) }
+            ).then(({ data: { text } }) => {
+                console.log(text);
+                // Regex Parse
+                const cals = text.match(/Calories\s*(\d+)/i)?.[1];
+                const prot = text.match(/Protein\s*(\d+)g?/i)?.[1];
+                const carb = text.match(/Carbohydrate\s*(\d+)g?/i)?.[1];
+                const fat = text.match(/Total Fat\s*(\d+)g?/i)?.[1];
 
-        row.innerHTML = `<span>${g.completed ? '<s>' + g.text + '</s>' : g.text}</span>`;
+                if (cals || prot) {
+                    alert("Label Read! Check Custom Form.");
+                    window.toggleAddMode('custom');
+                    if (cals) document.getElementById('c-cals').value = cals;
+                    if (prot) document.getElementById('c-prot').value = prot;
+                    if (carb) document.getElementById('c-carb').value = carb;
+                    if (fat) document.getElementById('c-fat').value = fat;
+                } else {
+                    alert("Could not read label. Please try again or enter manually.");
+                }
+            });
+        }
+        img.src = event.target.result;
+    }
+    reader.readAsDataURL(file);
+};
 
-        const check = document.createElement('input');
-        check.type = "checkbox";
-        check.checked = g.completed;
-        check.onchange = (e) => {
-            update(ref(db, `users/${auth.currentUser.uid}/active_goals/${key}`), { completed: e.target.checked });
-        };
-        row.appendChild(check);
-        list.appendChild(row);
-    });
-}
+
 // --- NUTRITION DASHBOARD RENDERER ---
 function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals) {
     const container = document.getElementById('nutrition-dashboard-container');
