@@ -373,7 +373,7 @@ function renderDietHistory(diary) {
                 const starIcon = leftDiv.querySelector('.fav-icon');
                 starIcon.onclick = (e) => {
                     e.stopPropagation();
-                    window.toggleFav(i.name);
+                    window.toggleFav(i.name, i);
                 };
 
                 // Right Side: Delete Button (Red Square requested area)
@@ -1064,7 +1064,7 @@ function renderSocialLists(socialData) {
 
 let pressTimer;
 function setupLongPress(el, item) {
-    el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name), 800);
+    el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name, item), 800);
     el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
 }
 
