@@ -2148,16 +2148,24 @@ function setupCustomSubmit() {
         newBtn.innerText = "Saving...";
 
         try {
-            const name = document.getElementById('c-name').value;
-            const cals = Number(document.getElementById('c-cals').value);
-            const prot = Number(document.getElementById('c-prot').value || 0);
-            const carbs = Number(document.getElementById('c-carb').value || 0);
-            const fat = Number(document.getElementById('c-fat').value || 0);
-            const sugar = Number(document.getElementById('c-sugar').value || 0);
+            const name = document.getElementById('c-name').value.trim();
+            const rawCals = document.getElementById('c-cals').value;
+            const cals = parseFloat(rawCals);
+
+            // Helper for macros with default 0
+            const parseMacro = (id) => {
+                const val = parseFloat(document.getElementById(id).value);
+                return isNaN(val) ? 0 : val;
+            };
+
+            const prot = parseMacro('c-prot');
+            const carbs = parseMacro('c-carb');
+            const fat = parseMacro('c-fat');
+            const sugar = parseMacro('c-sugar');
             const barcode = document.getElementById('c-barcode').value || null;
 
-            if (!name || cals === undefined || cals === null || cals === "") {
-                alert("Name and Calories are required.");
+            if (!name || !rawCals || isNaN(cals)) {
+                alert("Name and valid Calories are required.");
                 newBtn.disabled = false;
                 newBtn.innerText = "Save Custom";
                 return;
