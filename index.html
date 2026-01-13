@@ -43,6 +43,25 @@
                 <div id="goals-widget-content" style="display:flex; gap:10px;"></div>
             </div>
 
+            <!-- DASHBOARD CONTROLS (Search & Date) -->
+            <div class="card" style="display:flex; gap:10px; align-items:center;">
+                <div style="position:relative; flex-grow:1;">
+                    <input type="text" id="date-search-input" placeholder="Search Date (YYYY-MM-DD)..."
+                        style="width:100%; padding:10px; padding-right:35px; box-sizing:border-box;">
+                    <i class="material-icons"
+                        style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#777;">search</i>
+                </div>
+                <!-- Native Date Picker Trigger -->
+                <div style="position:relative;">
+                    <input type="date" id="date-picker-native"
+                        style="position:absolute; opacity:0; width:100%; height:100%; cursor:pointer;">
+                    <button class="icon-btn"
+                        style="background:var(--card-bg); border:1px solid #ddd; padding:8px; border-radius:4px;">
+                        <i class="material-icons" style="color:var(--text-color);">calendar_today</i>
+                    </button>
+                </div>
+            </div>
+
             <div class="card highlight-grid">
                 <div class="stat-box"><small>CALORIES</small>
                     <p id="dash-cals">0/0</p>

@@ -49,6 +49,7 @@ let html5QrCode, currentScannedItem, weightChart;
 
 // HELPER: Get Today's Date in Local YYYY-MM-DD (Prevents 0 calorie bug)
 const getToday = () => new Date().toLocaleDateString('en-CA');
+window._selectedDate = getToday(); // Default to today
 
 // --- NAVIGATION ---
 window.showView = (v) => {
@@ -99,13 +100,38 @@ onAuthStateChanged(auth, (u) => {
 });
 
 // --- DATA WATCHER (DASHBOARD & WORKOUTS) ---
+// --- DASHBOARD DATE CONTROLS ---
+const dateInput = document.getElementById('date-search-input');
+const picker = document.getElementById('date-picker-native');
+
+if (dateInput) {
+    dateInput.onchange = (e) => {
+        const val = e.target.value;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            window._selectedDate = val;
+            renderDashboard(window._lastUserData);
+        }
+    };
+    // Also support enter key for search feel
+    dateInput.onkeypress = (e) => {
+        if (e.key === 'Enter') dateInput.blur();
+    }
+}
+
+if (picker) {
+    picker.onchange = (e) => {
+        window._selectedDate = e.target.value;
+        renderDashboard(window._lastUserData);
+    };
+}
+
+// --- DATA WATCHER (DASHBOARD & WORKOUTS) ---
 function startDataListener(uid) {
     onValue(ref(db, `users/${uid}`), (snap) => {
         const data = snap.val(); if (!data) return;
         window._lastUserData = data;
         window._lastUserUid = uid;
 
-        const today = getToday();
         const isDark = data.settings?.darkMode || false;
         document.body.classList.toggle('dark-mode', isDark);
         document.getElementById('dark-mode-toggle').checked = isDark;
@@ -131,77 +157,88 @@ function startDataListener(uid) {
             document.getElementById('privacy-workouts').checked = data.settings.privacy.workouts || false;
         }
 
-        const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
-        const weight = data.latest_weight || 0;
+        // Logic that checks for achievements/goals progress globally (independent of view date)
+        if (window.checkGoalsProgress) window.checkGoalsProgress(data);
 
-        let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
-        let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
-
-        // 1. Calculate Stats for TODAY (for Widgets)
-
-        // --- NEW GOALS SYSTEM HOOKS ---
-        checkGoalsProgress(data);
-        renderGoals(data.goals);
-
-        if (data.diary && data.diary[today]) {
-            Object.values(data.diary[today]).forEach(cat => {
-                Object.values(cat).forEach(i => {
-                    consumed += Number(i.calories || 0);
-                    protein += Number(i.protein || 0);
-                    carbs += Number(i.carbs || 0);
-                    fat += Number(i.fat || 0);
-                    sugar += Number(i.sugar || 0);
-                    satFat += Number(i.satFat || 0);
-                    fiber += Number(i.fiber || 0);
-                    sodium += Number(i.sodium * 1000 || 0) / 1000; // Keep decimal precision?
-                    vitC += Number(i.vitC || 0);
-                    calcium += Number(i.calcium || 0);
-                    iron += Number(i.iron || 0);
-                });
-            });
-        }
-        if (data.workouts && data.workouts[today]) {
-            Object.values(data.workouts[today]).forEach(w => {
-                burned += Number(w.burned || 0);
-            });
-        }
-
-        // 2. Render Histories (Paginated)
-        renderDietHistory(data.diary);
-        renderWorkoutHistory(data.workouts);
-
-        // 3. STATS & WIDGETS
-        document.getElementById('dash-cals').innerText = `${Math.round(consumed)} / ${goals.calories}`;
-        document.getElementById('dash-prot').innerText = `${Math.round(protein)} / ${goals.protein}g`;
-        document.getElementById('dash-weight').innerText = `${weight} lbs`;
-
-        if (document.getElementById('dash-burned')) {
-            document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
-
-            document.getElementById('dash-net').innerText = Math.round(consumed - burned);
-        }
-
-        // Render Extended Setup on Dashboard
-        renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
-
-        if (data.weight_history) {
-            window._fullWeightHistory = data.weight_history;
-            // Initial render with 1 year check or default (last 30 days) if no pref? 
-            // Let's default to full year or everything.
-            // Check if active range set?
-            const currentRange = window._weightRange || 365;
-            if (window.updateWeightFilter) window.updateWeightFilter(currentRange);
-        }
-
-        // Render Profile (My Profile) if not currently viewing someone else or overriding mode
-        // We attach totals to data object for convenience so render knows about it
-        data._dailyTotals = { consumed, protein, carbs, fat, burned };
-
-        // Only auto-render if we are NOT in special "viewing public profile" mode, OR if we are me
-        if (!window._isViewingPublicProfile) {
-            renderProfileScreen(data, true, uid);
-        }
+        renderDashboard(data);
     });
+}
+
+function renderDashboard(data) {
+    if (!data) return;
+    const today = window._selectedDate || getToday();
+
+    // Update Search Input to sync with View
+    if (document.getElementById('date-search-input')) {
+        document.getElementById('date-search-input').value = today;
+    }
+
+    const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
+    const weight = data.latest_weight || 0;
+
+    let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
+    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
+
+    // 1. Calculate Stats for SELECTED DATE
+    renderGoals(data.goals);
+
+    if (data.diary && data.diary[today]) {
+        Object.values(data.diary[today]).forEach(cat => {
+            Object.values(cat).forEach(i => {
+                consumed += Number(i.calories || 0);
+                protein += Number(i.protein || 0);
+                carbs += Number(i.carbs || 0);
+                fat += Number(i.fat || 0);
+                sugar += Number(i.sugar || 0);
+                satFat += Number(i.satFat || 0);
+                fiber += Number(i.fiber || 0);
+                sodium += Number(i.sodium * 1000 || 0) / 1000; // Keep decimal precision?
+                vitC += Number(i.vitC || 0);
+                calcium += Number(i.calcium || 0);
+                iron += Number(i.iron || 0);
+            });
+        });
+    }
+    if (data.workouts && data.workouts[today]) {
+        Object.values(data.workouts[today]).forEach(w => {
+            burned += Number(w.burned || 0);
+        });
+    }
+
+    // 2. Render Histories (Paginated)
+    renderDietHistory(data.diary);
+    renderWorkoutHistory(data.workouts);
+
+    // 3. STATS & WIDGETS
+    document.getElementById('dash-cals').innerText = `${Math.round(consumed)} / ${goals.calories}`;
+    document.getElementById('dash-prot').innerText = `${Math.round(protein)} / ${goals.protein}g`;
+    document.getElementById('dash-weight').innerText = `${weight} lbs`;
+
+    if (document.getElementById('dash-burned')) {
+        document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
+        document.getElementById('dash-net').innerText = Math.round(consumed - burned);
+    }
+
+    // Render Extended Setup on Dashboard
+    renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
+
+    if (data.weight_history) {
+        window._fullWeightHistory = data.weight_history;
+        // Initial render with 1 year check or default (last 30 days) if no pref? 
+        // Let's default to full year or everything.
+        // Check if active range set?
+        const currentRange = window._weightRange || 365;
+        if (window.updateWeightFilter) window.updateWeightFilter(currentRange);
+    }
+
+    // Render Profile (My Profile) if not currently viewing someone else or overriding mode
+    // We attach totals to data object for convenience so render knows about it
+    data._dailyTotals = { consumed, protein, carbs, fat, burned };
+
+    // Only auto-render if we are NOT in special "viewing public profile" mode, OR if we are me
+    if (!window._isViewingPublicProfile) {
+        renderProfileScreen(data, true, window._lastUserUid);
+    }
 }
 window._isViewingPublicProfile = false; // Global toggle state
 
@@ -304,10 +341,25 @@ function renderDietHistory(diary) {
         return;
     }
 
-    const dates = Object.keys(diary).sort().reverse();
-    const page = window._dietPage;
+    let dates = Object.keys(diary).sort().reverse();
+
+    // Search Filter
+    const searchVal = document.getElementById('date-search-input') ? document.getElementById('date-search-input').value.trim() : "";
+    if (searchVal) {
+        dates = dates.filter(d => d.includes(searchVal));
+    }
+
+    // Auto-reset page if out of bounds
     const pageSize = 5;
+    if ((window._dietPage * pageSize) >= dates.length) window._dietPage = 0;
+
+    const page = window._dietPage;
     const slice = dates.slice(page * pageSize, (page + 1) * pageSize);
+
+    if (dates.length === 0) {
+        container.innerHTML = "<small style='display:block; text-align:center; padding:10px;'>No matches found.</small>";
+        return;
+    }
 
     slice.forEach(date => {
         // Summary Calc
@@ -325,6 +377,13 @@ function renderDietHistory(diary) {
         head.style.padding = "10px";
         head.style.borderBottom = "1px solid #eee";
         head.style.display = "flex"; head.style.justifyContent = "space-between";
+
+        // Highlight if selected
+        if (date === window._selectedDate) {
+            head.style.background = "var(--primary-color)";
+            head.style.color = "white";
+        }
+
         head.innerHTML = `<span>${date}</span><span>${summaryText}</span>`;
 
         const mealBox = document.createElement('div');
@@ -343,10 +402,6 @@ function renderDietHistory(diary) {
 
                 const isFav = window._lastUserData?.favorites?.[i.name.replace(/[.#$[\]]/g, "")];
 
-                // Left Side: Star (Fav) + Info (Clickable for details)
-                // Passing 'i' to showFoodDetails requires 'i' to be serialization safe or we attach it to the element
-                // We'll create the click handler in JS to keep object reference clean
-
                 const leftDiv = document.createElement('div');
                 leftDiv.style.flexGrow = "1";
                 leftDiv.style.display = "flex";
@@ -361,22 +416,17 @@ function renderDietHistory(diary) {
                     </div>
                 `;
 
-                // Event Handlers for Left Side
-                // Generic click on leftDiv -> Details
                 leftDiv.onclick = (e) => {
-                    // Prevent if clicking star
                     if (e.target.classList.contains('fav-icon')) return;
                     window.showFoodDetails(i);
                 }
 
-                // Star Click Handler
                 const starIcon = leftDiv.querySelector('.fav-icon');
                 starIcon.onclick = (e) => {
                     e.stopPropagation();
                     window.toggleFav(i.name, i);
                 };
 
-                // Right Side: Delete Button (Red Square requested area)
                 const delBtn = document.createElement('button');
                 delBtn.className = "icon-btn delete-btn";
                 delBtn.innerHTML = `<i class="material-icons">delete</i>`;
@@ -396,7 +446,16 @@ function renderDietHistory(diary) {
             });
         });
 
-        head.onclick = () => {
+        head.onclick = (e) => {
+            // NEW: Select Date & Update Dashboard & Input
+            window._selectedDate = date;
+
+            // Update input to reflect selection (clears filter)
+            const input = document.getElementById('date-search-input');
+            if (input) input.value = date;
+
+            renderDashboard(window._lastUserData);
+
             mealBox.style.display = mealBox.style.display === 'none' ? 'block' : 'none';
         }
 
@@ -411,13 +470,11 @@ function renderDietHistory(diary) {
     controls.style.marginTop = '15px';
     controls.style.padding = '10px';
 
-    // Newer
     const prev = document.createElement('button');
     prev.innerText = "< Newer";
     prev.style.visibility = page > 0 ? 'visible' : 'hidden';
     prev.onclick = () => { window._dietPage--; renderDietHistory(window._lastDietData); };
 
-    // Older
     const next = document.createElement('button');
     next.innerText = "Older >";
     next.style.visibility = ((page + 1) * pageSize < dates.length) ? 'visible' : 'hidden';
