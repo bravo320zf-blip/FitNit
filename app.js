@@ -1313,18 +1313,10 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     const startDateVal = document.getElementById('rep-start-date').value;
     const endDateVal = document.getElementById('rep-end-date').value;
 
-    if (!startDateVal || !endDateVal) {
-        alert("Please select a Start and End date.");
-        return;
-    }
-
-    const start = new Date(startDateVal);
-    const end = new Date(endDateVal);
-
-    if (start > end) {
-        alert("Start date cannot be after End date.");
-        return;
-    }
+    // We use globally cached data if available, but for safety lets ensure we have it?
+    // window._lastUserData should be populated.
+    const ud = window._lastUserData;
+    if (!ud) { alert("User data not ready."); return; }
 
     const btn = document.getElementById('generate-pdf-btn');
     const originalText = btn.innerHTML;
@@ -1334,12 +1326,44 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     const container = document.getElementById('report-container');
     container.innerHTML = "";
 
-    // Iterate Days
-    let currentDate = new Date(start);
-    const dateArray = [];
-    while (currentDate <= end) {
-        dateArray.push(currentDate.toISOString().split('T')[0]);
-        currentDate.setDate(currentDate.getDate() + 1);
+    let dateArray = [];
+    let start, end;
+
+    // SCENARIO 1: Range Selected
+    if (startDateVal && endDateVal) {
+        start = new Date(startDateVal);
+        end = new Date(endDateVal);
+        if (start > end) {
+            alert("Start date cannot be after End date.");
+            btn.innerHTML = originalText; btn.disabled = false;
+            return;
+        }
+        // Build contiguous range
+        let currentDate = new Date(start);
+        while (currentDate <= end) {
+            dateArray.push(currentDate.toISOString().split('T')[0]);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    }
+    // SCENARIO 2: No Range (Auto "All Days with Data")
+    else {
+        // Collect all unique dates with data
+        const allDates = new Set();
+        if (ud.diary) Object.keys(ud.diary).forEach(d => allDates.add(d));
+        if (ud.workouts) Object.keys(ud.workouts).forEach(d => allDates.add(d));
+        if (ud.weight_history) Object.keys(ud.weight_history).forEach(d => allDates.add(d)); // Optional: Include weight-only days?
+
+        if (allDates.size === 0) {
+            alert("No data found to export.");
+            btn.innerHTML = originalText; btn.disabled = false;
+            return;
+        }
+        // Convert to sorted array
+        dateArray = Array.from(allDates).sort();
+
+        // Define implicitly for filename
+        start = new Date(dateArray[0]);
+        end = new Date(dateArray[dateArray.length - 1]);
     }
 
     // Data Fetch Helper
@@ -1350,11 +1374,6 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
             weight: userData.weight_history?.[date] || null
         };
     };
-
-    // We use globally cached data if available, but for safety lets ensure we have it?
-    // window._lastUserData should be populated.
-    const ud = window._lastUserData;
-    if (!ud) { alert("User data not ready."); return; }
 
     const goals = ud.goals || {};
 
