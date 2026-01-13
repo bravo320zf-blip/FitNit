@@ -172,8 +172,8 @@ function updateDashboardStats(data, dateOverride) {
     const weight = data.latest_weight || 0;
 
     let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
-    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
 
+    // Calculate totals for TODAY (or selected date)
     if (data.diary && data.diary[today]) {
         Object.values(data.diary[today]).forEach(cat => {
             Object.values(cat).forEach(i => {
@@ -181,13 +181,7 @@ function updateDashboardStats(data, dateOverride) {
                 protein += Number(i.protein || 0);
                 carbs += Number(i.carbs || 0);
                 fat += Number(i.fat || 0);
-                sugar += Number(i.sugar || 0);
-                satFat += Number(i.satFat || 0);
-                fiber += Number(i.fiber || 0);
-                sodium += Number(i.sodium * 1000 || 0) / 1000;
-                vitC += Number(i.vitC || 0);
-                calcium += Number(i.calcium || 0);
-                iron += Number(i.iron || 0);
+                // ... (Other macros are calculated in renderNutritionDashboard if needed, but for top stats usually just main ones)
             });
         });
     }
@@ -206,6 +200,24 @@ function updateDashboardStats(data, dateOverride) {
         document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
         document.getElementById('dash-net').innerText = Math.round(consumed - burned);
     }
+
+    // We need to pass granular macros to renderNutritionDashboard. 
+    // Optimization: Recalculate granulars here or just let renderNutritionDashboard handle it?
+    // Actually renderNutritionDashboard takes args. So we need to calc them.
+    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
+    if (data.diary && data.diary[today]) {
+        Object.values(data.diary[today]).forEach(cat => {
+            Object.values(cat).forEach(i => {
+                sugar += Number(i.sugar || 0);
+                satFat += Number(i.satFat || 0);
+                fiber += Number(i.fiber || 0);
+                sodium += Number(i.sodium * 1000 || 0) / 1000;
+                vitC += Number(i.vitC || 0);
+                calcium += Number(i.calcium || 0);
+                iron += Number(i.iron || 0);
+            });
+        });
+    }
     renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
 }
 
@@ -218,6 +230,12 @@ function renderDashboard(data) {
 
     // 2. Render Histories
     renderGoals(data.goals);
+
+    // DO NOT force search input to value (fixes "Disappearing History" bug)
+    // if (document.getElementById('date-search-input')) ...
+
+    // We only re-render history if we are NOT just updating stats? 
+    // Actually, renderDashboard is called on DB update. So we must re-render history to show new items.
     renderDietHistory(data.diary);
     renderWorkoutHistory(data.workouts);
 
@@ -227,7 +245,7 @@ function renderDashboard(data) {
         if (window.updateWeightFilter) window.updateWeightFilter(currentRange);
     }
 
-    data._dailyTotals = { consumed: 0, protein: 0, carbs: 0, fat: 0, burned: 0 }; // Placeholder
+    data._dailyTotals = { consumed: 0, protein: 0, carbs: 0, fat: 0, burned: 0 };
     if (!window._isViewingPublicProfile) {
         renderProfileScreen(data, true, window._lastUserUid);
     }
@@ -368,41 +386,35 @@ function renderDietHistory(diary) {
     slice.forEach(date => {
         // Summary Calc
         let dCals = 0;
-        let summaryText = "";
         Object.keys(diary[date]).forEach(type => {
             Object.values(diary[date][type]).forEach(i => dCals += Number(i.calories || 0));
         });
-        summaryText = `${dCals} kcal`;
 
         const head = document.createElement('div');
         head.className = "date-accordion";
         head.dataset.date = date; // For efficient updates
-        head.style.cursor = "pointer";
-        head.style.fontWeight = "bold";
-        head.style.padding = "10px";
-        head.style.borderBottom = "1px solid #eee";
-        head.style.display = "flex"; head.style.justifyContent = "space-between";
 
-        // Highlight if selected
+        // Visual indicator of selection?
+        // The user liked the "original". Original was just the accordion.
+        // If we want to show it is selected for the Dashboard stats, maybe just a border?
         if (date === window._selectedDate) {
-            // head.style.background = "var(--primary-color)"; 
-            // head.style.color = "white";
-            // Reverting visual style to simple bold/color for now or standard accordion
-            // User liked "original", so let's just make it subtle or keep the "active" style separate from "open".
-            // Let's just bold the selected day text color?
-            head.style.color = "var(--primary-color)";
+            head.style.border = "2px solid var(--text-color)"; // Subtle indicator?
         }
 
-        head.innerHTML = `<span>${date}</span><span>${summaryText}</span>`;
+        head.innerHTML = `<span>${date}</span><span>${dCals} kcal</span>`;
 
         const mealBox = document.createElement('div');
         mealBox.className = "meal-container-collapsible";
+        // Default hidden
         mealBox.style.display = "none";
 
         Object.keys(diary[date]).forEach(type => {
             Object.entries(diary[date][type]).forEach(([key, i]) => {
                 const itemEl = document.createElement('div');
                 itemEl.className = "meal-item";
+                // Style.css has styles for meal-item. remove inline padding/border if possible?
+                // Step 10 had: itemEl.style.padding = "10px"...
+                // Let's keep typical structure to be safe, but minimal.
                 itemEl.style.padding = "10px";
                 itemEl.style.borderBottom = "1px solid #f9f9f9";
                 itemEl.style.display = "flex";
@@ -441,9 +453,6 @@ function renderDietHistory(diary) {
                 delBtn.innerHTML = `<i class="material-icons">delete</i>`;
                 delBtn.style.color = "#e74c3c";
                 delBtn.style.marginLeft = "10px";
-                delBtn.style.padding = "8px";
-                delBtn.style.background = "rgba(231, 76, 60, 0.1)";
-                delBtn.style.borderRadius = "4px";
                 delBtn.onclick = (e) => {
                     e.stopPropagation();
                     window.promptDeleteItem({ category: 'food', date: date, subType: type, key: key, name: i.name });
@@ -456,18 +465,25 @@ function renderDietHistory(diary) {
         });
 
         head.onclick = (e) => {
-            // 1. Update Selected Date State
+            // 1. Update Selected Date
             window._selectedDate = date;
-
-            // 2. Update Top Stats ONLY (No Re-Render)
+            // 2. Update Stats
             updateDashboardStats(window._lastUserData, date);
 
-            // 3. Highlight this header (Visual Feedback)
-            document.querySelectorAll('.date-accordion').forEach(el => el.style.color = 'inherit');
-            head.style.color = "var(--primary-color)";
+            // 3. Highlight Logic (Simple Border)
+            document.querySelectorAll('.date-accordion').forEach(el => el.style.border = 'none');
+            head.style.border = "2px solid var(--text-color)";
 
-            // 4. Toggle Accordion (Standard Behavior)
-            mealBox.style.display = mealBox.style.display === 'none' ? 'block' : 'none';
+            // 4. Toggle Visibility
+            // Use class toggle if CSS supports 'active' or inline style
+            // CSS line 96: .meal-container-collapsible.active { display: block; }
+            if (mealBox.classList.contains('active')) {
+                mealBox.classList.remove('active');
+                mealBox.style.display = 'none'; // Ensure
+            } else {
+                mealBox.classList.add('active');
+                mealBox.style.display = 'block';
+            }
         }
 
         container.appendChild(head);
