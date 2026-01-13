@@ -1575,7 +1575,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         margin: 0, // We handle margins in padding
         filename: `FitNit_Report_${start.toISOString().split('T')[0]}_${end.toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, logging: true }, // Enable logging for debug
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
     };
@@ -1585,6 +1585,9 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         // Usually html2pdf can render off-screen if display is NOT none.
         // It's `position: fixed; top: -9999px;` which should work. 
         // If it fails, we can try visible z-index under.
+
+        // Wait for DOM to handle images/layout
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
