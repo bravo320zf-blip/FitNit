@@ -491,38 +491,58 @@
 
     <!-- REPORT MODAL -->
     <div id="report-modal" class="modal-overlay" style="display:none;">
-        <div class="modal-content card">
-            <div class="modal-header">
-                <h3>Generate PDF Report</h3><button
-                    onclick="document.getElementById('report-modal').style.display='none'" class="icon-btn"><i
-                        class="material-icons">close</i></button>
-            </div>
-            <p style="color:#777; margin-bottom:15px;">Select data to include:</p>
-
-            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-                <label style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="rep-profile" checked> Profile & Goals
-                </label>
-                <label style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="rep-weight" checked> Weight History
-                </label>
-                <label style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="rep-diet" checked> Diet Log
-                </label>
-                <label style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="rep-workouts" checked> Workout Log
-                </label>
+        <div class="modal-content card" style="max-width: 450px; padding: 20px;">
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:20px;">
+                <h3 style="margin:0; font-size:1.2rem;">Generate Report</h3>
+                <button onclick="document.getElementById('report-modal').style.display='none'" class="icon-btn"
+                    style="padding:5px;">
+                    <i class="material-icons">close</i>
+                </button>
             </div>
 
-            <p style="color:#777; margin-bottom:5px;">Time Range:</p>
-            <select id="rep-range" style="width:100%; margin-bottom:20px; padding:10px;">
-                <option value="30">Last 30 Days</option>
-                <option value="90">Last 3 Months</option>
-                <option value="365">Year to Date (1 Year)</option>
-                <option value="99999">All Time</option>
-            </select>
+            <p style="font-size:14px; color:#777; margin-bottom:10px; font-weight:600;">Data to Include</p>
 
-            <button id="generate-pdf-btn" style="width:100%;">Download PDF</button>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:20px;">
+                <label
+                    style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:8px; cursor:pointer; background:var(--bg-color);">
+                    <input type="checkbox" id="rep-profile" style="width:auto; margin:0;" checked>
+                    <span style="font-size:14px;">Profile/Goals</span>
+                </label>
+                <label
+                    style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:8px; cursor:pointer; background:var(--bg-color);">
+                    <input type="checkbox" id="rep-weight" style="width:auto; margin:0;" checked>
+                    <span style="font-size:14px;">Weight Log</span>
+                </label>
+                <label
+                    style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:8px; cursor:pointer; background:var(--bg-color);">
+                    <input type="checkbox" id="rep-diet" style="width:auto; margin:0;" checked>
+                    <span style="font-size:14px;">Diet History</span>
+                </label>
+                <label
+                    style="display:flex; align-items:center; gap:10px; padding:10px; border:1px solid #eee; border-radius:8px; cursor:pointer; background:var(--bg-color);">
+                    <input type="checkbox" id="rep-workouts" style="width:auto; margin:0;" checked>
+                    <span style="font-size:14px;">Workouts</span>
+                </label>
+            </div>
+
+            <p style="font-size:14px; color:#777; margin-bottom:10px; font-weight:600;">Time Range</p>
+            <div style="position:relative; margin-bottom:25px;">
+                <select id="rep-range"
+                    style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; background:var(--input-bg); color:var(--text-color); appearance:none; -webkit-appearance:none;">
+                    <option value="30">Last 30 Days</option>
+                    <option value="90">Last 3 Months</option>
+                    <option value="365">Year to Date (1 Year)</option>
+                    <option value="99999">All Time</option>
+                </select>
+                <i class="material-icons"
+                    style="position:absolute; right:15px; top:50%; transform:translateY(-50%); pointer-events:none; color:#777;">arrow_drop_down</i>
+            </div>
+
+            <button id="generate-pdf-btn"
+                style="width:100%; padding:15px; background:var(--primary-color); color:white; font-weight:bold; border-radius:8px; display:flex; justify-content:center; align-items:center; gap:10px;">
+                <i class="material-icons">picture_as_pdf</i> Download PDF Report
+            </button>
         </div>
     </div>
 
