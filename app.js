@@ -1607,8 +1607,8 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     if (window.html2pdf) {
         btn.innerHTML = `<i class="material-icons spin">refresh</i> Rendering...`;
 
-        // Short buffer to ensure images trigger load (even if hidden)
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Longer buffer to ensure DOM paint and layout (2.5s)
+        await new Promise(resolve => setTimeout(resolve, 2500));
 
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
