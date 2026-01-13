@@ -1594,31 +1594,46 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         margin: 0, // We handle margins in padding
         filename: `FitNit_Report_${start.toISOString().split('T')[0]}_${end.toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: true }, // Enable logging for debug
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
     };
 
     if (window.html2pdf) {
-        // Ensure container is briefly visible or positioned for render?
-        // Usually html2pdf can render off-screen if display is NOT none.
-        // It's `position: fixed; top: -9999px;` which should work. 
-        // If it fails, we can try visible z-index under.
+        // 1. Force Visible & Top (Fixes 'Blank' and 'Background' issues)
+        container.style.display = 'block';
+        container.style.position = 'fixed';
+        container.style.top = '0';
+        container.style.left = '0';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.zIndex = '20000'; // Above everything
+        container.style.background = 'white';
+        container.style.overflowY = 'auto'; // Allow scroll if needed for debug, but html2pdf captures full height
 
-        // Wait for DOM to handle images/layout
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 2. Reset Scroll (Fixes offset issues)
+        window.scrollTo(0, 0);
+
+        // 3. Render Delay
+        btn.innerHTML = `<i class="material-icons spin">refresh</i> Rendering...`;
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         window.html2pdf().set(opt).from(container).save().then(() => {
+            // Cleanup
+            container.style.display = 'none';
+            container.style.zIndex = '-9999';
             btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
         }).catch(err => {
             console.error(err);
             alert("PDF Generation Error: " + err);
+            container.style.display = 'none';
             btn.innerHTML = originalText; btn.disabled = false;
         });
     } else {
         alert("PDF library not ready.");
         btn.innerHTML = originalText; btn.disabled = false;
+        container.style.display = 'none';
     }
 };
 
