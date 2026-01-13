@@ -271,7 +271,7 @@ function renderProfileScreen(data, isMe, ownerUid) {
     } else {
         document.getElementById('summary-bmi').innerText = "--";
         document.getElementById('summary-bmi-text').innerText = "Private";
-        document.getElementById('summary-weight-diff').innerText = "--";
+        // document.getElementById('summary-weight-diff').innerText = "--";
     }
 
     // 2. Goal Status & Macros
