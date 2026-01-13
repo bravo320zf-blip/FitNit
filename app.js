@@ -267,7 +267,7 @@ function renderProfileScreen(data, isMe, ownerUid) {
         const bmi = ((weight * 0.453) / ((goals.height / 100) ** 2)).toFixed(1);
         document.getElementById('summary-bmi').innerText = bmi;
         document.getElementById('summary-bmi-text').innerText = bmi < 25 ? "Normal" : "Overweight";
-        document.getElementById('summary-weight-diff').innerText = weight;
+        // document.getElementById('summary-weight-diff').innerText = weight; // Removed in favor of Weight Lost
     } else {
         document.getElementById('summary-bmi').innerText = "--";
         document.getElementById('summary-bmi-text').innerText = "Private";
@@ -275,23 +275,35 @@ function renderProfileScreen(data, isMe, ownerUid) {
     }
 
     // 2. Goal Status & Macros
-    const daily = data._dailyTotals || { consumed: 0, protein: 0, carbs: 0, fat: 0, burned: 0 };
-
-    // Privacy: If not me, and Diary is hidden, hide these stats? 
-    // Usually goals/progress are public unless hidden. Let's assume hiding Diary hides granular macros but maybe not overall goal %?
-    // User asked for "Protein Carbs Fats" tracker data lost. 
-    // If isMe OR privacy allows:
-
-    if (isMe || !hideGoals) {
-        // Update Profile Widgets
-        const pct = goals.calories > 0 ? Math.min(100, Math.round((daily.consumed / goals.calories) * 100)) : 0;
-        document.getElementById('summary-goal-status').innerText = `${pct}%`;
-
-        // Macros visual update was moved to Dashboard.
-        // We do NOT update bars here anymore as they don't exist in Profile.
-    } else {
-        document.getElementById('summary-goal-status').innerText = "--";
+    // 2. Profile Stats: Total Burned & Weight Lost
+    let totalBurned = 0;
+    if (data.workouts) {
+        Object.values(data.workouts).forEach(day => {
+            Object.values(day).forEach(w => totalBurned += Number(w.burned || 0));
+        });
     }
+
+    let totalLost = 0;
+    if (data.weight_history) {
+        // Sort dates to find first and last
+        const dates = Object.keys(data.weight_history).sort();
+        if (dates.length >= 1) {
+            const first = data.weight_history[dates[0]];
+            const current = data.latest_weight || data.weight_history[dates[dates.length - 1]];
+            totalLost = (first - current).toFixed(1);
+        }
+    }
+
+    // Update DOM
+    const elLost = document.getElementById('summary-weight-lost');
+    const elBurned = document.getElementById('summary-total-burned');
+
+    if (elLost) elLost.innerText = totalLost > 0 ? totalLost : "--";
+    if (elBurned) elBurned.innerText = totalBurned.toLocaleString();
+
+    // Hide goal status if not needed, as we replaced that widget
+    // document.getElementById('summary-goal-status').innerText = `${pct}%`; // Removed
+
 
     // 3. Header & buttons
     const header = document.querySelector('#profile-screen h2');
@@ -2686,7 +2698,9 @@ async function addPresetGoal(goalTemplate) {
     const userData = snapUser.val() || {};
 
     if (goalTemplate.type === 'weight_loss') {
-        startValue = userData.profile ? parseFloat(userData.profile.weight) : 0;
+        // FIX: Use latest_weight from root, not profile.weight
+        startValue = userData.latest_weight ? parseFloat(userData.latest_weight) : 0;
+
         if (!startValue || isNaN(startValue)) {
             // Fallback: check history
             if (userData.weight_history) {
