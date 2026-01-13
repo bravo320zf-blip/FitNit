@@ -1323,18 +1323,37 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     btn.innerHTML = `<i class="material-icons spin">refresh</i> Generating...`;
     btn.disabled = true;
 
-    // Dynamic Container Creation (Offscreen Right)
+    // 1. Loading Overlay (Hides the report while it renders in background)
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = 'white';
+    overlay.style.zIndex = '50000'; // Highest priority
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.color = '#333';
+    overlay.innerHTML = `<div class="material-icons spin" style="font-size: 48px; margin-bottom: 20px;">refresh</div><h2 style="font-family:'Helvetica', sans-serif;">Generating PDF Report...</h2><p>Please wait while we gather your data.</p>`;
+    document.body.appendChild(overlay);
+
+    // 2. Report Container (Placed UNDER overlay but IN viewport to ensure rendering)
     const container = document.createElement('div');
     container.id = 'report-container';
     container.style.position = 'fixed';
     container.style.top = '0';
-    container.style.left = '200vw'; // Off-screen right
+    container.style.left = '0'; // On screen!
     container.style.width = '850px';
-    container.style.background = 'white';
+    container.style.background = 'white'; // White background
     container.style.color = 'black';
     container.style.fontFamily = "'Helvetica', sans-serif";
-    container.style.zIndex = '20000';
+    container.style.zIndex = '40000'; // Under overlay, over app
     container.style.padding = '40px';
+    // container.style.visibility = 'hidden'; // DO NOT USE HIDDEN. Browser optimizes it away.
+    // Instead relies on Overlay covering it.
     document.body.appendChild(container);
 
     let dateArray = [];
@@ -1347,6 +1366,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         if (start > end) {
             alert("Start date cannot be after End date.");
             btn.innerHTML = originalText; btn.disabled = false;
+            overlay.remove();
             container.remove();
             return;
         }
@@ -1368,6 +1388,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         if (allDates.size === 0) {
             alert("No data found to export.");
             btn.innerHTML = originalText; btn.disabled = false;
+            overlay.remove();
             container.remove();
             return;
         }
@@ -1626,16 +1647,19 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
+            overlay.remove(); // Remove overlay
             container.remove(); // Cleanup
         }).catch(err => {
             console.error(err);
             alert("PDF Generation Error: " + err);
             btn.innerHTML = originalText; btn.disabled = false;
+            overlay.remove();
             container.remove(); // Cleanup
         });
     } else {
         alert("PDF library not ready.");
         btn.innerHTML = originalText; btn.disabled = false;
+        overlay.remove();
         container.remove();
     }
 };
