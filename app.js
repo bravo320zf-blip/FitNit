@@ -164,23 +164,15 @@ function startDataListener(uid) {
     });
 }
 
-function renderDashboard(data) {
+// NEW: Update top-level stats WITHOUT re-rendering the whole history list
+function updateDashboardStats(data, dateOverride) {
     if (!data) return;
-    const today = window._selectedDate || getToday();
-
-    // Update Search Input to sync with View
-    if (document.getElementById('date-search-input')) {
-        document.getElementById('date-search-input').value = today;
-    }
-
+    const today = dateOverride || window._selectedDate || getToday();
     const goals = data.goals || { calories: 2000, protein: 150, carbs: 250, fat: 70 };
     const weight = data.latest_weight || 0;
 
     let consumed = 0, protein = 0, carbs = 0, fat = 0, burned = 0;
     let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
-
-    // 1. Calculate Stats for SELECTED DATE
-    renderGoals(data.goals);
 
     if (data.diary && data.diary[today]) {
         Object.values(data.diary[today]).forEach(cat => {
@@ -192,7 +184,7 @@ function renderDashboard(data) {
                 sugar += Number(i.sugar || 0);
                 satFat += Number(i.satFat || 0);
                 fiber += Number(i.fiber || 0);
-                sodium += Number(i.sodium * 1000 || 0) / 1000; // Keep decimal precision?
+                sodium += Number(i.sodium * 1000 || 0) / 1000;
                 vitC += Number(i.vitC || 0);
                 calcium += Number(i.calcium || 0);
                 iron += Number(i.iron || 0);
@@ -205,11 +197,7 @@ function renderDashboard(data) {
         });
     }
 
-    // 2. Render Histories (Paginated)
-    renderDietHistory(data.diary);
-    renderWorkoutHistory(data.workouts);
-
-    // 3. STATS & WIDGETS
+    // STATS & WIDGETS
     document.getElementById('dash-cals').innerText = `${Math.round(consumed)} / ${goals.calories}`;
     document.getElementById('dash-prot').innerText = `${Math.round(protein)} / ${goals.protein}g`;
     document.getElementById('dash-weight').innerText = `${weight} lbs`;
@@ -218,24 +206,28 @@ function renderDashboard(data) {
         document.getElementById('dash-burned').innerText = `${Math.round(burned)} kcal`;
         document.getElementById('dash-net').innerText = Math.round(consumed - burned);
     }
-
-    // Render Extended Setup on Dashboard
     renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
+}
+
+function renderDashboard(data) {
+    if (!data) return;
+    const today = window._selectedDate || getToday();
+
+    // 1. Initial Stats Render
+    updateDashboardStats(data, today);
+
+    // 2. Render Histories
+    renderGoals(data.goals);
+    renderDietHistory(data.diary);
+    renderWorkoutHistory(data.workouts);
 
     if (data.weight_history) {
         window._fullWeightHistory = data.weight_history;
-        // Initial render with 1 year check or default (last 30 days) if no pref? 
-        // Let's default to full year or everything.
-        // Check if active range set?
         const currentRange = window._weightRange || 365;
         if (window.updateWeightFilter) window.updateWeightFilter(currentRange);
     }
 
-    // Render Profile (My Profile) if not currently viewing someone else or overriding mode
-    // We attach totals to data object for convenience so render knows about it
-    data._dailyTotals = { consumed, protein, carbs, fat, burned };
-
-    // Only auto-render if we are NOT in special "viewing public profile" mode, OR if we are me
+    data._dailyTotals = { consumed: 0, protein: 0, carbs: 0, fat: 0, burned: 0 }; // Placeholder
     if (!window._isViewingPublicProfile) {
         renderProfileScreen(data, true, window._lastUserUid);
     }
@@ -343,17 +335,29 @@ function renderDietHistory(diary) {
 
     let dates = Object.keys(diary).sort().reverse();
 
-    // Search Filter
+    // Search/Range Filter (Merged Logic)
     const searchVal = document.getElementById('date-search-input') ? document.getElementById('date-search-input').value.trim() : "";
-    if (searchVal) {
+    const rangeStart = document.getElementById('search-start') ? document.getElementById('search-start').value : "";
+    const rangeEnd = document.getElementById('search-end') ? document.getElementById('search-end').value : "";
+
+    // 1. If Range is set, use Range
+    if (rangeStart) {
+        dates = dates.filter(d => d >= rangeStart && (!rangeEnd || d <= rangeEnd));
+    }
+    // 2. OR If Text Search is set (and valid date/partial) override or refine?
+    // Let's assume Text search is specific day override or textual filter
+    else if (searchVal) {
         dates = dates.filter(d => d.includes(searchVal));
     }
 
-    // Auto-reset page if out of bounds
-    const pageSize = 5;
-    if ((window._dietPage * pageSize) >= dates.length) window._dietPage = 0;
+    // Auto-reset page if out of bounds (unless searching, then maybe reset to 0)
+    if (searchVal || rangeStart) window._dietPage = 0;
 
+    const pageSize = 5;
     const page = window._dietPage;
+
+    if ((page * pageSize) >= dates.length && page > 0) window._dietPage = 0;
+
     const slice = dates.slice(page * pageSize, (page + 1) * pageSize);
 
     if (dates.length === 0) {
@@ -372,6 +376,7 @@ function renderDietHistory(diary) {
 
         const head = document.createElement('div');
         head.className = "date-accordion";
+        head.dataset.date = date; // For efficient updates
         head.style.cursor = "pointer";
         head.style.fontWeight = "bold";
         head.style.padding = "10px";
@@ -380,8 +385,12 @@ function renderDietHistory(diary) {
 
         // Highlight if selected
         if (date === window._selectedDate) {
-            head.style.background = "var(--primary-color)";
-            head.style.color = "white";
+            // head.style.background = "var(--primary-color)"; 
+            // head.style.color = "white";
+            // Reverting visual style to simple bold/color for now or standard accordion
+            // User liked "original", so let's just make it subtle or keep the "active" style separate from "open".
+            // Let's just bold the selected day text color?
+            head.style.color = "var(--primary-color)";
         }
 
         head.innerHTML = `<span>${date}</span><span>${summaryText}</span>`;
@@ -447,15 +456,17 @@ function renderDietHistory(diary) {
         });
 
         head.onclick = (e) => {
-            // NEW: Select Date & Update Dashboard & Input
+            // 1. Update Selected Date State
             window._selectedDate = date;
 
-            // Update input to reflect selection (clears filter)
-            const input = document.getElementById('date-search-input');
-            if (input) input.value = date;
+            // 2. Update Top Stats ONLY (No Re-Render)
+            updateDashboardStats(window._lastUserData, date);
 
-            renderDashboard(window._lastUserData);
+            // 3. Highlight this header (Visual Feedback)
+            document.querySelectorAll('.date-accordion').forEach(el => el.style.color = 'inherit');
+            head.style.color = "var(--primary-color)";
 
+            // 4. Toggle Accordion (Standard Behavior)
             mealBox.style.display = mealBox.style.display === 'none' ? 'block' : 'none';
         }
 
