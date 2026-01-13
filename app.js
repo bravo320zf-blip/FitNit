@@ -2771,11 +2771,38 @@ function checkGoalsProgress(userData) {
 
         // B. Streak Logic
         else if (goal.type === 'streak') {
-            // Simplified: Assume today's streak is stored in userData.stats.current_streak
-            // If not, we skip implementation for now or build a helper.
-            // Let's rely on manual check for prototype if no streak engine.
-            // Placeholder:
-            const streak = 0; // TODO: Implement Streak Engine
+            // Calculate Current Streak
+            let streak = 0;
+            const today = new Date().toLocaleDateString('en-CA');
+            let checkDate = new Date(today);
+
+            // Allow broken streak if today is not logged YET (so check yesterday)
+            // But if today IS logged, start counting.
+            // Actually, simple loop backwards.
+
+            // 1. Is today logged?
+            const todayStr = checkDate.toISOString().split('T')[0];
+            if (userData.diary && userData.diary[todayStr]) {
+                streak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                // If today is NOT logged, check yesterday. If yesterday is missed, streak is 0.
+                // Exception: Users might be in middle of day.
+                // Standard: Streak counts consecutive days with logs.
+                // Let's check yesterday.
+                checkDate.setDate(checkDate.getDate() - 1);
+            }
+
+            while (true) {
+                const datesStr = checkDate.toISOString().split('T')[0];
+                if (userData.diary && userData.diary[datesStr]) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+
             if (streak >= goal.target) {
                 currentProgress = 100;
                 isComplete = true;
