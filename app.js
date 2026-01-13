@@ -1598,13 +1598,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
             scale: 2,
             useCORS: true,
             logging: false,
-            onclone: (clonedDoc) => {
-                // Reveal the hidden container ONLY in the PDF generator's virtual DOM
-                const clonedContainer = clonedDoc.getElementById('report-container');
-                if (clonedContainer) {
-                    clonedContainer.style.display = 'block';
-                }
-            }
+            windowWidth: 1200 // Ensure width calculation is correct for off-screen element
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
