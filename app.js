@@ -1600,40 +1600,21 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     };
 
     if (window.html2pdf) {
-        // 1. Force Visible & Top (Fixes 'Blank' and 'Background' issues)
-        container.style.display = 'block';
-        container.style.position = 'fixed';
-        container.style.top = '0';
-        container.style.left = '0';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.zIndex = '20000'; // Above everything
-        container.style.background = 'white';
-        container.style.overflowY = 'auto'; // Allow scroll if needed for debug, but html2pdf captures full height
-
-        // 2. Reset Scroll (Fixes offset issues)
-        window.scrollTo(0, 0);
-
-        // 3. Render Delay
+        // Silent generation: Wait briefly for render then capture
         btn.innerHTML = `<i class="material-icons spin">refresh</i> Rendering...`;
         await new Promise(resolve => setTimeout(resolve, 1500));
 
         window.html2pdf().set(opt).from(container).save().then(() => {
-            // Cleanup
-            container.style.display = 'none';
-            container.style.zIndex = '-9999';
             btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
         }).catch(err => {
             console.error(err);
             alert("PDF Generation Error: " + err);
-            container.style.display = 'none';
             btn.innerHTML = originalText; btn.disabled = false;
         });
     } else {
         alert("PDF library not ready.");
         btn.innerHTML = originalText; btn.disabled = false;
-        container.style.display = 'none';
     }
 };
 
