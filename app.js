@@ -1323,8 +1323,19 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     btn.innerHTML = `<i class="material-icons spin">refresh</i> Generating...`;
     btn.disabled = true;
 
-    const container = document.getElementById('report-container');
-    container.innerHTML = "";
+    // Dynamic Container Creation (Offscreen Right)
+    const container = document.createElement('div');
+    container.id = 'report-container';
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '200vw'; // Off-screen right
+    container.style.width = '850px';
+    container.style.background = 'white';
+    container.style.color = 'black';
+    container.style.fontFamily = "'Helvetica', sans-serif";
+    container.style.zIndex = '20000';
+    container.style.padding = '40px';
+    document.body.appendChild(container);
 
     let dateArray = [];
     let start, end;
@@ -1336,6 +1347,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         if (start > end) {
             alert("Start date cannot be after End date.");
             btn.innerHTML = originalText; btn.disabled = false;
+            container.remove();
             return;
         }
         // Build contiguous range
@@ -1351,11 +1363,12 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         const allDates = new Set();
         if (ud.diary) Object.keys(ud.diary).forEach(d => allDates.add(d));
         if (ud.workouts) Object.keys(ud.workouts).forEach(d => allDates.add(d));
-        if (ud.weight_history) Object.keys(ud.weight_history).forEach(d => allDates.add(d)); // Optional: Include weight-only days?
+        if (ud.weight_history) Object.keys(ud.weight_history).forEach(d => allDates.add(d));
 
         if (allDates.size === 0) {
             alert("No data found to export.");
             btn.innerHTML = originalText; btn.disabled = false;
+            container.remove();
             return;
         }
         // Convert to sorted array
@@ -1598,7 +1611,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
             scale: 2,
             useCORS: true,
             logging: false,
-            windowWidth: 1200 // Ensure width calculation is correct for off-screen element
+            windowWidth: 1600 // Tell renderer window is wide enough for 200vw
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
@@ -1607,20 +1620,23 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     if (window.html2pdf) {
         btn.innerHTML = `<i class="material-icons spin">refresh</i> Rendering...`;
 
-        // Longer buffer to ensure DOM paint and layout (2.5s)
+        // Render Delay (2.5s)
         await new Promise(resolve => setTimeout(resolve, 2500));
 
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
+            container.remove(); // Cleanup
         }).catch(err => {
             console.error(err);
             alert("PDF Generation Error: " + err);
             btn.innerHTML = originalText; btn.disabled = false;
+            container.remove(); // Cleanup
         });
     } else {
         alert("PDF library not ready.");
         btn.innerHTML = originalText; btn.disabled = false;
+        container.remove();
     }
 };
 
