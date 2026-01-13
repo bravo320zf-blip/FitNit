@@ -1308,192 +1308,295 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     const includeWeight = document.getElementById('rep-weight').checked;
     const includeDiet = document.getElementById('rep-diet').checked;
     const includeWorkouts = document.getElementById('rep-workouts').checked;
-    const days = Number(document.getElementById('rep-range').value);
+
+    // Get Dates
+    const startDateVal = document.getElementById('rep-start-date').value;
+    const endDateVal = document.getElementById('rep-end-date').value;
+
+    if (!startDateVal || !endDateVal) {
+        alert("Please select a Start and End date.");
+        return;
+    }
+
+    const start = new Date(startDateVal);
+    const end = new Date(endDateVal);
+
+    if (start > end) {
+        alert("Start date cannot be after End date.");
+        return;
+    }
 
     const btn = document.getElementById('generate-pdf-btn');
-    btn.innerText = "Generating..."; btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i class="material-icons spin">refresh</i> Generating...`;
+    btn.disabled = true;
 
     const container = document.getElementById('report-container');
     container.innerHTML = "";
 
-    // 1. HEADER
-    const header = document.createElement('div');
-    header.innerHTML = `
-            <div style="border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:end;">
-                <div>
-                    <h1 style="margin:0; font-size:28px;">FitNit Report</h1>
-                    <p style="margin:0; color:#555;">Generated on ${new Date().toLocaleDateString()}</p>
-                </div>
-                <div style="text-align:right;">
-                    <h3 style="margin:0;">${auth.currentUser.email}</h3>
-                </div>
-            </div>
-        `;
-    container.appendChild(header);
-
-    // 2. PROFILE & GOALS
-    if (includeProfile) {
-        // Using window._lastUserData directly if available, else fetch? 
-        // We'll rely on global data for simplicity or quick fetch
-        const g = (window._lastUserData && window._lastUserData.goals) || {};
-        const section = document.createElement('div');
-        section.style.marginBottom = "30px";
-        section.innerHTML = `
-                <h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">User Profile & Goals</h2>
-                <table style="width:100%; border-collapse:collapse;">
-                    <tr>
-                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Height:</strong> ${g.height || '-'} cm</td>
-                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Age:</strong> ${g.age || '-'}</td>
-                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Activity Level:</strong> ${g.activity || '-'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Calorie Goal:</strong> ${g.calories || 2000} kcal</td>
-                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Protein Goal:</strong> ${g.protein || 150}g</td>
-                        <td style="padding:5px; border-bottom:1px solid #ddd;"><strong>Latest Weight:</strong> ${window._lastUserData ? window._lastUserData.latest_weight : '-'} lbs</td>
-                    </tr>
-                </table>
-            `;
-        container.appendChild(section);
+    // Iterate Days
+    let currentDate = new Date(start);
+    const dateArray = [];
+    while (currentDate <= end) {
+        dateArray.push(currentDate.toISOString().split('T')[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Helper for Date Filtering
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
+    // Data Fetch Helper
+    const getDataForDay = (userData, date) => {
+        return {
+            diary: userData.diary?.[date] || {},
+            workouts: userData.workouts?.[date] || {},
+            weight: userData.weight_history?.[date] || null
+        };
+    };
 
-    // 3. WEIGHT HISTORY (Table + Graph placeholder?)
-    if (includeWeight && window._fullWeightHistory) {
-        const section = document.createElement('div');
-        section.style.marginBottom = "30px";
-        section.innerHTML = `<h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">Weight History</h2>`;
+    // We use globally cached data if available, but for safety lets ensure we have it?
+    // window._lastUserData should be populated.
+    const ud = window._lastUserData;
+    if (!ud) { alert("User data not ready."); return; }
 
-        // Filter Data
-        const rows = [];
-        Object.keys(window._fullWeightHistory).sort().reverse().forEach(date => {
-            if (date >= cutoffStr) {
-                rows.push(`<tr><td style="padding:4px; border-bottom:1px solid #eee;">${date}</td><td style="padding:4px; border-bottom:1px solid #eee;"><strong>${window._fullWeightHistory[date]} lbs</strong></td></tr>`);
-            }
+    const goals = ud.goals || {};
+
+    // --- HTML CONSTRUCTION LOOP ---
+    for (const date of dateArray.reverse()) { // Newest first? Or chronological? Report usually chrono. Let's do Chronological (Oldest -> Newest) or User selected. Let's do Chrono.
+        // Wait, user said "Past 7 days". Usually you want newest first? Or logical reading?
+        // Let's do Reverse Chrono (Newest First) so today is page 1.
+    }
+
+    // Actually, let's stick to the loop order defined above (Oldest -> Newest) or reverse it if we want "History" style.
+    // Let's do Chronological (Start -> End).
+
+    for (const date of dateArray) {
+        const dayData = getDataForDay(ud, date);
+
+        // Skip days with NO data if user wants? Or show empty pages? 
+        // User asked for "report for past 7 days ... 14 pages". Implies explicit pages per day.
+
+        // --- PAGE 1: DAILY SUMMARY (Stats, Widgets, Profile Context) ---
+        const page1 = document.createElement('div');
+        page1.className = "pdf-page";
+        page1.style.width = "100%";
+        page1.style.height = "1000px"; // Approx Letter size height in px for html2pdf scaling
+        page1.style.padding = "40px";
+        page1.style.boxSizing = "border-box";
+        page1.style.position = "relative";
+        page1.style.pageBreakAfter = "always";
+        page1.style.background = "white";
+        page1.style.color = "#333";
+
+        // Calculate Daily Macros
+        let dCals = 0, dProt = 0, dCarbs = 0, dFat = 0;
+        Object.values(dayData.diary).forEach(cat => {
+            Object.values(cat).forEach(i => {
+                dCals += Number(i.calories || 0);
+                dProt += Number(i.protein || 0);
+                dCarbs += Number(i.carbs || 0);
+                dFat += Number(i.fat || 0);
+            });
         });
 
-        // If we could clone the canvas that would be cool, but html2pdf handles canvas well if visible.
-        // Since the report is "hidden" off-screen, a live canvas clone might be tricky.
-        // For now, Just a clean data table.
-        if (rows.length > 0) {
-            section.innerHTML += `
-                    <table style="width:100%; border-collapse:collapse; font-size:14px;">
-                        <tr style="background:#f9f9f9; text-align:left;">
-                            <th style="padding:5px;">Date</th><th style="padding:5px;">Weight</th>
-                        </tr>
-                        ${rows.join('')}
-                    </table>
-                `;
-        } else {
-            section.innerHTML += `<p>No weight data in selected range.</p>`;
-        }
-        container.appendChild(section);
-    }
+        let dBurned = 0;
+        Object.values(dayData.workouts).forEach(w => dBurned += Number(w.burned || 0));
 
-    // 4. DIET LOG
-    if (includeDiet) {
-        const section = document.createElement('div');
-        section.style.marginBottom = "30px";
-        section.innerHTML = `<h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">Diet Log</h2>`;
+        const dayWeight = dayData.weight || "No Log";
 
-        // Fetch relevant days? This is expensive if "All Time". 
-        // We need to query range. 
-        // For "Pro" fetch, we use startAt/endAt.
-        // Simplified: Fetch 'diary' node? (Might be huge).
-        // Let's rely on cached data or fetch specific range asynchronously.
-        // fetching...
-        const diaryRef = query(ref(db, `users/${auth.currentUser.uid}/diary`), orderByKey(), startAt(cutoffStr));
-        const snap = await get(diaryRef);
+        // Construct Page 1 HTML
+        page1.innerHTML = `
+            <div style="border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; display:flex; justify-content:space-between; align-items:flex-end;">
+                <div>
+                    <h1 style="margin:0; font-size:32px; color:#2c3e50;">Daily Health Report</h1>
+                    <h3 style="margin:5px 0 0 0; color:#7f8c8d;">${date}</h3>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0; font-weight:bold;">${auth.currentUser.email}</p>
+                    <p style="margin:0; color:#555;">FitNit App</p>
+                </div>
+            </div>
 
-        if (snap.exists()) {
-            let html = "";
-            snap.forEach(daySnap => {
-                const date = daySnap.key;
-                let dayHtml = `<h4 style="margin:10px 0 5px 0; border-bottom:1px solid #ccc;">${date}</h4><table style="width:100%; font-size:12px; margin-bottom:10px;">`;
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:30px;">
+                <!-- SUMMARY CARD -->
+                <div style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:10px; padding:20px;">
+                    <h3 style="margin-top:0; color:#2980b9; border-bottom:1px solid #ddd; padding-bottom:10px;">Summary</h3>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <span>Weight:</span> <strong>${dayWeight} ${dayWeight !== 'No Log' ? 'lbs' : ''}</strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                         <span>Net Calories:</span> <strong>${Math.round(dCals - dBurned)}</strong>
+                    </div>
+                     <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                         <span>Activity Burn:</span> <strong style="color:#e67e22;">${Math.round(dBurned)} kcal</strong>
+                    </div>
+                </div>
 
-                let dayTotal = 0;
-                daySnap.forEach(mealSnap => {
-                    // meal type
-                    mealSnap.forEach(itemSnap => {
-                        const item = itemSnap.val();
-                        dayTotal += item.calories;
-                        dayHtml += `<tr>
-                                <td style="width:50%;">${item.name}</td>
-                                <td>${item.calories} kcal</td>
-                                <td>P: ${item.protein}g</td>
-                                <td>C: ${item.carbs}g</td>
-                                <td>F: ${item.fat}g</td>
-                            </tr>`;
-                    });
-                });
-                dayHtml += `<tr><td colspan="5" style="text-align:right; font-weight:bold; padding-top:5px;">Day Total: ${dayTotal} kcal</td></tr></table>`;
-                html += dayHtml; // Reverse order?
+                <!-- GOALS CARD -->
+                <div style="background:#f8f9fa; border:1px solid #e9ecef; border-radius:10px; padding:20px;">
+                     <h3 style="margin-top:0; color:#27ae60; border-bottom:1px solid #ddd; padding-bottom:10px;">Goals</h3>
+                     <div style="margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Calories</span><span>${Math.round(dCals)} / ${goals.calories}</span></div>
+                        <div style="height:6px; background:#ddd; border-radius:3px; overflow:hidden;"><div style="width:${Math.min(100, (dCals / goals.calories) * 100)}%; background:#2c3e50; height:100%;"></div></div>
+                     </div>
+                     <div style="margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Protein</span><span>${Math.round(dProt)} / ${goals.protein}g</span></div>
+                        <div style="height:6px; background:#ddd; border-radius:3px; overflow:hidden;"><div style="width:${Math.min(100, (dProt / goals.protein) * 100)}%; background:#e74c3c; height:100%;"></div></div>
+                     </div>
+                     <div style="margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Carbs</span><span>${Math.round(dCarbs)} / ${goals.carbs}g</span></div>
+                        <div style="height:6px; background:#ddd; border-radius:3px; overflow:hidden;"><div style="width:${Math.min(100, (dCarbs / goals.carbs) * 100)}%; background:#f1c40f; height:100%;"></div></div>
+                     </div>
+                     <div style="margin-bottom:8px;">
+                        <div style="display:flex; justify-content:space-between; font-size:12px;"><span>Fats</span><span>${Math.round(dFat)} / ${goals.fat}g</span></div>
+                        <div style="height:6px; background:#ddd; border-radius:3px; overflow:hidden;"><div style="width:${Math.min(100, (dFat / goals.fat) * 100)}%; background:#3498db; height:100%;"></div></div>
+                     </div>
+                </div>
+            </div>
+
+            <!-- MACRO WIDGETS (Visual Style) -->
+            <h3 style="margin-bottom:15px;">Nutrition Widgets</h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; text-align:center; margin-bottom:40px;">
+                <div style="border:2px solid #e74c3c; padding:20px; border-radius:12px;">
+                    <h2 style="margin:0; color:#e74c3c; font-size:36px;">${Math.round(dProt)}<span style="font-size:16px;">g</span></h2>
+                    <small style="text-transform:uppercase; color:#777; font-weight:bold;">Protein</small>
+                </div>
+                 <div style="border:2px solid #f1c40f; padding:20px; border-radius:12px;">
+                    <h2 style="margin:0; color:#f1c40f; font-size:36px;">${Math.round(dCarbs)}<span style="font-size:16px;">g</span></h2>
+                    <small style="text-transform:uppercase; color:#777; font-weight:bold;">Carbs</small>
+                </div>
+                 <div style="border:2px solid #3498db; padding:20px; border-radius:12px;">
+                    <h2 style="margin:0; color:#3498db; font-size:36px;">${Math.round(dFat)}<span style="font-size:16px;">g</span></h2>
+                    <small style="text-transform:uppercase; color:#777; font-weight:bold;">Fats</small>
+                </div>
+            </div>
+
+             <div style="text-align:center; color:#999; margin-top:auto;">
+                <small>End of Summary Page</small>
+            </div>
+        `;
+        container.appendChild(page1);
+
+        // --- PAGE 2: DETAILED LOGS ---
+        const page2 = document.createElement('div');
+        page2.className = "pdf-page";
+        page2.style.width = "100%";
+        page2.style.height = "1000px";
+        page2.style.padding = "40px";
+        page2.style.boxSizing = "border-box";
+        page2.style.position = "relative";
+        page2.style.pageBreakAfter = "always";
+        page2.style.background = "white";
+        page2.style.color = "#333";
+
+        // Construct Diet Table
+        let dietTableRows = "";
+        let dayTotalCals = 0;
+
+        Object.keys(dayData.diary).forEach(type => {
+            // Header for Meal Type
+            dietTableRows += `<tr style="background:#eee;"><td colspan="5" style="padding:5px; font-weight:bold; text-transform:uppercase;">${type}</td></tr>`;
+
+            Object.values(dayData.diary[type]).forEach(item => {
+                dayTotalCals += Number(item.calories);
+                dietTableRows += `
+                    <tr style="border-bottom:1px solid #f1f1f1;">
+                        <td style="padding:8px;">${item.name}</td>
+                        <td style="padding:8px;">${item.calories}</td>
+                        <td style="padding:8px;">${item.protein}g</td>
+                        <td style="padding:8px;">${item.carbs}g</td>
+                        <td style="padding:8px;">${item.fat}g</td>
+                    </tr>
+                 `;
             });
-            section.innerHTML += html || "<p>No entries found.</p>";
-        } else {
-            section.innerHTML += `<p>No diet data found.</p>`;
-        }
-        container.appendChild(section);
-    }
+        });
 
-    // 5. WORKOUT LOG
-    if (includeWorkouts) {
-        const section = document.createElement('div');
-        section.style.marginBottom = "30px";
-        section.innerHTML = `<h2 style="background:#eee; padding:5px 10px; margin-bottom:10px;">Workout Log</h2>`;
+        if (!dietTableRows) dietTableRows = `<tr><td colspan="5" style="padding:10px; text-align:center; color:#777;">No food logged.</td></tr>`;
 
-        const workRef = query(ref(db, `users/${auth.currentUser.uid}/workouts`), orderByKey(), startAt(cutoffStr));
-        const snap = await get(workRef);
+        // Construct Workout Table
+        let workoutRows = "";
+        Object.values(dayData.workouts).forEach(w => {
+            const details = w.duration ? `${w.duration} min` : `${w.sets} x ${w.reps}`;
+            workoutRows += `
+                 <tr style="border-bottom:1px solid #f1f1f1;">
+                    <td style="padding:8px;">${w.name}</td>
+                    <td style="padding:8px;">${details}</td>
+                    <td style="padding:8px;">${w.burned} kcal</td>
+                </tr>
+            `;
+        });
+        if (!workoutRows) workoutRows = `<tr><td colspan="3" style="padding:10px; text-align:center; color:#777;">No workouts logged.</td></tr>`;
 
-        if (snap.exists()) {
-            let html = `<table style="width:100%; border-collapse:collapse; font-size:13px;">
-                        <tr style="background:#f9f9f9; text-align:left;">
-                            <th style="padding:5px;">Date</th><th style="padding:5px;">Exercise</th>
-                            <th style="padding:5px;">Sets/Time</th><th style="padding:5px;">Burned</th>
-                        </tr>`;
+        page2.innerHTML = `
+            <div style="border-bottom: 2px solid #ddd; padding-bottom: 10px; margin-bottom: 20px;">
+                <h2 style="margin:0; color:#2c3e50;">Detailed Logs <span style="font-weight:normal; font-size:16px; float:right; line-height:30px;">${date}</span></h2>
+            </div>
 
-            snap.forEach(daySnap => {
-                const date = daySnap.key;
-                daySnap.forEach(exSnap => {
-                    const ex = exSnap.val();
-                    const details = ex.duration ? `${ex.duration} min` : `${ex.sets} x ${ex.reps}`;
-                    html += `<tr>
-                            <td style="padding:4px; border-bottom:1px solid #eee;">${date}</td>
-                            <td style="padding:4px; border-bottom:1px solid #eee;">${ex.name}</td>
-                            <td style="padding:4px; border-bottom:1px solid #eee;">${details}</td>
-                            <td style="padding:4px; border-bottom:1px solid #eee;">${ex.burned} kcal</td>
-                         </tr>`;
-                });
-            });
-            html += "</table>";
-            section.innerHTML += html;
-        } else {
-            section.innerHTML += `<p>No workouts found.</p>`;
-        }
-        container.appendChild(section);
+            <h3 style="color:#e67e22; border-bottom:1px solid #eee; padding-bottom:5px;">Diet Log</h3>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:30px;">
+                <thead>
+                    <tr style="text-align:left; color:#777;">
+                        <th style="padding:5px;">Item</th>
+                        <th style="padding:5px;">Cals</th>
+                        <th style="padding:5px;">Prot</th>
+                        <th style="padding:5px;">Carb</th>
+                        <th style="padding:5px;">Fat</th>
+                    </tr>
+                </thead>
+                <tbody>${dietTableRows}</tbody>
+                <tfoot>
+                     <tr style="background:#f8f9fa; font-weight:bold;">
+                        <td style="padding:10px;">TOTAL</td>
+                        <td style="padding:10px;">${Math.round(dayTotalCals)}</td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <h3 style="color:#2980b9; border-bottom:1px solid #eee; padding-bottom:5px;">Workout Log</h3>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:30px;">
+                <thead>
+                    <tr style="text-align:left; color:#777;">
+                        <th style="padding:5px;">Exercise</th>
+                        <th style="padding:5px;">Details</th>
+                        <th style="padding:5px;">Burned</th>
+                    </tr>
+                </thead>
+                <tbody>${workoutRows}</tbody>
+            </table>
+            
+            <div style="text-align:center; color:#999; margin-top:auto;">
+                <small>Page 2/2</small>
+            </div>
+        `;
+
+        container.appendChild(page2);
     }
 
     // EXPORT
     const opt = {
-        margin: 0.5,
-        filename: `FitNit_Report_${cutoffStr}_to_Now.pdf`,
+        margin: 0, // We handle margins in padding
+        filename: `FitNit_Report_${start.toISOString().split('T')[0]}_${end.toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        pagebreak: { mode: ['css', 'legacy'] }
     };
 
     if (window.html2pdf) {
+        // Ensure container is briefly visible or positioned for render?
+        // Usually html2pdf can render off-screen if display is NOT none.
+        // It's `position: fixed; top: -9999px;` which should work. 
+        // If it fails, we can try visible z-index under.
+
         window.html2pdf().set(opt).from(container).save().then(() => {
-            btn.innerText = "Download PDF"; btn.disabled = false;
+            btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
+        }).catch(err => {
+            console.error(err);
+            alert("PDF Generation Error: " + err);
+            btn.innerHTML = originalText; btn.disabled = false;
         });
     } else {
         alert("PDF library not ready.");
-        btn.innerText = "Download PDF"; btn.disabled = false;
+        btn.innerHTML = originalText; btn.disabled = false;
     }
 };
 
