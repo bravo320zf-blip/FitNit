@@ -1591,18 +1591,30 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
 
     // EXPORT
     const opt = {
-        margin: 0, // We handle margins in padding
+        margin: 0,
         filename: `FitNit_Report_${start.toISOString().split('T')[0]}_${end.toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            onclone: (clonedDoc) => {
+                // Reveal the hidden container ONLY in the PDF generator's virtual DOM
+                const clonedContainer = clonedDoc.getElementById('report-container');
+                if (clonedContainer) {
+                    clonedContainer.style.display = 'block';
+                }
+            }
+        },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
     };
 
     if (window.html2pdf) {
-        // Silent generation: Wait briefly for render then capture
         btn.innerHTML = `<i class="material-icons spin">refresh</i> Rendering...`;
-        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Short buffer to ensure images trigger load (even if hidden)
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
