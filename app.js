@@ -2679,11 +2679,19 @@ async function addPresetGoal(goalTemplate) {
     const uid = auth.currentUser.uid;
 
     // Check Active Goals Count
+    // Check Active Goals Count & Duplicates
     const snapGoals = await get(ref(db, `users/${uid}/goals`));
     const goals = snapGoals.val() || {};
-    const activeCount = Object.values(goals).filter(g => g.status === 'active').length;
+    const activeGoals = Object.values(goals).filter(g => g.status === 'active');
 
-    if (activeCount >= 3) {
+    // 1. Check for Duplicate
+    if (activeGoals.some(g => g.id === goalTemplate.id)) {
+        alert("You already have this goal active! Please maximize it before starting again.");
+        return;
+    }
+
+    // 2. Check Limit
+    if (activeGoals.length >= 3) {
         alert("You can only have 3 active goals at a time. Please complete or delete one first.");
         return;
     }
