@@ -2902,12 +2902,20 @@ function confirmDeleteGoal(key, title) {
     const msg = document.getElementById('delete-confirm-msg');
     const btn = document.getElementById('btn-confirm-delete');
 
+    if (!modal || !btn) {
+        console.error("Delete modal or button not found!");
+        return;
+    }
+
     msg.innerText = `Are you sure you want to delete the goal "${title}"?`;
     modal.style.display = 'flex';
 
+    // Remove old listeners (cloning) to prevent duplicates or just overwrite onclick
+    // Since we use onclick, overwriting is fine.
     btn.onclick = () => {
         deleteGoal(key);
         modal.style.display = 'none';
+        btn.onclick = null; // Clean up
     };
 }
 
