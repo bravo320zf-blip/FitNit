@@ -1158,11 +1158,7 @@ function renderSocialLists(socialData) {
     // For now, simpler implementation in UI or lazy load.
 }
 
-let pressTimer;
-function setupLongPress(el, item) {
-    el.onmousedown = el.ontouchstart = () => pressTimer = setTimeout(() => window.toggleFav(item.name, item), 800);
-    el.onmouseup = el.onmouseleave = el.ontouchend = () => clearTimeout(pressTimer);
-}
+
 
 // --- SEARCH & SCAN ---
 // --- SEARCH & SCAN ---
