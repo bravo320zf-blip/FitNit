@@ -2870,14 +2870,35 @@ function showCelebration(goal) {
 // Helper: Generic Long Press
 function setupLongPress(element, callback) {
     let pressTimer;
-    element.onmousedown = element.ontouchstart = (e) => {
-        // Prevent default only on touch to stop scrolling/zooming while holding? 
-        // Or better not to prevent default to allow click if short.
-        pressTimer = setTimeout(() => callback(), 800);
+    const start = (e) => {
+        // console.log("Press start");
+        if (e.type === 'click' && e.button !== 0) return; // Only left click or touch
+
+        pressTimer = setTimeout(() => {
+            // console.log("Long Press Triggered");
+            callback();
+            // Prevent context menu if it hasn't happened yet
+            element.addEventListener('contextmenu', preventContext);
+        }, 800);
     };
-    element.onmouseup = element.onmouseleave = element.ontouchend = () => {
+
+    const cancel = (e) => {
+        // console.log("Press cancel");
         clearTimeout(pressTimer);
+        setTimeout(() => element.removeEventListener('contextmenu', preventContext), 100);
     };
+
+    const preventContext = (e) => {
+        e.preventDefault();
+    };
+
+    element.addEventListener("mousedown", start);
+    element.addEventListener("touchstart", start, { passive: true });
+
+    element.addEventListener("mouseup", cancel);
+    element.addEventListener("mouseleave", cancel);
+    element.addEventListener("touchend", cancel);
+    element.addEventListener("touchmove", cancel); // Cancel on drag/scroll
 }
 
 function confirmDeleteGoal(key, title) {
