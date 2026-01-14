@@ -2865,8 +2865,41 @@ function showCelebration(goal) {
     }
 }
 
-// --- OVERRIDE RENDER GOALS ---
-// Replaces any existing renderGoals logic
+// --- GOAL DELETION LOGIC ---
+
+// Helper: Generic Long Press
+function setupLongPress(element, callback) {
+    let pressTimer;
+    element.onmousedown = element.ontouchstart = (e) => {
+        // Prevent default only on touch to stop scrolling/zooming while holding? 
+        // Or better not to prevent default to allow click if short.
+        pressTimer = setTimeout(() => callback(), 800);
+    };
+    element.onmouseup = element.onmouseleave = element.ontouchend = () => {
+        clearTimeout(pressTimer);
+    };
+}
+
+function confirmDeleteGoal(key, title) {
+    const modal = document.getElementById('delete-confirm-modal');
+    const msg = document.getElementById('delete-confirm-msg');
+    const btn = document.getElementById('btn-confirm-delete');
+
+    msg.innerText = `Are you sure you want to delete the goal "${title}"?`;
+    modal.style.display = 'flex';
+
+    btn.onclick = () => {
+        deleteGoal(key);
+        modal.style.display = 'none';
+    };
+}
+
+function deleteGoal(key) {
+    set(ref(db, `users/${auth.currentUser.uid}/goals/${key}`), null)
+        .then(() => alert("Goal deleted."))
+        .catch(e => alert("Error deleting goal: " + e.message));
+}
+
 // --- OVERRIDE RENDER GOALS ---
 // Reused for Dashboard and Profile (Active Goals)
 window.renderGoals = function (goalsData) {
@@ -2899,7 +2932,9 @@ function renderGoalsWidget(goalsData, containerOrId) {
         return;
     }
 
-    const activeGoals = Object.values(goalsData).filter(g => g.status === 'active');
+    // Convert to array of [key, val] to keep ID for deletion
+    const activeGoals = Object.entries(goalsData)
+        .filter(([k, g]) => g.status === 'active');
 
     if (activeGoals.length === 0) {
         widget.innerHTML = `<p style="opacity:0.6; font-size:14px; width:100%; text-align:center;">No active goals.</p>`;
@@ -2907,11 +2942,10 @@ function renderGoalsWidget(goalsData, containerOrId) {
     }
 
     // Show max 3
-    activeGoals.slice(0, 3).forEach(g => {
+    activeGoals.slice(0, 3).forEach(([key, g]) => {
         const card = document.createElement('div');
         // Stylized Mini Card
-        card.style.cssText = "background:rgba(255,255,255,0.1); padding:10px; min-width:100px; flex:1; border-radius:10px; text-align:center; position:relative; color:var(--text-color); box-shadow:0 1px 3px rgba(0,0,0,0.1);";
-        // Dark mode adjustment via CSS var? --text-color handles it.
+        card.style.cssText = "background:rgba(255,255,255,0.1); padding:10px; min-width:100px; flex:1; border-radius:10px; text-align:center; position:relative; color:var(--text-color); box-shadow:0 1px 3px rgba(0,0,0,0.1); user-select: none; -webkit-user-select: none;";
 
         const pct = Math.round(g.progress || 0);
 
@@ -2923,6 +2957,10 @@ function renderGoalsWidget(goalsData, containerOrId) {
             </div>
             <small style="font-size:10px; opacity:0.8; display:block; margin-top:2px;">${pct}%</small>
             `;
+
+        // Setup Long Press for Deletion
+        setupLongPress(card, () => confirmDeleteGoal(key, g.title));
+
         widget.appendChild(card);
     });
 }
