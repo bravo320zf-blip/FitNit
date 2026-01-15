@@ -646,26 +646,7 @@ function renderWorkoutHistory(workouts) {
     container.appendChild(controls);
 }
 
-function renderLastWorkoutWidget(workouts) {
-    const container = document.getElementById('last-workout-container');
-    if (!container) return;
-    if (!workouts) {
-        container.style.display = 'none';
-        return;
-    }
-    const dates = Object.keys(workouts).sort().reverse();
-    const lastDate = dates[0];
-    const exercises = Object.values(workouts[lastDate]);
 
-    container.style.display = 'block';
-    container.innerHTML = `
-        <h4 style="margin:0 0 5px 0; color:var(--primary-color);">Last Session: ${lastDate}</h4>
-        <p style="margin:0; font-size:14px;">Logged ${exercises.length} exercises.</p>
-        <div style="font-size:12px; color:#555; margin-top:5px;">
-            ${exercises.map(e => e.name).slice(0, 3).join(', ')}${exercises.length > 3 ? '...' : ''}
-        </div>
-    `;
-}
 
 // --- ACHIEVEMENTS SYSTEM ---
 // Mapping generic types to our new custom assets
@@ -1852,7 +1833,6 @@ function renderWeightList(history) {
 
 window.updateWeightGraph = (history, daysRange = 365) => {
     const ctx = document.getElementById('weightHistoryChart').getContext('2d');
-    const ctx = document.getElementById('weightHistoryChart').getContext('2d');
 
     // Filter by Range
     const now = new Date();
@@ -1862,17 +1842,13 @@ window.updateWeightGraph = (history, daysRange = 365) => {
     // Filter keys
     const sorted = Object.keys(history).filter(d => new Date(d) >= cutoff).sort();
 
-    // Also update List (use full history for list, separate concern, but good place to hook)
-    // Note: If we call this from filters, we might NOT want to reset list page. 
-    // But usually we call updateWeightGraph with full history? Yes.
+    // Also update List
     renderWeightList(history);
 
     if (weightChart) weightChart.destroy();
 
-    if (weightChart) weightChart.destroy();
-
     // Only show if we have data, else empty
-    if (sorted.length === 0) return; // But ensure list rendered above!
+    if (sorted.length === 0) return;
 
     weightChart = new Chart(ctx, {
         type: 'line',
@@ -1891,14 +1867,13 @@ window.updateWeightGraph = (history, daysRange = 365) => {
         options: {
             responsive: true,
             plugins: {
-                legend: { display: false } // HIDE LEGEND
+                legend: { display: false }
             },
             scales: {
                 y: { beginAtZero: false }
             }
         }
     });
-});
 }
 
 // Graph Filter Listeners
