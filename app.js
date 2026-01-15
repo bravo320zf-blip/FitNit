@@ -1782,8 +1782,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     }
 };
 
-    }
-};
+
 
 // --- HEIGHT / WEIGHT HELPERS ---
 window._weightPage = 0;
