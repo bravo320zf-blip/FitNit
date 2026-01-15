@@ -1359,17 +1359,21 @@ document.getElementById('friend-search-btn').onclick = () => {
         let found = false;
         snap.forEach(child => {
             const u = child.val();
-            if (u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) {
+            // Safe check for name/email presence
+            const uName = (u.name || "").toLowerCase();
+            const uEmail = (u.email || "").toLowerCase();
+
+            if (uName.includes(q) || uEmail.includes(q)) {
                 if (u.uid === auth.currentUser.uid) return; // Don't show self
                 found = true;
                 const row = document.createElement('div');
                 row.className = "meal-item";
                 row.style.display = 'flex'; row.style.justifyContent = 'space-between';
-                row.innerHTML = `<span><strong>${u.name}</strong></span>`;
+                row.innerHTML = `<span><strong>${u.name || "Unknown"}</strong></span>`;
 
                 const btn = document.createElement('button');
                 btn.innerText = "Follow";
-                btn.onclick = () => followUser(u.uid, u.name);
+                btn.onclick = () => followUser(u.uid, u.name || "User");
                 row.appendChild(btn);
                 resultList.appendChild(row);
             }
