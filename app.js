@@ -402,8 +402,13 @@ function renderProfileScreen(data, isMe, ownerUid) {
     // 3. Header & buttons
     // Show Friends/Settings Login REMOVED - handeled globally now.
     // 3. Header & buttons (Title Only)
-    const header = document.querySelector('#profile-screen h2');
-    if (header) header.innerText = isMe ? "Health Summary" : (data.public_users?.name || "User Profile");
+    // 3. Header & buttons (Title Only)
+    // Update Username H1
+    const usernameEl = document.getElementById('profile-username');
+    if (usernameEl) {
+        usernameEl.innerText = isMe ? (auth.currentUser.displayName || "User") : (data.public_users?.name || "User Profile");
+    }
+    // Subheader is static "Health Summary" now (or handled by HTML)
 
     // 4. Achievements
     // 4. Achievements

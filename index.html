@@ -203,7 +203,8 @@
         <!-- PROFILE -->
         <section id="profile-screen" class="view" style="display:none;">
             <div class="profile-header">
-                <h2>Health Summary</h2>
+                <h1 id="profile-username" style="font-size:32px; margin-bottom:5px; margin-top:0;">--</h1>
+                <h3 style="margin-top:0; color:#777; font-weight:normal;">Health Summary</h3>
             </div>
             <!-- Achievements Preview -->
             <div class="card" id="profile-achievements-preview"
@@ -468,11 +469,17 @@
     </div>
 
     <nav class="bottom-nav">
-        <button onclick="window.showView('dashboard-screen')"><i class="material-icons">home</i></button>
-        <button id="scan-nav-btn"><i class="material-icons">add_box</i></button>
+        <!-- 1. Scanner (Far Left) -->
+        <button id="scan-nav-btn" onclick="window.showView('scanner-screen')"><i
+                class="material-icons">qr_code_scanner</i></button>
+        <!-- 2. Weight Log -->
         <button onclick="window.showView('weight-screen')"><i class="material-icons">show_chart</i></button>
-        <button onclick="window.showView('profile-screen')"><i class="material-icons">person</i></button>
+        <!-- 3. Home (Center) -->
+        <button onclick="window.showView('dashboard-screen')"><i class="material-icons">home</i></button>
+        <!-- 4. Exercise -->
         <button onclick="window.showView('workout-screen')"><i class="material-icons">fitness_center</i></button>
+        <!-- 5. Profile (Far Right) -->
+        <button onclick="window.showView('profile-screen')"><i class="material-icons">person</i></button>
     </nav>
 
     <!-- ACHIEVEMENT DETAILS MODAL -->
