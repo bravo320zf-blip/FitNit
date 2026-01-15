@@ -8,10 +8,25 @@
       ".read": "auth != null",
       ".write": "auth != null"
     },
+    "public_users": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+    },
+    "common_exercises": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+    },
     "users": {
         "$uid": {
             ".read": "$uid === auth.uid",
-            ".write": "$uid === auth.uid"
+            ".write": "$uid === auth.uid",
+            "social": {
+                ".read": "auth != null",
+                ".write": "auth != null" 
+            },
+            "notifications": {
+                ".write": "auth != null"
+            }
         }
     }
   }
