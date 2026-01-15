@@ -114,6 +114,18 @@
                 <input type="number" id="weight-input" placeholder="Weight (lbs)">
                 <button id="save-weight-btn">Log Weight</button>
             </div>
+
+            <!-- Weight History List -->
+            <div class="card">
+                <h3 style="margin:0 0 10px 0; color:var(--primary-color);">History</h3>
+                <div id="weight-history-list"></div>
+                <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                    <button id="weight-prev-btn"
+                        style="visibility:hidden; width:auto; padding:5px 10px; font-size:12px;">&lt; Newer</button>
+                    <button id="weight-next-btn"
+                        style="visibility:hidden; width:auto; padding:5px 10px; font-size:12px;">Older &gt;</button>
+                </div>
+            </div>
         </section>
 
         <!-- WORKOUT SCREEN -->

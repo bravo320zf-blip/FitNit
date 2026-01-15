@@ -1801,14 +1801,78 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     }
 };
 
-window.updateWeightGraph = (history) => {
+    }
+};
+
+// --- HEIGHT / WEIGHT HELPERS ---
+window._weightPage = 0;
+const WEIGHT_PAGE_SIZE = 6;
+
+function renderWeightList(history) {
+    const list = document.getElementById('weight-history-list');
+    const prevBtn = document.getElementById('weight-prev-btn');
+    const nextBtn = document.getElementById('weight-next-btn');
+
+    if (!list) return;
+    list.innerHTML = "";
+
+    const dates = Object.keys(history).sort().reverse(); // Newest first
+    const total = dates.length;
+
+    // Pagination
+    const start = window._weightPage * WEIGHT_PAGE_SIZE;
+    const end = start + WEIGHT_PAGE_SIZE;
+    const pageSlice = dates.slice(start, end);
+
+    if (pageSlice.length === 0) {
+        list.innerHTML = "<p style='text-align:center; color:#777;'>No logs.</p>";
+        prevBtn.style.visibility = 'hidden';
+        nextBtn.style.visibility = 'hidden';
+        return;
+    }
+
+    pageSlice.forEach(date => {
+        const row = document.createElement('div');
+        row.style.cssText = "display:flex; justify-content:space-between; padding:10px; border-bottom:1px solid #eee; align-items:center;";
+
+        row.innerHTML = `
+            <span>${new Date(date).toLocaleDateString()}</span>
+            <strong>${history[date]} lbs</strong>
+        `;
+        list.appendChild(row);
+    });
+
+    // Controls
+    prevBtn.style.visibility = window._weightPage > 0 ? 'visible' : 'hidden';
+    nextBtn.style.visibility = end < total ? 'visible' : 'hidden';
+
+    prevBtn.onclick = () => { window._weightPage--; renderWeightList(history); };
+    nextBtn.onclick = () => { window._weightPage++; renderWeightList(history); };
+}
+
+window.updateWeightGraph = (history, daysRange = 365) => {
     const ctx = document.getElementById('weightHistoryChart').getContext('2d');
-    const sorted = Object.keys(history).sort();
+    const ctx = document.getElementById('weightHistoryChart').getContext('2d');
+
+    // Filter by Range
+    const now = new Date();
+    const cutoff = new Date();
+    cutoff.setDate(now.getDate() - daysRange);
+
+    // Filter keys
+    const sorted = Object.keys(history).filter(d => new Date(d) >= cutoff).sort();
+
+    // Also update List (use full history for list, separate concern, but good place to hook)
+    // Note: If we call this from filters, we might NOT want to reset list page. 
+    // But usually we call updateWeightGraph with full history? Yes.
+    renderWeightList(history);
+
+    if (weightChart) weightChart.destroy();
 
     if (weightChart) weightChart.destroy();
 
     // Only show if we have data, else empty
-    if (sorted.length === 0) return;
+    if (sorted.length === 0) return; // But ensure list rendered above!
 
     weightChart = new Chart(ctx, {
         type: 'line',
@@ -1834,7 +1898,22 @@ window.updateWeightGraph = (history) => {
             }
         }
     });
+});
 }
+
+// Graph Filter Listeners
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.onclick = (e) => {
+        const range = parseInt(e.target.dataset.range);
+        if (window._lastUserData && window._lastUserData.weight_history) {
+            updateWeightGraph(window._lastUserData.weight_history, range);
+
+            // Visual Active State
+            document.querySelectorAll('.filter-btn').forEach(b => b.style.opacity = '0.5');
+            e.target.style.opacity = '1';
+        }
+    };
+});
 
 // --- GLOBAL SCANNER MANAGER ---
 const GlobalScanner = {
