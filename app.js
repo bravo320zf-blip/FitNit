@@ -2293,8 +2293,9 @@ document.getElementById('dark-mode-toggle').onchange = (e) => {
         update(ref(db, `users/${auth.currentUser.uid}/settings/privacy`), { [type]: e.target.checked });
     };
 });
-if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
-else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
+document.getElementById('share-app-btn').onclick = () => {
+    if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
+    else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
 };
 
 // 4. View Public Profile Logic
