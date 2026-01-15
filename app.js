@@ -1363,22 +1363,29 @@ document.getElementById('friend-search-btn').onclick = () => {
         if (!snap.exists()) { resultList.innerHTML = "No users found."; return; }
 
         let found = false;
+        const seenUids = new Set(); // Prevent duplicates
+
         snap.forEach(child => {
             const u = child.val();
+            if (seenUids.has(u.uid)) return; // Skip if already shown
+
             // Safe check for name/email presence
             const uName = (u.name || "").toLowerCase();
             const uEmail = (u.email || "").toLowerCase();
 
             if (uName.includes(q) || uEmail.includes(q)) {
                 if (u.uid === auth.currentUser.uid) return; // Don't show self
+
+                seenUids.add(u.uid); // Mark seen
                 found = true;
+
                 const row = document.createElement('div');
                 row.className = "meal-item";
                 row.style.display = 'flex'; row.style.justifyContent = 'space-between';
                 row.innerHTML = `<span><strong>${u.name || "Unknown"}</strong></span>`;
 
                 const btn = document.createElement('button');
-                btn.innerText = "Follow";
+                btn.innerText = "Follow"; // Or "Add"
                 btn.onclick = () => followUser(u.uid, u.name || "User");
                 row.appendChild(btn);
                 resultList.appendChild(row);
