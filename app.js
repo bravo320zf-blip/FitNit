@@ -138,7 +138,10 @@ document.getElementById('forgot-password-btn').onclick = () => {
             .catch(e => alert(e.message));
     }
 };
-document.getElementById('logout-btn').onclick = () => signOut(auth);
+document.getElementById('logout-btn').onclick = () => {
+    document.getElementById('settings-modal').style.display = 'none';
+    signOut(auth);
+};
 
 onAuthStateChanged(auth, (u) => {
     if (u) {
