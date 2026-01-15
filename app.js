@@ -2790,9 +2790,10 @@ async function addPresetGoal(goalTemplate) {
 
         if (!startValue || isNaN(startValue)) {
             // Fallback: check history
+            // Fallback: check history - ENSURE SORTED
             if (userData.weight_history) {
-                const history = Object.values(userData.weight_history);
-                if (history.length > 0) startValue = parseFloat(history[history.length - 1]);
+                const dates = Object.keys(userData.weight_history).sort();
+                if (dates.length > 0) startValue = parseFloat(userData.weight_history[dates[dates.length - 1]]);
             }
         }
         if (!startValue) {
@@ -2804,6 +2805,9 @@ async function addPresetGoal(goalTemplate) {
     }
     else if (goalTemplate.type === 'streak') {
         startValue = 0; // Streak starts at 0
+    }
+    else if (goalTemplate.type === 'total_logs') {
+        startValue = 0; // Starts at 0, count total logs
     }
 
     const newGoal = {
@@ -2841,12 +2845,13 @@ function checkGoalsProgress(userData) {
             // Logic: Target is amount to lose (e.g. 5)
             let latestWeight = goal.startValue;
             if (userData.weight_history) {
-                const history = Object.values(userData.weight_history);
-                if (history.length > 0) latestWeight = parseFloat(history[history.length - 1]);
+                const dates = Object.keys(userData.weight_history).sort(); // Sort chronological
+                if (dates.length > 0) latestWeight = parseFloat(userData.weight_history[dates[dates.length - 1]]);
             }
 
             // Progress = (Start - Current) / Target
-            const lost = goal.startValue - latestWeight;
+            const lost = parseFloat((goal.startValue - latestWeight).toFixed(1));
+            // Ensure we don't go negative on progress if gained weight (just 0%)
             if (lost > 0) {
                 currentProgress = (lost / goal.target) * 100;
             } else {
@@ -2854,6 +2859,24 @@ function checkGoalsProgress(userData) {
             }
 
             if (currentProgress >= 100) isComplete = true;
+        }
+
+        // B. Total Logs Logic (NEW)
+        else if (goal.type === 'total_logs') {
+            let totalCount = 0;
+            if (userData.diary) {
+                Object.values(userData.diary).forEach(day => {
+                    Object.values(day).forEach(cat => {
+                        totalCount += Object.keys(cat).length;
+                    });
+                });
+            }
+            if (totalCount >= goal.target) {
+                currentProgress = 100;
+                isComplete = true;
+            } else {
+                currentProgress = (totalCount / goal.target) * 100;
+            }
         }
 
         // B. Streak Logic
@@ -3065,13 +3088,32 @@ function renderGoalsWidget(goalsData, containerOrId) {
 
         const pct = Math.round(g.progress || 0);
 
+        // Generate Info Text based on type
+        let infoText = `${pct}%`;
+        if (g.type === 'weight_loss') {
+            const lost = (g.target * (pct / 100)).toFixed(1);
+            // Handling tiny rounding errors, maybe calculate explicitly if we saved it, 
+            // but relying on pct approximation is fine for prototype UI or:
+            // Better: re-calculate "lost" based on startValue - current?
+            // Actually, for UI simplicity, we can reverse calc from \% or we should store 'currentValue' in DB.
+            // Let's just use % to approx. 
+            // Wait, User asked for "3 out of 10 lb lost".
+            infoText = `${lost} / ${g.target} lbs lost`;
+        } else if (g.type === 'streak') {
+            const days = Math.round(g.target * (pct / 100));
+            infoText = `${days} / ${g.target} day streak`;
+        } else if (g.type === 'total_logs') {
+            const logs = Math.round(g.target * (pct / 100));
+            infoText = `${logs} / ${g.target} meals`;
+        }
+
         card.innerHTML = `
             <i class="material-icons" style="font-size:24px; margin-bottom:5px; color:var(--accent-color);">${g.icon || 'flag'}</i>
             <div style="font-weight:bold; font-size:13px; margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${g.title}</div>
             <div style="background:rgba(127,127,127,0.2); height:6px; border-radius:3px; width:100%; overflow:hidden;">
                 <div style="background:var(--secondary-color); width:${pct}%; height:100%; border-radius:3px;"></div>
             </div>
-            <small style="font-size:10px; opacity:0.8; display:block; margin-top:2px;">${pct}%</small>
+            <small style="font-size:10px; opacity:0.8; display:block; margin-top:2px;">${infoText}</small>
             `;
 
         // Setup Long Press for Deletion
