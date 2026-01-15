@@ -1025,7 +1025,7 @@ function checkAchievements(data, uid) {
     if (data.social) {
         if (data.social.following) unlock('socialite');
         if (data.social.followers) unlock('influencer');
-        renderSocialListsUI(data.social);
+
     }
 
     // 4. Diary / Logs
