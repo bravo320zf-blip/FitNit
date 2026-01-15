@@ -186,6 +186,7 @@ onAuthStateChanged(auth, (u) => {
     if (u) {
         window.showView('dashboard-screen');
         document.getElementById('header-icons').style.display = 'flex';
+        checkInviteOnLogin(u);
         startDataListener(u.uid);
     } else {
         window.showView('auth-screen');
@@ -1348,14 +1349,37 @@ function followUser(targetUid, targetName) {
     update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
 }
 
-// 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
-function renderSocialLists(socialData) {
-    // This requires fetching details for each ID, which is async. 
-    // For simplicity, we just List IDs or fetch names if we cache them.
-    // Ideally we listen to 'public_users' to map IDs to Names.
+// 3. Share App (Invite Friend)
+document.getElementById('share-app-btn').onclick = () => {
+    const url = window.location.origin + window.location.pathname + "?invite=" + auth.currentUser.uid;
+    navigator.clipboard.writeText(url).then(() => {
+        alert("Invite link copied to clipboard! Send this to your friend.\n\n" + url);
+    });
+};
 
-    // TODO: Implement robust list rendering with names.
-    // For now, simpler implementation in UI or lazy load.
+// 4. Auto-Friend Logic
+async function checkInviteOnLogin(user) {
+    const params = new URLSearchParams(window.location.search);
+    const inviterUid = params.get('invite');
+
+    if (inviterUid && inviterUid !== user.uid) {
+        // Mutual Follow
+        const updates = {};
+        // Me following Inviter
+        updates[`users/${user.uid}/social/following/${inviterUid}`] = true;
+        updates[`users/${inviterUid}/social/followers/${user.uid}`] = true;
+
+        // Inviter following Me (Auto-Back)
+        updates[`users/${inviterUid}/social/following/${user.uid}`] = true;
+        updates[`users/${user.uid}/social/followers/${inviterUid}`] = true;
+
+        await update(ref(db), updates);
+
+        alert("You have been automatically connected with your friend!");
+
+        // Clear params
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 }
 
 
