@@ -299,15 +299,13 @@ function startDataListener(uid) {
 
         renderSocialLists(data.social);
         renderFullDietHistory(data.diary);
-        document.getElementById('privacy-goals').checked = data.settings.privacy.goals || false;
-        document.getElementById('privacy-workouts').checked = data.settings.privacy.workouts || false;
-    }
+
 
         // Logic that checks for achievements/goals progress globally (independent of view date)
         if (window.checkGoalsProgress) window.checkGoalsProgress(data);
 
-    renderDashboard(data);
-});
+        renderDashboard(data);
+    });
 }
 
 // NEW: Update top-level stats WITHOUT re-rendering the whole history list
