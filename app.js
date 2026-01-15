@@ -1409,6 +1409,53 @@ function followUser(targetUid, targetName) {
     update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
 }
 
+// 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
+function renderSocialLists(socialData) {
+    const list = document.getElementById('followers-list-container');
+
+    // Check 'following' instead of 'followers' since 'Friends' usually means people I follow/mutuals
+    // The user asked for "Friends list", so we show who THEY follow.
+    if (!socialData || !socialData.following) {
+        list.innerHTML = `<p style="text-align:center; color:#777;">You haven't added any friends yet.</p>`;
+        return;
+    }
+
+    list.innerHTML = "";
+    Object.keys(socialData.following).forEach(friendUid => {
+        // Fetch friend's name from public_users
+        get(ref(db, `public_users/${friendUid}`)).then(snap => {
+            if (snap.exists()) {
+                const friend = snap.val();
+                const row = document.createElement('div');
+                row.className = "meal-item";
+                row.style.display = 'flex';
+                row.style.justifyContent = 'space-between';
+                row.style.alignItems = 'center';
+                row.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i class="material-icons" style="color:var(--text-color);">person</i>
+                        <span><strong>${friend.name || "User"}</strong></span>
+                    </div>
+                    <button class="icon-btn" style="color:#e74c3c;" onclick="unfollowUser('${friendUid}')">
+                        <i class="material-icons">remove_circle_outline</i>
+                    </button>
+                `;
+                list.appendChild(row);
+            }
+        });
+    });
+}
+
+// Unfollow Helper
+window.unfollowUser = (targetUid) => {
+    if (confirm("Remove this friend?")) {
+        set(ref(db, `users/${auth.currentUser.uid}/social/following/${targetUid}`), null);
+        // Optional: Remove me from their followers?
+        set(ref(db, `users/${targetUid}/social/followers/${auth.currentUser.uid}`), null);
+        alert("Removed.");
+    }
+};
+
 // 3. Share App (Invite Friend)
 document.getElementById('share-app-btn').onclick = () => {
     const url = window.location.origin + window.location.pathname + "?invite=" + auth.currentUser.uid;
