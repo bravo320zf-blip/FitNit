@@ -492,6 +492,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 
+    <!-- ACHIEVEMENT UNLOCKED POPUP -->
+    <div id="achievement-popup"
+        style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--card-bg); color:var(--text-color); padding:15px 20px 15px 30px; border-radius:12px; z-index:10000; align-items:center; gap:15px; box-shadow:0 8px 25px rgba(0,0,0,0.3); border:1px solid var(--border-color); min-width:300px; animation: slideDown 0.5s ease-out;">
+        <i class="material-icons"
+            style="cursor:pointer; position:absolute; top:8px; left:8px; font-size:18px; color:var(--text-color); opacity:0.6;"
+            onclick="document.getElementById('achievement-popup').style.display='none'">close</i>
+        <img id="ach-popup-icon" src="" style="width:45px; height:45px; object-fit:contain;">
+        <div style="flex-grow:1;">
+            <h4 style="margin:0; color:#f1c40f; font-size:13px; text-transform:uppercase; letter-spacing:1px;">
+                Achievement Unlocked!</h4>
+            <p id="ach-popup-title" style="margin:4px 0 0 0; font-size:16px; font-weight:bold;"></p>
+        </div>
+    </div>
+
+    <!-- APP CONTAINER -->
+    <div id="app-container"></div>
 
     <!-- REPORT MODAL -->
     <div id="report-modal" class="modal-overlay" style="display:none;">

@@ -774,6 +774,25 @@ function renderAchievements(earned, pinned) {
     }
 }
 
+
+// --- ACHIEVEMENT POPUP ---
+let achPopupTimer;
+function showAchievementPopup(achievement) {
+    const popup = document.getElementById('achievement-popup');
+    if (!popup) return;
+
+    document.getElementById('ach-popup-icon').src = achievement.image;
+    document.getElementById('ach-popup-title').innerText = achievement.name;
+
+    popup.style.display = 'flex';
+
+    // Auto hide
+    clearTimeout(achPopupTimer);
+    achPopupTimer = setTimeout(() => {
+        popup.style.display = 'none';
+    }, 5000);
+}
+
 // --- ACHIEVEMENT MODAL LOGIC ---
 const achModal = document.getElementById('achievement-details-modal');
 
@@ -802,33 +821,52 @@ function renderAllAchievements(earned, pinned) {
         item.style.borderRadius = "8px";
         item.style.background = isUnlocked ? "rgba(255,255,255,0.05)" : "transparent";
 
-        const pinIcon = isPinned ? `<i class="material-icons" style="position:absolute; top:5px; right:5px; font-size:16px; color:orange;">push_pin</i>` : '';
+        const pinIcon = isPinned ? `<i class="material-icons" style="position:absolute; top:5px; right:5px; font-size:16px; color:var(--accent-color);">push_pin</i>` : '';
 
         item.innerHTML = `${pinIcon}<img src="${a.image}" style="width:50px; height:50px;"><br><small>${a.name}</small>`;
 
         // LONG PRESS LOGIC for PIN
         let pressTimer;
-        item.onmousedown = item.ontouchstart = function () {
+        const startPress = (e) => {
+            // Basic click vs long press check
             pressTimer = setTimeout(() => {
                 if (!isUnlocked) return;
-                // Toggle Pin
+
+                // Toggle Pin Logic
                 let newPinned = pinned ? [...pinned] : [];
                 if (newPinned.includes(a.id)) {
+                    // Unpin
                     newPinned = newPinned.filter(id => id !== a.id);
+                    alert(`Unpinned: ${a.name}`);
                 } else {
-                    if (newPinned.length >= 3) return alert("max 3 pins");
+                    // Pin
+                    if (newPinned.length >= 3) {
+                        alert("You can only pin 3 achievements. Unpin one first.");
+                        return;
+                    }
                     newPinned.push(a.id);
+                    alert(`Pinned: ${a.name}`);
                 }
+
+                // Save & Re-render
                 update(ref(db, `users/${auth.currentUser.uid}/settings`), { pinned_achievements: newPinned });
-                // Optimistic update
-                renderAllAchievements(earned, newPinned);
-            }, 800);
+                renderAllAchievements(earned, newPinned); // optimistic
+
+            }, 800); // 800ms long press
         };
-        item.onmouseup = item.ontouchend = function () {
-            clearTimeout(pressTimer);
-        };
+
+        const cancelPress = () => clearTimeout(pressTimer);
+
+        // Map events
+        item.addEventListener('mousedown', startPress);
+        item.addEventListener('touchstart', startPress, { passive: true });
+        item.addEventListener('mouseup', cancelPress);
+        item.addEventListener('mouseleave', cancelPress);
+        item.addEventListener('touchend', cancelPress);
+
         item.onclick = (e) => {
-            // Prevent click if long press triggered? (simplest is just show details)
+            // If the timer fired (long press), we usually want to ignore the click info
+            // but since alert blocks, it's fine.
             showAchievementDetails(a, isUnlocked ? earned[a.id].unlockedAt : null);
         };
 
@@ -916,6 +954,14 @@ function checkAchievements(data, uid) {
             });
         });
         if (gymCount >= 10) unlock('gym_rat');
+    }
+
+    // Notify Popup for New Unlocks
+    if (newUnlocks.length > 0) {
+        // Show first one immediately
+        showAchievementPopup(newUnlocks[0]);
+        // If multiple, maybe queue? For prototype, just showing latest is okay or loop with delay.
+        // Let's just show the first one to avoid spam.
     }
 
     // Notify (Achievement toasts handled in checkAchievements)
