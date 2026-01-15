@@ -157,6 +157,26 @@ function checkAndEnforceUsername(user) {
     }, 1000);
 }
 
+// 6. Data Integrity Check (Sync Public Profile)
+async function ensurePublicProfile(user) {
+    if (!user) return;
+    try {
+        const publicRef = ref(db, `public_users/${user.uid}`);
+        // We do a blind write (update) to ensure email/uid are always fresh.
+        // We only write name if it exists on auth, otherwise we don't overwrite with null.
+        const updates = {
+            email: user.email,
+            uid: user.uid
+        };
+        if (user.displayName) {
+            updates.name = user.displayName;
+        }
+        update(publicRef, updates);
+    } catch (e) {
+        console.warn("Profile Sync Error", e);
+    }
+}
+
 document.getElementById('close-acc-settings-btn').onclick = () => {
     document.getElementById('account-settings-modal').style.display = 'none';
     if (auth.currentUser && !auth.currentUser.displayName) {
@@ -209,6 +229,7 @@ onAuthStateChanged(auth, (u) => {
     if (u) {
         window.showView('dashboard-screen');
         document.getElementById('header-icons').style.display = 'flex';
+        ensurePublicProfile(u);
         checkInviteOnLogin(u);
         checkAndEnforceUsername(u);
         startDataListener(u.uid);
