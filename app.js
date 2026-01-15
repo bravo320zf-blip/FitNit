@@ -145,6 +145,25 @@ document.getElementById('logout-btn').onclick = () => {
     signOut(auth);
 };
 
+// 5. Mandatory Username Logic
+function checkAndEnforceUsername(user) {
+    if (!user) return;
+    // Small delay to ensure auth state is settled/profile updated if just registered
+    setTimeout(() => {
+        if (!auth.currentUser.displayName) {
+            alert("You have not chosen a username yet please set one now.");
+            document.getElementById('account-settings-modal').style.display = 'flex';
+        }
+    }, 1000);
+}
+
+document.getElementById('close-acc-settings-btn').onclick = () => {
+    document.getElementById('account-settings-modal').style.display = 'none';
+    if (auth.currentUser && !auth.currentUser.displayName) {
+        checkAndEnforceUsername(auth.currentUser);
+    }
+};
+
 // Open Account Settings (Close Main Settings)
 if (document.getElementById('account-settings-btn')) {
     document.getElementById('account-settings-btn').onclick = () => {
@@ -191,6 +210,7 @@ onAuthStateChanged(auth, (u) => {
         window.showView('dashboard-screen');
         document.getElementById('header-icons').style.display = 'flex';
         checkInviteOnLogin(u);
+        checkAndEnforceUsername(u);
         startDataListener(u.uid);
     } else {
         window.showView('auth-screen');
