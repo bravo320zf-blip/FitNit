@@ -726,6 +726,23 @@
 
     <!-- SCRIPT INCLUDES -->
     <!-- Simple Confetti Lib (inline for reliability if external fetch fails, but let's try external first logic in app.js) -->
+    <!-- REGISTER MODAL -->
+    <div id="register-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card" style="max-width:350px;">
+            <div class="modal-header">
+                <h3>Create Account</h3><button onclick="document.getElementById('register-modal').style.display='none'"
+                    class="icon-btn"><i class="material-icons">close</i></button>
+            </div>
+            <input type="text" id="reg-username" placeholder="Username" style="margin-bottom:10px; width:100%;">
+            <input type="email" id="reg-email" placeholder="Email" style="margin-bottom:10px; width:100%;">
+            <input type="password" id="reg-pass" placeholder="Password" style="margin-bottom:10px; width:100%;">
+            <input type="password" id="reg-pass-confirm" placeholder="Confirm Password"
+                style="margin-bottom:15px; width:100%;">
+
+            <button id="perform-register-btn" style="width:100%; background:#27ae60; padding:12px;">Sign Up</button>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
 

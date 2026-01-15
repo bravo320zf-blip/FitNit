@@ -85,7 +85,7 @@ window.setWorkoutMode = (m) => {
 
 // --- AUTH ---
 document.getElementById('login-click').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
-document.getElementById('login-click').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
+
 
 // REGISTER FLOW
 document.getElementById('open-register-btn').onclick = () => {
