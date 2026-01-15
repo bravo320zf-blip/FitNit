@@ -1409,6 +1409,35 @@ function followUser(targetUid, targetName) {
     update(ref(db), updates).then(() => alert(`You are now following ${targetName}!`));
 }
 
+// RESTORED: Diet History Renderer
+window.renderDietHistory = window.renderFullDietHistory = function (diary) {
+    const list = document.getElementById('diet-history-container');
+    if (!list) return;
+    list.innerHTML = "";
+    if (!diary) {
+        list.innerHTML = "<p style='color:#777; text-align:center;'>No history yet.</p>";
+        return;
+    }
+
+    const dates = Object.keys(diary).sort().reverse();
+    dates.forEach(date => {
+        const day = diary[date];
+        let cals = 0;
+        // Calculate daily total safely handling different structures
+        Object.values(day).forEach(meal => {
+            if (meal && typeof meal === 'object') {
+                Object.values(meal).forEach(item => cals += (Number(item.calories) || 0));
+            }
+        });
+
+        const row = document.createElement('div');
+        row.className = "meal-item";
+        row.style.display = 'flex'; row.style.justifyContent = 'space-between';
+        row.innerHTML = `<strong>${date}</strong><span>${Math.round(cals)} kcal</span>`;
+        list.appendChild(row);
+    });
+};
+
 // 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
 function renderSocialLists(socialData) {
     const list = document.getElementById('followers-list-container');
