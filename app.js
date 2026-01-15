@@ -91,11 +91,11 @@ document.getElementById('logout-btn').onclick = () => signOut(auth);
 onAuthStateChanged(auth, (u) => {
     if (u) {
         window.showView('dashboard-screen');
-        document.getElementById('logout-btn').style.display = 'block';
+        document.getElementById('header-icons').style.display = 'flex';
         startDataListener(u.uid);
     } else {
         window.showView('auth-screen');
-        document.getElementById('logout-btn').style.display = 'none';
+        document.getElementById('header-icons').style.display = 'none';
     }
 });
 
@@ -306,16 +306,10 @@ function renderProfileScreen(data, isMe, ownerUid) {
 
 
     // 3. Header & buttons
+    // Show Friends/Settings Login REMOVED - handeled globally now.
+    // 3. Header & buttons (Title Only)
     const header = document.querySelector('#profile-screen h2');
     if (header) header.innerText = isMe ? "Health Summary" : (data.public_users?.name || "User Profile");
-
-    // Show Friend Button: Only if isMe (finding friends) OR if viewing someone else (to follow them?)
-    // Actually friends-btn is "Find Friends". Only show for Me.
-    document.getElementById('friends-btn').style.display = isMe ? 'block' : 'none';
-
-    // Show Settings: If isMe OR if I am viewing my own public profile (ownerUid == current)
-    const isOwner = isMe || (ownerUid === auth.currentUser.uid);
-    document.getElementById('open-settings-btn').style.display = isOwner ? 'block' : 'none';
 
     // 4. Achievements
     // 4. Achievements

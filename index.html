@@ -21,7 +21,12 @@
 
     <header>
         <h1 id="view-title">FitNit</h1>
-        <button id="logout-btn" style="display:none; width:auto;">Logout</button>
+        <div id="header-icons" style="display:none; gap:15px; align-items:center;">
+            <button id="notif-btn" class="icon-btn" style="color:white;"><i class="material-icons"
+                    id="notif-icon">notifications</i></button>
+            <button id="open-settings-btn" class="icon-btn" style="color:white;"><i
+                    class="material-icons">settings</i></button>
+        </div>
     </header>
 
     <main id="app">
@@ -188,13 +193,8 @@
         <section id="profile-screen" class="view" style="display:none;">
             <div class="profile-header">
                 <h2>Health Summary</h2>
-                <div style="display:flex; gap:10px;">
-                    <button id="notif-btn" class="icon-btn"><i class="material-icons"
-                            id="notif-icon">notifications</i></button>
-                    <button id="friends-btn" class="icon-btn" style="color:var(--accent-color); font-weight:bold;">Find
-                        Friends</button>
-                    <button id="open-settings-btn" class="icon-btn"><i class="material-icons">settings</i></button>
-                </div>
+                <h2>Health Summary</h2>
+            </div>
             </div>
 
             <!-- Achievements Preview -->
@@ -379,6 +379,10 @@
             <div class="settings-row"><span>Dark Mode</span><input type="checkbox" id="dark-mode-toggle"
                     style="width:auto;"></div>
             <hr>
+            <div class="settings-row" style="margin-bottom:10px;">
+                <button id="friends-btn" style="width:100%; background:var(--accent-color);"><i class="material-icons"
+                        style="vertical-align:middle; font-size:18px;">people</i> Find Friends</button>
+            </div>
             <h4>Privacy</h4>
             <div class="settings-row"><span>Hide Weight</span><input type="checkbox" id="privacy-weight"
                     style="width:auto;"></div>
@@ -392,6 +396,8 @@
                     style="width:100%; background:var(--accent-color);">Generate PDF Report</button></div>
             <hr>
             <button id="save-profile-btn">Recalculate Goals</button>
+            <hr>
+            <button id="logout-btn" style="width:100%; background:#e74c3c; margin-top:10px;">Logout</button>
         </div>
     </div>
 
