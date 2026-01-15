@@ -2300,6 +2300,10 @@ document.getElementById('share-app-btn').onclick = () => {
 
 // 4. View Public Profile Logic
 window.viewPublicProfile = async (uid) => {
+    // Close Friends Modal (Find Friends / Friends List)
+    const fModal = document.getElementById('friends-modal');
+    if (fModal) fModal.style.display = 'none';
+
     try {
         // Fetch specific allowed nodes in parallel (Root user node is Private!)
         const [settingsSnap, goalsSnap, weightsSnap, workoutsSnap, achieveSnap, publicSnap] = await Promise.all([
