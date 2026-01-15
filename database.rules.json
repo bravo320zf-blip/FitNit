@@ -9,25 +9,45 @@
       ".write": "auth != null"
     },
     "public_users": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "common_exercises": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+      ".read": "auth != null",
+      ".write": "auth != null"
     },
     "users": {
-        "$uid": {
-            ".read": "$uid === auth.uid",
-            ".write": "$uid === auth.uid",
-            "social": {
-                ".read": "auth != null",
-                ".write": "auth != null" 
-            },
-            "notifications": {
-                ".write": "auth != null"
-            }
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid",
+        "social": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "settings": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        },
+        "goals": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        },
+        "workouts": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        },
+        "weight_history": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        },
+        "achievements": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        },
+        "notifications": {
+          ".write": "auth != null"
         }
+      }
     }
   }
 }
