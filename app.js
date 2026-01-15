@@ -543,12 +543,15 @@ function renderWorkoutHistory(workouts) {
     slice.forEach(date => {
         let dayCount = Object.keys(workouts[date]).length;
         const head = document.createElement('div');
-        head.className = "date-accordion";
+        head.className = "date-accordion"; // Re-using class for styling
+        if (date === window._selectedDate) {
+            head.style.border = "2px solid var(--text-color)";
+        }
         head.style.cursor = "pointer";
         head.style.padding = "10px";
         head.style.borderBottom = "1px solid #eee";
         head.style.fontWeight = "bold";
-        // head.style.background = "#fff"; // Removed for Dark Mode
+
         head.innerHTML = `<span>${date} (${dayCount} exercises)</span>`;
 
         const box = document.createElement('div');
@@ -567,7 +570,20 @@ function renderWorkoutHistory(workouts) {
             // Workout Content
             const content = document.createElement('div');
             content.style.flexGrow = 1;
-            content.innerHTML = `<strong>${w.name}</strong><br><small style="color:#777;">${w.sets ? w.sets + ' sets x ' + w.reps : w.duration + ' mins'} | ${w.burned} kcal</small>`;
+
+            let details = "";
+            if (w.sets) {
+                // Strength
+                details = `${w.sets} sets x ${w.reps}`;
+                if (w.weight) details += ` @ ${w.weight} lbs`;
+            } else {
+                // Cardio
+                details = `${w.duration} mins`;
+                if (w.distance) details += ` | ${w.distance} mi`;
+                if (w.speed) details += ` (${w.speed} mph)`;
+            }
+
+            content.innerHTML = `<strong>${w.name}</strong><br><small style="color:#777;">${details} | ${w.burned} kcal</small>`;
 
             // Delete Button
             const delBtn = document.createElement('button');
@@ -591,6 +607,16 @@ function renderWorkoutHistory(workouts) {
         });
 
         head.onclick = () => {
+            // 1. Update Selected Date & Stats
+            window._selectedDate = date;
+            updateDashboardStats(window._lastUserData, date);
+
+            // 2. Visual Highlight
+            const container = document.getElementById('workout-history-container');
+            container.querySelectorAll('.date-accordion').forEach(el => el.style.border = 'none');
+            head.style.border = "2px solid var(--text-color)";
+
+            // 3. Toggle Details
             box.style.display = box.style.display === 'none' ? 'block' : 'none';
         }
 
@@ -1022,33 +1048,90 @@ document.getElementById('btn-save-strength').onclick = async () => {
     const name = document.getElementById('ex-name').value;
     const sets = document.getElementById('ex-sets').value;
     const reps = document.getElementById('ex-reps').value;
+    const weight = document.getElementById('ex-weight').value;
+
     if (!name || !sets) return alert("Enter exercise and sets");
 
-    // Estimate: 10 cals per set
+    // Estimate: 10 cals per set (Basic estimate)
     const burned = Number(sets) * 10;
-    const entry = { name, sets, reps, burned, timestamp: Date.now() };
+    const entry = { name, sets, reps, weight, burned, timestamp: Date.now() };
 
     push(ref(db, `users/${auth.currentUser.uid}/workouts/${getToday()}`), entry);
     alert("Strength Logged!");
     document.getElementById('ex-name').value = "";
+    document.getElementById('ex-sets').value = "";
+    document.getElementById('ex-reps').value = "";
+    // leave weight? often stays same. clear for now.
+    document.getElementById('ex-weight').value = "";
 };
+
+// Cardio Calculation Logic
+const carDist = document.getElementById('car-dist');
+const carTime = document.getElementById('car-time');
+const carPace = document.getElementById('car-pace');
+const carMph = document.getElementById('car-mph-display');
+
+function updateCardioStats() {
+    const d = parseFloat(carDist.value);
+    const t = parseFloat(carTime.value);
+
+    if (d && t) {
+        // MPH = Distance / (Time / 60)
+        const mph = (d / (t / 60)).toFixed(2);
+        carMph.innerText = `${mph} MPH`;
+
+        // Pace (Min/Mile) = Time / Distance
+        const paceDec = t / d;
+        const paceMin = Math.floor(paceDec);
+        const paceSec = Math.round((paceDec - paceMin) * 60);
+        carPace.value = `${paceMin}'${paceSec < 10 ? '0' + paceSec : paceSec}" /mi`;
+    } else {
+        carMph.innerText = "-- MPH";
+        carPace.value = "";
+    }
+}
+
+if (carDist) carDist.oninput = updateCardioStats;
+if (carTime) carTime.oninput = updateCardioStats;
 
 document.getElementById('btn-save-cardio').onclick = async () => {
     const met = document.getElementById('cardio-type').value;
     const time = document.getElementById('car-time').value;
+    const dist = document.getElementById('car-dist').value;
     const typeName = document.getElementById('cardio-type').options[document.getElementById('cardio-type').selectedIndex].text;
 
     const weightSnap = await get(ref(db, `users/${auth.currentUser.uid}/latest_weight`));
     const userW_kg = (weightSnap.val() || 200) * 0.453;
 
-    if (!time) return alert("Enter duration");
+    if (!time || !dist) return alert("Enter duration and distance");
 
     // Calories = MET * weight_kg * (mins/60)
     const burned = Math.round(met * userW_kg * (time / 60));
-    const entry = { name: typeName, duration: time, burned, timestamp: Date.now() };
+
+    // Recalc speed at save time to be sure
+    const mph = (parseFloat(dist) / (parseFloat(time) / 60)).toFixed(2);
+
+    // Save Pace as string for display
+    const paceStr = document.getElementById('car-pace').value;
+
+    const entry = {
+        name: typeName,
+        duration: time,
+        distance: dist,
+        speed: mph,
+        pace: paceStr,
+        burned,
+        timestamp: Date.now()
+    };
 
     push(ref(db, `users/${auth.currentUser.uid}/workouts/${getToday()}`), entry);
     alert("Cardio Logged!");
+
+    // Clear
+    carDist.value = "";
+    carTime.value = "";
+    carPace.value = "";
+    carMph.innerText = "-- MPH";
 };
 
 // --- GOAL CALCULATION & PUBLIC PROFILE ---

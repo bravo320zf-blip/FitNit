@@ -158,8 +158,12 @@
                     <option value="9">Elliptical</option>
                 </select>
                 <div class="highlight-grid">
-                    <input type="number" id="car-time" placeholder="Mins">
-                    <input type="number" id="car-speed" placeholder="MPH">
+                    <input type="number" id="car-dist" placeholder="Distance (Miles)">
+                    <input type="number" id="car-time" placeholder="Duration (Mins)">
+                    <input type="text" id="car-pace" placeholder="Pace (Min/Mile)" readonly>
+                </div>
+                <div style="text-align:center; padding:5px;">
+                    <span id="car-mph-display" style="font-weight:bold; color:var(--accent-color);">-- MPH</span>
                 </div>
                 <button id="btn-save-cardio">Log Cardio</button>
             </div>
