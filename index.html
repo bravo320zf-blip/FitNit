@@ -384,13 +384,51 @@
                 <h3>Settings</h3><button id="close-settings-btn" class="icon-btn"><i
                         class="material-icons">close</i></button>
             </div>
-            <div class="settings-row"><span>Dark Mode</span><input type="checkbox" id="dark-mode-toggle"
-                    style="width:auto;"></div>
-            <hr>
             <div class="settings-row" style="margin-bottom:10px;">
                 <button id="friends-btn" style="width:100%; background:var(--accent-color);"><i class="material-icons"
                         style="vertical-align:middle; font-size:18px;">people</i> Find Friends</button>
             </div>
+            <div class="settings-row" style="margin-bottom:10px;">
+                <button id="account-settings-btn" style="width:100%; background:var(--primary-color);"><i
+                        class="material-icons" style="vertical-align:middle; font-size:18px;">settings</i> Account
+                    Settings</button>
+            </div>
+            <div class="settings-row" style="margin-top:10px;"><button id="open-report-btn"
+                    style="width:100%; background:var(--accent-color);">Generate PDF Report</button></div>
+            <hr>
+            <button id="save-profile-btn">Recalculate Goals</button>
+            <hr>
+            <button id="logout-btn" style="width:100%; background:#e74c3c; margin-top:10px;">Logout</button>
+        </div>
+    </div>
+
+    <!-- ACCOUNT SETTINGS MODAL -->
+    <div id="account-settings-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>Account Settings</h3><button
+                    onclick="document.getElementById('account-settings-modal').style.display='none'" class="icon-btn"><i
+                        class="material-icons">close</i></button>
+            </div>
+
+            <h4>Profile</h4>
+            <div style="margin-bottom:15px;">
+                <label style="font-size:12px; color:#777;">Username</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="acc-username-input" style="flex-grow:1; padding:8px;">
+                    <button id="save-username-btn" style="width:auto; padding:8px 15px;">Save</button>
+                </div>
+            </div>
+            <button id="acc-reset-pass-btn"
+                style="width:100%; background:transparent; border:1px solid #e67e22; color:#e67e22; margin-bottom:15px;">Send
+                Password Reset Email</button>
+
+            <hr>
+            <h4>Appearance</h4>
+            <div class="settings-row"><span>Dark Mode</span><input type="checkbox" id="dark-mode-toggle"
+                    style="width:auto;"></div>
+
+            <hr>
             <h4>Privacy</h4>
             <div class="settings-row"><span>Hide Weight</span><input type="checkbox" id="privacy-weight"
                     style="width:auto;"></div>
@@ -400,12 +438,6 @@
                     style="width:auto;"></div>
             <div class="settings-row" style="margin-top:10px;"><button id="view-my-public-btn"
                     style="width:100%; background:#3498db;">View My Public Profile</button></div>
-            <div class="settings-row" style="margin-top:10px;"><button id="open-report-btn"
-                    style="width:100%; background:var(--accent-color);">Generate PDF Report</button></div>
-            <hr>
-            <button id="save-profile-btn">Recalculate Goals</button>
-            <hr>
-            <button id="logout-btn" style="width:100%; background:#e74c3c; margin-top:10px;">Logout</button>
         </div>
     </div>
 

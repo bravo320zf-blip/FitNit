@@ -138,10 +138,49 @@ document.getElementById('forgot-password-btn').onclick = () => {
             .catch(e => alert(e.message));
     }
 };
+
+// ACCOUNT SETTINGS & LOGOUT
 document.getElementById('logout-btn').onclick = () => {
     document.getElementById('settings-modal').style.display = 'none';
     signOut(auth);
 };
+
+// Open Account Settings (Close Main Settings)
+if (document.getElementById('account-settings-btn')) {
+    document.getElementById('account-settings-btn').onclick = () => {
+        document.getElementById('settings-modal').style.display = 'none';
+        document.getElementById('account-settings-modal').style.display = 'flex';
+        // Pre-fill username
+        if (auth.currentUser) {
+            document.getElementById('acc-username-input').value = auth.currentUser.displayName || "";
+        }
+    };
+}
+
+// Account Settings: Save Username
+if (document.getElementById('save-username-btn')) {
+    document.getElementById('save-username-btn').onclick = () => {
+        const newName = document.getElementById('acc-username-input').value.trim();
+        if (!newName) return alert("Username cannot be empty.");
+        updateProfile(auth.currentUser, { displayName: newName }).then(() => {
+            alert("Username updated!");
+            // Update Public DB
+            update(ref(db, `public_users/${auth.currentUser.uid}`), { name: newName });
+        }).catch(e => alert(e.message));
+    };
+}
+
+// Account Settings: Reset Password
+if (document.getElementById('acc-reset-pass-btn')) {
+    document.getElementById('acc-reset-pass-btn').onclick = () => {
+        const email = auth.currentUser.email;
+        if (confirm(`Send password reset email to ${email}?`)) {
+            sendPasswordResetEmail(auth, email)
+                .then(() => alert("Reset email sent! Check your inbox."))
+                .catch(e => alert(e.message));
+        }
+    };
+}
 
 onAuthStateChanged(auth, (u) => {
     if (u) {
