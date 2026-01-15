@@ -2388,20 +2388,7 @@ window.viewPublicProfile = async (uid) => {
 
 
 // 4. View Public Profile
-window.viewPublicProfile = async (uid) => {
-    document.getElementById('friends-modal').style.display = 'none';
-    window.showView('profile-screen');
 
-    const snap = await get(ref(db, `users/${uid}`));
-    if (snap.exists()) {
-        const data = snap.val();
-        // Mock public name attach
-        const publicSnap = await get(ref(db, `public_users/${uid}`));
-        if (publicSnap.exists()) data.public_users = publicSnap.val();
-
-        renderProfileScreen(data, false, uid);
-    }
-};
 
 const toggleBtn = document.getElementById('view-my-public-btn');
 // Initial State text (optional, but handled in logic)
