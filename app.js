@@ -2221,39 +2221,7 @@ document.getElementById('share-app-btn').onclick = () => {
     if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
     else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
 };
-// 3. UI for Social Lists
 
-const idArray = Object.keys(ids);
-for (const uid of idArray) {
-    // Unoptimized N+1 fetch, but fine for prototype with few friends
-    try {
-        const snap = await get(ref(db, `public_users/${uid}`));
-        if (snap.exists()) {
-            const u = snap.val();
-            const div = document.createElement('div');
-            div.className = 'meal-item';
-            div.style.padding = "5px";
-            div.innerHTML = `<strong>${u.name}</strong>`;
-
-            const btn = document.createElement('button');
-            btn.innerText = "View";
-            btn.style.fontSize = "10px";
-            btn.style.marginLeft = "10px";
-            btn.onclick = () => window.viewPublicProfile(uid);
-            div.appendChild(btn);
-
-            container.appendChild(div);
-        }
-    } catch (e) { console.log("error loading user", uid); }
-}
-    };
-
-if (social.following) loadList(social.following, followingContainer, 'following');
-else followingContainer.innerHTML = "<small>You are not following anyone.</small>";
-
-if (social.followers) loadList(social.followers, followersContainer, 'followers');
-else followersContainer.innerHTML = "<small>No followers yet.</small>";
-}
 
 // 4. View Public Profile
 window.viewPublicProfile = async (uid) => {
