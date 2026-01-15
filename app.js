@@ -3284,3 +3284,15 @@ window.requestCameraPermission = function () {
 
 // Check on load
 checkFirstRun();
+
+// FIX: Close Settings when opening Find Friends
+const fb = document.getElementById('friends-btn');
+if (fb) {
+    fb.addEventListener('click', () => {
+        const sm = document.getElementById('settings-modal');
+        if (sm) sm.style.display = 'none';
+        // Ensure Friends modal opens (Redundant if already working, but safe)
+        const fm = document.getElementById('friends-modal');
+        if (fm) fm.style.display = 'flex';
+    });
+}
