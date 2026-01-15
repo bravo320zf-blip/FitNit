@@ -48,8 +48,25 @@
                 <div id="goals-widget-content" style="display:flex; gap:10px;"></div>
             </div>
 
-            <!-- DASHBOARD CONTROLS (Search & Date) -->
-            <div class="card" style="display:flex; flex-direction:column; gap:10px;">
+
+
+            <div class="card highlight-grid">
+                <div class="stat-box"><small>CALORIES</small>
+                    <p id="dash-cals">0/0</p>
+                </div>
+                <div class="stat-box"><small>PROTEIN</small>
+                    <p id="dash-prot">0/0g</p>
+                </div>
+                <div class="stat-box"><small>WEIGHT</small>
+                    <p id="dash-weight">--</p>
+                </div>
+            </div>
+            <div id="nutrition-dashboard-container" class="card">
+                <!-- Extended nutrition details rendered here by renderNutritionDashboard -->
+            </div>
+
+            <!-- DASHBOARD CONTROLS (Moved) -->
+            <div class="card" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">
                 <div style="display:flex; gap:10px; align-items:center;">
                     <div style="position:relative; flex-grow:1;">
                         <input type="text" id="date-search-input" placeholder="Search Date (YYYY-MM-DD)..."
@@ -67,7 +84,7 @@
                         </button>
                     </div>
                 </div>
-                <!-- Range Filter (Optional) -->
+                <!-- Range Filter -->
                 <div style="display:flex; align-items:center; gap:5px; font-size:12px;">
                     <span style="color:#777;">Range:</span>
                     <input type="date" id="search-start" onchange="renderDietHistory(window._lastDietData)"
@@ -78,20 +95,6 @@
                 </div>
             </div>
 
-            <div class="card highlight-grid">
-                <div class="stat-box"><small>CALORIES</small>
-                    <p id="dash-cals">0/0</p>
-                </div>
-                <div class="stat-box"><small>PROTEIN</small>
-                    <p id="dash-prot">0/0g</p>
-                </div>
-                <div class="stat-box"><small>WEIGHT</small>
-                    <p id="dash-weight">--</p>
-                </div>
-            </div>
-            <div id="nutrition-dashboard-container" class="card">
-                <!-- Extended nutrition details rendered here by renderNutritionDashboard -->
-            </div>
             <div id="diet-history-container"></div>
         </section>
 
@@ -193,10 +196,7 @@
         <section id="profile-screen" class="view" style="display:none;">
             <div class="profile-header">
                 <h2>Health Summary</h2>
-                <h2>Health Summary</h2>
             </div>
-            </div>
-
             <!-- Achievements Preview -->
             <div class="card" id="profile-achievements-preview"
                 style="display:flex; justify-content:space-around; align-items:center; min-height:60px;">
