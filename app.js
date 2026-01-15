@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // Assuming native ES modules are supported or handled by a bundler. 
 // Since the environment seems to be using standard script tags or simple modules, 
@@ -85,7 +85,59 @@ window.setWorkoutMode = (m) => {
 
 // --- AUTH ---
 document.getElementById('login-click').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
-document.getElementById('register-click').onclick = () => createUserWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
+document.getElementById('login-click').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
+
+// REGISTER FLOW
+document.getElementById('open-register-btn').onclick = () => {
+    document.getElementById('register-modal').style.display = 'flex';
+};
+
+document.getElementById('perform-register-btn').onclick = () => {
+    const user = document.getElementById('reg-username').value;
+    const email = document.getElementById('reg-email').value;
+    const pass = document.getElementById('reg-pass').value;
+    const conf = document.getElementById('reg-pass-confirm').value;
+
+    if (!user || !email || !pass) return alert("Please fill all fields.");
+    if (pass !== conf) return alert("Passwords do not match.");
+
+    createUserWithEmailAndPassword(auth, email, pass)
+        .then((cred) => {
+            // Update Profile Name
+            updateProfile(cred.user, { displayName: user })
+                .then(() => {
+                    // Send Verification
+                    sendEmailVerification(cred.user)
+                        .then(() => alert(`Account created! A verification email has been sent to ${email}.`));
+                    // DB User Init (Optional explicit init or wait for listener)
+                    // Listener handles basic struct usually, but let's set name public
+                    const updates = {};
+                    updates[`public_users/${cred.user.uid}`] = {
+                        name: user,
+                        email: email,
+                        uid: cred.user.uid
+                    };
+                    update(ref(db), updates);
+                });
+            document.getElementById('register-modal').style.display = 'none';
+        })
+        .catch(e => alert(e.message));
+};
+
+
+// FORGOT PASSWORD
+document.getElementById('forgot-password-btn').onclick = () => {
+    const email = document.getElementById('email').value;
+    if (!email) {
+        alert("Please enter your email in the Login box first, then click Forgot Password.");
+        return;
+    }
+    if (confirm(`Send password reset link to ${email}?`)) {
+        sendPasswordResetEmail(auth, email)
+            .then(() => alert("Password reset email sent!"))
+            .catch(e => alert(e.message));
+    }
+};
 document.getElementById('logout-btn').onclick = () => signOut(auth);
 
 onAuthStateChanged(auth, (u) => {
