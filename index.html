@@ -247,6 +247,49 @@
             </div> <!-- End of Profile screen -->
         </section>
 
+        <!-- PUBLIC PROFILE MODAL (New) -->
+        <div id="public-profile-modal" class="modal-overlay" style="display:none;">
+            <div class="modal-content card" style="text-align:center;">
+                <div class="modal-header">
+                    <h3>Public Profile</h3>
+                    <button onclick="document.getElementById('public-profile-modal').style.display='none'"
+                        class="icon-btn">
+                        <i class="material-icons">close</i>
+                    </button>
+                </div>
+                <h1 id="pub-name" style="margin-bottom:5px;">User</h1>
+                <p id="pub-stats" style="color:#777; margin-bottom:20px; font-size:14px;">Member since 2024</p>
+
+                <div class="highlight-grid" style="margin-bottom:20px;">
+                    <div class="stat-box"><small>LOST</small>
+                        <h3 id="pub-weight-lost">--</h3><small>Lbs</small>
+                    </div>
+                    <div class="stat-box"><small>BMI</small>
+                        <h3 id="pub-bmi">--</h3>
+                    </div>
+                    <div class="stat-box"><small>BURNED</small>
+                        <h3 id="pub-burned">--</h3><small>kCal</small>
+                    </div>
+                </div>
+
+                <div id="pub-badges" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px;"></div>
+
+                <!-- Goals Section (If public) -->
+                <div id="pub-goals-container"
+                    style="text-align:left; border-top:1px solid #1a1a1a; padding-top:10px; display:none;">
+                    <h4 style="margin:0 0 10px 0;">Goals</h4>
+                    <div id="pub-goals-list"></div>
+                </div>
+
+                <!-- Recent Activity (If public) -->
+                <div id="pub-workouts-container"
+                    style="text-align:left; border-top:1px solid #1a1a1a; padding-top:10px; margin-top:10px; display:none;">
+                    <h4 style="margin:0 0 10px 0;">Recent Activity</h4>
+                    <div id="pub-workouts-list"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ADD FOOD -->
         <section id="scanner-screen" class="view" style="display:none;">
             <div class="card">

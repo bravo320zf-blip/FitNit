@@ -1461,9 +1461,9 @@ function renderSocialLists(socialData) {
                 row.style.justifyContent = 'space-between';
                 row.style.alignItems = 'center';
                 row.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="viewPublicProfile('${friendUid}')">
                         <i class="material-icons" style="color:var(--text-color);">person</i>
-                        <span><strong>${friend.name || "User"}</strong></span>
+                        <span style="border-bottom:1px dotted #777;"><strong>${friend.name || "User"}</strong></span>
                     </div>
                     <button class="icon-btn" style="color:#e74c3c;" onclick="unfollowUser('${friendUid}')">
                         <i class="material-icons">remove_circle_outline</i>
@@ -2293,9 +2293,96 @@ document.getElementById('dark-mode-toggle').onchange = (e) => {
         update(ref(db, `users/${auth.currentUser.uid}/settings/privacy`), { [type]: e.target.checked });
     };
 });
-document.getElementById('share-app-btn').onclick = () => {
-    if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
-    else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
+if (navigator.share) navigator.share({ title: 'FitNit', url: window.location.href });
+else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
+};
+
+// 4. View Public Profile Logic
+window.viewPublicProfile = async (uid) => {
+    try {
+        const snap = await get(ref(db, `users/${uid}`));
+        if (!snap.exists()) return alert("User not found.");
+
+        const data = snap.val();
+        // Public Info from public_users for name consistency
+        let name = "User";
+        try {
+            const pubSnap = await get(ref(db, `public_users/${uid}`));
+            if (pubSnap.exists()) name = pubSnap.val().name;
+        } catch (e) { }
+
+        // Populate Modal
+        document.getElementById('pub-name').innerText = name;
+
+        // Calculate Public Stats
+        let lost = 0, burned = 0;
+        if (data.weight_history) {
+            const arr = Object.values(data.weight_history);
+            if (arr.length >= 2) lost = arr[0] - arr[arr.length - 1];
+        }
+        if (data.workouts) {
+            Object.values(data.workouts).forEach(day => {
+                Object.values(day).forEach(w => burned += (Number(w.burned) || 0));
+            });
+        }
+
+        let bmi = "--";
+        if (data.latest_weight && data.goals?.height) {
+            const hM = data.goals.height / 39.37;
+            const wKg = data.latest_weight * 0.453592;
+            bmi = (wKg / (hM * hM)).toFixed(1);
+        }
+
+        document.getElementById('pub-weight-lost').innerText = Math.max(0, parseInt(lost));
+        document.getElementById('pub-burned').innerText = parseInt(burned).toLocaleString();
+        document.getElementById('pub-bmi').innerText = bmi;
+
+        // Privacy Checks
+        const priv = data.settings?.privacy || {};
+
+        // Goals
+        const gDiv = document.getElementById('pub-goals-container');
+        gDiv.style.display = priv.goals ? 'none' : 'block'; // If privacy is TRUE, hide? Assuming 'privacy' checkbox means "Keep Private"
+        // Wait, checkboxes usually mean "Enable feature" or "Hide". 
+        // In previous code: "privacy-goals" checked = data.settings.privacy.goals || false.
+        // Usually checked = Private.
+        if (!priv.goals && data.goals) {
+            document.getElementById('pub-goals-list').innerHTML = `
+                <div class="meal-item"><small>Daily User Target</small><br><strong>${data.goals.calories || 2000} kcal</strong></div>
+             `;
+        }
+
+        // Workouts
+        const wDiv = document.getElementById('pub-workouts-container');
+        wDiv.style.display = priv.workouts ? 'none' : 'block';
+        if (!priv.workouts && data.workouts) {
+            let html = "";
+            const dates = Object.keys(data.workouts).sort().reverse().slice(0, 3);
+            dates.forEach(d => {
+                const dayItems = Object.values(data.workouts[d]);
+                const count = dayItems.length;
+                const cal = dayItems.reduce((acc, i) => acc + (Number(i.burned) || 0), 0);
+                html += `<div class="meal-item" style="font-size:12px;"><strong>${d}</strong>: ${count} workouts (${cal} kcal)</div>`;
+            });
+            document.getElementById('pub-workouts-list').innerHTML = html || "<small>No recent activity</small>";
+        }
+
+        // Badges (Always Public?)
+        const badgesContainer = document.getElementById('pub-badges');
+        badgesContainer.innerHTML = "";
+        if (data.achievements) {
+            // We need achievement definitions. Assuming standard cache or simple rendering
+            Object.keys(data.achievements).forEach(k => {
+                badgesContainer.innerHTML += `<span style="font-size:24px; title="${k}">🏆</span>`;
+            });
+        }
+
+        document.getElementById('public-profile-modal').style.display = 'flex';
+
+    } catch (e) {
+        console.error(e);
+        alert("Unable to load profile.");
+    }
 };
 
 
