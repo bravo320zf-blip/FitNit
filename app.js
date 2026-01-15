@@ -2301,18 +2301,28 @@ document.getElementById('share-app-btn').onclick = () => {
 // 4. View Public Profile Logic
 window.viewPublicProfile = async (uid) => {
     try {
-        const snap = await get(ref(db, `users/${uid}`));
-        if (!snap.exists()) return alert("User not found.");
+        // Fetch specific allowed nodes in parallel (Root user node is Private!)
+        const [settingsSnap, goalsSnap, weightsSnap, workoutsSnap, achieveSnap, publicSnap] = await Promise.all([
+            get(ref(db, `users/${uid}/settings`)),
+            get(ref(db, `users/${uid}/goals`)),
+            get(ref(db, `users/${uid}/weight_history`)),
+            get(ref(db, `users/${uid}/workouts`)),
+            get(ref(db, `users/${uid}/achievements`)),
+            get(ref(db, `public_users/${uid}`))
+        ]);
 
-        const data = snap.val();
-        // Public Info from public_users for name consistency
+        // Construct Data Object
+        const data = {
+            settings: settingsSnap.val(),
+            goals: goalsSnap.val(),
+            weight_history: weightsSnap.val(),
+            workouts: workoutsSnap.val(),
+            achievements: achieveSnap.val()
+        };
+
+        // User Name
         let name = "User";
-        try {
-            const pubSnap = await get(ref(db, `public_users/${uid}`));
-            if (pubSnap.exists()) name = pubSnap.val().name;
-        } catch (e) { }
-
-        // Populate Modal
+        if (publicSnap.exists()) name = publicSnap.val().name;
         document.getElementById('pub-name').innerText = name;
 
         // Calculate Public Stats
@@ -2328,9 +2338,18 @@ window.viewPublicProfile = async (uid) => {
         }
 
         let bmi = "--";
-        if (data.latest_weight && data.goals?.height) {
+        // Need latest_weight for BMI. We can infer it from last weight history entry?
+        // Or we should allow reading latest_weight too.
+        // Let's use last history entry for now.
+        let latest = 0;
+        if (data.weight_history) {
+            const keys = Object.keys(data.weight_history).sort();
+            latest = data.weight_history[keys[keys.length - 1]];
+        }
+
+        if (latest && data.goals?.height) {
             const hM = data.goals.height / 39.37;
-            const wKg = data.latest_weight * 0.453592;
+            const wKg = latest * 0.453592;
             bmi = (wKg / (hM * hM)).toFixed(1);
         }
 
@@ -2343,10 +2362,8 @@ window.viewPublicProfile = async (uid) => {
 
         // Goals
         const gDiv = document.getElementById('pub-goals-container');
-        gDiv.style.display = priv.goals ? 'none' : 'block'; // If privacy is TRUE, hide? Assuming 'privacy' checkbox means "Keep Private"
-        // Wait, checkboxes usually mean "Enable feature" or "Hide". 
-        // In previous code: "privacy-goals" checked = data.settings.privacy.goals || false.
-        // Usually checked = Private.
+        gDiv.style.display = priv.goals ? 'none' : 'block';
+
         if (!priv.goals && data.goals) {
             document.getElementById('pub-goals-list').innerHTML = `
                 <div class="meal-item"><small>Daily User Target</small><br><strong>${data.goals.calories || 2000} kcal</strong></div>
@@ -2372,9 +2389,11 @@ window.viewPublicProfile = async (uid) => {
         const badgesContainer = document.getElementById('pub-badges');
         badgesContainer.innerHTML = "";
         if (data.achievements) {
-            // We need achievement definitions. Assuming standard cache or simple rendering
             Object.keys(data.achievements).forEach(k => {
-                badgesContainer.innerHTML += `<span style="font-size:24px; title="${k}">🏆</span>`;
+                // Map ID to Icon
+                const icons = { 'first_step': '👟', '5lb_club': '🥉', '10lb_club': '🥈', 'profile_set': '📋' };
+                const icon = icons[k] || '🏆';
+                badgesContainer.innerHTML += `<span style="font-size:24px;" title="${k}">${icon}</span>`;
             });
         }
 
@@ -2382,7 +2401,7 @@ window.viewPublicProfile = async (uid) => {
 
     } catch (e) {
         console.error(e);
-        alert("Unable to load profile.");
+        alert("Unable to load profile. Check permission rules!");
     }
 };
 
