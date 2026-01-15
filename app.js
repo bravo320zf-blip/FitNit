@@ -165,7 +165,11 @@ if (document.getElementById('save-username-btn')) {
         updateProfile(auth.currentUser, { displayName: newName }).then(() => {
             alert("Username updated!");
             // Update Public DB
-            update(ref(db, `public_users/${auth.currentUser.uid}`), { name: newName });
+            update(ref(db, `public_users/${auth.currentUser.uid}`), {
+                name: newName,
+                email: auth.currentUser.email,
+                uid: auth.currentUser.uid
+            });
         }).catch(e => alert(e.message));
     };
 }
