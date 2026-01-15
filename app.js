@@ -297,11 +297,17 @@ function startDataListener(uid) {
             document.getElementById('privacy-workouts').checked = data.settings.privacy.workouts || false;
         }
 
+        renderSocialLists(data.social);
+        renderFullDietHistory(data.diary);
+        document.getElementById('privacy-goals').checked = data.settings.privacy.goals || false;
+        document.getElementById('privacy-workouts').checked = data.settings.privacy.workouts || false;
+    }
+
         // Logic that checks for achievements/goals progress globally (independent of view date)
         if (window.checkGoalsProgress) window.checkGoalsProgress(data);
 
-        renderDashboard(data);
-    });
+    renderDashboard(data);
+});
 }
 
 // NEW: Update top-level stats WITHOUT re-rendering the whole history list
@@ -2211,47 +2217,37 @@ document.getElementById('share-app-btn').onclick = () => {
     else { navigator.clipboard.writeText(window.location.href); alert("Copied!"); }
 };
 // 3. UI for Social Lists
-function renderSocialListsUI(social) {
-    const followingContainer = document.getElementById('friends-list-container');
-    const followersContainer = document.getElementById('followers-list-container');
 
-    // Only fetch if we are actually viewing the friends modal (optimization)
-    // But for now, just load it.
+const idArray = Object.keys(ids);
+for (const uid of idArray) {
+    // Unoptimized N+1 fetch, but fine for prototype with few friends
+    try {
+        const snap = await get(ref(db, `public_users/${uid}`));
+        if (snap.exists()) {
+            const u = snap.val();
+            const div = document.createElement('div');
+            div.className = 'meal-item';
+            div.style.padding = "5px";
+            div.innerHTML = `<strong>${u.name}</strong>`;
 
-    const loadList = async (ids, container, type) => {
-        container.innerHTML = "";
-        if (!ids) { container.innerHTML = "<small>None</small>"; return; }
+            const btn = document.createElement('button');
+            btn.innerText = "View";
+            btn.style.fontSize = "10px";
+            btn.style.marginLeft = "10px";
+            btn.onclick = () => window.viewPublicProfile(uid);
+            div.appendChild(btn);
 
-        const idArray = Object.keys(ids);
-        for (const uid of idArray) {
-            // Unoptimized N+1 fetch, but fine for prototype with few friends
-            try {
-                const snap = await get(ref(db, `public_users/${uid}`));
-                if (snap.exists()) {
-                    const u = snap.val();
-                    const div = document.createElement('div');
-                    div.className = 'meal-item';
-                    div.style.padding = "5px";
-                    div.innerHTML = `<strong>${u.name}</strong>`;
-
-                    const btn = document.createElement('button');
-                    btn.innerText = "View";
-                    btn.style.fontSize = "10px";
-                    btn.style.marginLeft = "10px";
-                    btn.onclick = () => window.viewPublicProfile(uid);
-                    div.appendChild(btn);
-
-                    container.appendChild(div);
-                }
-            } catch (e) { console.log("error loading user", uid); }
+            container.appendChild(div);
         }
+    } catch (e) { console.log("error loading user", uid); }
+}
     };
 
-    if (social.following) loadList(social.following, followingContainer, 'following');
-    else followingContainer.innerHTML = "<small>You are not following anyone.</small>";
+if (social.following) loadList(social.following, followingContainer, 'following');
+else followingContainer.innerHTML = "<small>You are not following anyone.</small>";
 
-    if (social.followers) loadList(social.followers, followersContainer, 'followers');
-    else followersContainer.innerHTML = "<small>No followers yet.</small>";
+if (social.followers) loadList(social.followers, followersContainer, 'followers');
+else followersContainer.innerHTML = "<small>No followers yet.</small>";
 }
 
 // 4. View Public Profile
