@@ -258,9 +258,12 @@ if (dateInput) {
     }
 }
 
-window._selectedDate = e.target.value;
-renderDashboard(window._lastUserData);
-};
+if (picker) {
+    picker.onchange = (e) => {
+        window._selectedDate = e.target.value;
+        renderDashboard(window._lastUserData);
+    };
+}
 
 // --- WORKOUT DATE SEARCH ---
 const wDateInput = document.getElementById('workout-date-search-input');
