@@ -1711,7 +1711,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     // 2. Report Container (Placed UNDER overlay but IN viewport to ensure rendering)
     const container = document.createElement('div');
     container.id = 'report-container';
-    container.style.position = 'fixed';
+    container.style.position = 'absolute';
     container.style.top = '0';
     container.style.left = '0'; // On screen!
     container.style.width = '850px';
@@ -1999,7 +1999,9 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         html2canvas: {
             scale: 2,
             useCORS: true,
+            useCORS: true,
             logging: false,
+            scrollY: 0,
             windowWidth: 1600 // Tell renderer window is wide enough for 200vw
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
@@ -3253,7 +3255,7 @@ function checkGoalsProgress(userData) {
                 const dates = Object.keys(userData.weight_history).sort(); // Sort chronological
                 if (dates.length > 0) latestWeight = parseFloat(userData.weight_history[dates[dates.length - 1]]);
             }
-            
+
             console.log(`[Goal Debug] Goal: ${goal.title} | Start: ${goal.startValue} | Current: ${latestWeight} | Target: ${goal.target}`);
 
             // Progress = (Start - Current) / Target
