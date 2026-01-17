@@ -348,7 +348,7 @@ function updateDashboardStats(data, dateOverride) {
     // We need to pass granular macros to renderNutritionDashboard. 
     // Optimization: Recalculate granulars here or just let renderNutritionDashboard handle it?
     // Actually renderNutritionDashboard takes args. So we need to calc them.
-    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
+    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0, potassium = 0;
     if (data.diary && data.diary[today]) {
         Object.values(data.diary[today]).forEach(cat => {
             Object.values(cat).forEach(i => {
@@ -359,10 +359,11 @@ function updateDashboardStats(data, dateOverride) {
                 vitC += Number(i.vitC || 0);
                 calcium += Number(i.calcium || 0);
                 iron += Number(i.iron || 0);
+                potassium += Number(i.potassium || 0);
             });
         });
     }
-    renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
+    renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, potassium, goals);
 }
 
 function renderDashboard(data) {
@@ -2480,7 +2481,7 @@ document.getElementById('friends-btn').onclick = () => document.getElementById('
 
 
 // --- NUTRITION DASHBOARD RENDERER ---
-function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals) {
+function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, potassium, goals) {
     const container = document.getElementById('nutrition-dashboard-container');
     if (!container) return;
 
@@ -2495,6 +2496,7 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
     const gVitC = goals.vitC || 90;
     const gCalcium = goals.calcium || 1000;
     const gIron = goals.iron || 18;
+    const gPotassium = goals.potassium || 4700;
 
     container.innerHTML = `
         <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">Nutrition Breakdown Today</h3>
@@ -2568,9 +2570,13 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
                 <span style="display:block; font-weight:bold; color:#2980b9;">Calcium</span>
                 <span>${Math.round(calcium)}mg</span>
             </div>
-             <div style="text-align:center;">
+            <div style="text-align:center;">
                 <span style="display:block; font-weight:bold; color:#c0392b;">Iron</span>
                 <span>${Math.round(iron)}mg</span>
+            </div>
+             <div style="text-align:center;">
+                <span style="display:block; font-weight:bold; color:#27ae60;">Potassium</span>
+                <span>${Math.round(potassium)}mg</span>
             </div>
         </div>
     `;
@@ -2736,7 +2742,17 @@ const initSmartScanner = () => {
         document.getElementById('c-prot').value = gwData.protein;
         document.getElementById('c-carb').value = gwData.carbs;
         document.getElementById('c-fat').value = gwData.fat;
+        document.getElementById('c-fat').value = gwData.fat;
         document.getElementById('c-sugar').value = gwData.sugar;
+
+        // Extended Nutrients (Wizard doesn't capture these yet, but placeholders if we updated wizard later)
+        if (gwData.fiber) document.getElementById('c-fiber').value = gwData.fiber;
+        if (gwData.sodium) document.getElementById('c-sodium').value = gwData.sodium;
+        if (gwData.vitC) document.getElementById('c-vitc').value = gwData.vitC;
+        if (gwData.calcium) document.getElementById('c-calcium').value = gwData.calcium;
+        if (gwData.iron) document.getElementById('c-iron').value = gwData.iron;
+        if (gwData.potassium) document.getElementById('c-potassium').value = gwData.potassium;
+
         document.getElementById('c-barcode').value = gwData.barcode;
 
         closeGuidedWizard();
@@ -2928,6 +2944,15 @@ function setupCustomSubmit() {
             const carbs = parseMacro('c-carb');
             const fat = parseMacro('c-fat');
             const sugar = parseMacro('c-sugar');
+
+            // Extended
+            const fiber = parseMacro('c-fiber');
+            const sodium = parseMacro('c-sodium');
+            const vitC = parseMacro('c-vitc');
+            const calcium = parseMacro('c-calcium');
+            const iron = parseMacro('c-iron');
+            const potassium = parseMacro('c-potassium');
+
             const barcode = document.getElementById('c-barcode').value || null;
 
             if (!name || !rawCals || isNaN(cals)) {
@@ -2941,7 +2966,9 @@ function setupCustomSubmit() {
             const dupItem = await checkDuplicate(name);
 
             const currentItem = {
-                name, calories: cals, protein: prot, carbs, fat, sugar, timestamp: Date.now(),
+                name, calories: cals, protein: prot, carbs, fat, sugar,
+                fiber, sodium, vitC, calcium, iron, potassium,
+                timestamp: Date.now(),
                 createdBy: auth.currentUser.uid
             };
             // Attach barcode to item if present

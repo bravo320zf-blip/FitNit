@@ -337,6 +337,12 @@
                         <input type="number" id="c-carb" placeholder="Carbs (g)">
                         <input type="number" id="c-fat" placeholder="Fat (g)">
                         <input type="number" id="c-sugar" placeholder="Sugar (g)">
+                        <input type="number" id="c-fiber" placeholder="Fiber (g)">
+                        <input type="number" id="c-sodium" placeholder="Sodium (mg)">
+                        <input type="number" id="c-vitc" placeholder="Vit C (mg)">
+                        <input type="number" id="c-calcium" placeholder="Calcium (mg)">
+                        <input type="number" id="c-iron" placeholder="Iron (mg)">
+                        <input type="number" id="c-potassium" placeholder="Potassium (mg)">
                         <input type="hidden" id="c-barcode">
                     </div>
                     <button id="btn-submit-custom">Save Custom</button>
@@ -654,7 +660,9 @@
                     <div style="display:flex; gap:5px;">
                         <input type="date" id="rep-start-date"
                             style="flex-grow:1; padding:10px; border:1px solid #ddd; border-radius:6px; background:var(--bg-color); color:var(--text-color);">
-                        <button onclick="document.getElementById('rep-start-date').showPicker()" class="icon-btn" style="background:var(--card-bg); border:1px solid #ddd; border-radius:6px; padding:0 10px;"><i class="material-icons" style="color:var(--text-color);">calendar_today</i></button>
+                        <button onclick="document.getElementById('rep-start-date').showPicker()" class="icon-btn"
+                            style="background:var(--card-bg); border:1px solid #ddd; border-radius:6px; padding:0 10px;"><i
+                                class="material-icons" style="color:var(--text-color);">calendar_today</i></button>
                     </div>
                 </div>
                 <div style="flex-grow:1;">
@@ -662,7 +670,9 @@
                     <div style="display:flex; gap:5px;">
                         <input type="date" id="rep-end-date"
                             style="flex-grow:1; padding:10px; border:1px solid #ddd; border-radius:6px; background:var(--bg-color); color:var(--text-color);">
-                         <button onclick="document.getElementById('rep-end-date').showPicker()" class="icon-btn" style="background:var(--card-bg); border:1px solid #ddd; border-radius:6px; padding:0 10px;"><i class="material-icons" style="color:var(--text-color);">calendar_today</i></button>
+                        <button onclick="document.getElementById('rep-end-date').showPicker()" class="icon-btn"
+                            style="background:var(--card-bg); border:1px solid #ddd; border-radius:6px; padding:0 10px;"><i
+                                class="material-icons" style="color:var(--text-color);">calendar_today</i></button>
                     </div>
                 </div>
             </div>
