@@ -2008,7 +2008,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
             useCORS: true,
             logging: false,
             scrollY: 0,
-            windowWidth: 1600 // Tell renderer window is wide enough for 200vw
+            windowWidth: 800 // FIX: Match container width
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
