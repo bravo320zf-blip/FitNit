@@ -1713,8 +1713,8 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     container.id = 'report-container';
     // V3 Fix: Print Mode - Static Positioning, Full Screen
     container.style.position = 'relative';
-    container.style.width = '100%';
-    container.style.maxWidth = '1000px';
+    container.style.width = '750px'; // FIX: V5 - 750px for safer margins
+    container.style.maxWidth = 'none';
     container.style.margin = '0 auto'; // Center it
     container.style.background = 'white';
     container.style.color = 'black';
@@ -2008,7 +2008,10 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
             useCORS: true,
             logging: false,
             scrollY: 0,
-            windowWidth: 800 // FIX: Match container width
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            windowWidth: 750 // FIX: Match container width (V5)
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
