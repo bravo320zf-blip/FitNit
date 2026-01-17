@@ -1718,7 +1718,7 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     container.style.background = 'white'; // White background
     container.style.color = 'black';
     container.style.fontFamily = "'Helvetica', sans-serif";
-    container.style.zIndex = '40000'; // Under overlay, over app
+    container.style.zIndex = '60000'; // FIX: Must be higher than overlay (50000) to be seen/captured
     container.style.padding = '40px';
     // container.style.visibility = 'hidden'; // DO NOT USE HIDDEN. Browser optimizes it away.
     // Instead relies on Overlay covering it.
@@ -3253,6 +3253,8 @@ function checkGoalsProgress(userData) {
                 const dates = Object.keys(userData.weight_history).sort(); // Sort chronological
                 if (dates.length > 0) latestWeight = parseFloat(userData.weight_history[dates[dates.length - 1]]);
             }
+            
+            console.log(`[Goal Debug] Goal: ${goal.title} | Start: ${goal.startValue} | Current: ${latestWeight} | Target: ${goal.target}`);
 
             // Progress = (Start - Current) / Target
             const lost = parseFloat((goal.startValue - latestWeight).toFixed(1));
