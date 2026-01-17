@@ -258,11 +258,35 @@ if (dateInput) {
     }
 }
 
-if (picker) {
-    picker.onchange = (e) => {
-        window._selectedDate = e.target.value;
-        renderDashboard(window._lastUserData);
+window._selectedDate = e.target.value;
+renderDashboard(window._lastUserData);
+};
+
+// --- WORKOUT DATE SEARCH ---
+const wDateInput = document.getElementById('workout-date-search-input');
+const wPicker = document.getElementById('workout-date-picker-native');
+
+if (wDateInput) {
+    wDateInput.onchange = (e) => {
+        const val = e.target.value;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            window._selectedDate = val;
+            renderDashboard(window._lastUserData);
+        } else {
+            // Just filter list if not full date?
+            renderWorkoutHistory(window._lastWorkoutData);
+        }
     };
+    wDateInput.onkeypress = (e) => { if (e.key === 'Enter') wDateInput.blur(); }
+}
+
+if (wPicker) {
+    wPicker.onchange = (e) => {
+        window._selectedDate = e.target.value;
+        // Sync text input
+        if (wDateInput) wDateInput.value = e.target.value;
+        renderDashboard(window._lastUserData);
+    }
 }
 
 // --- DATA WATCHER (DASHBOARD & WORKOUTS) ---
@@ -378,6 +402,12 @@ function renderDashboard(data) {
 
     // DO NOT force search input to value (fixes "Disappearing History" bug)
     // if (document.getElementById('date-search-input')) ...
+
+    // Sync Workout Input ( Safe to sync if date matches )
+    const wInput = document.getElementById('workout-date-search-input');
+    if (wInput && window._selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(window._selectedDate)) {
+        if (wInput.value !== window._selectedDate) wInput.value = window._selectedDate;
+    }
 
     // We only re-render history if we are NOT just updating stats? 
     // Actually, renderDashboard is called on DB update. So we must re-render history to show new items.
@@ -677,9 +707,26 @@ function renderWorkoutHistory(workouts) {
     }
 
     const dates = Object.keys(workouts).sort().reverse();
+
+    // FILTER LOGIC
+    let filteredDates = dates;
+    const wSearchVal = document.getElementById('workout-date-search-input') ? document.getElementById('workout-date-search-input').value.trim() : "";
+
+    // If text search is active
+    if (wSearchVal) {
+        filteredDates = dates.filter(d => d.includes(wSearchVal));
+        window._workoutPage = 0; // Reset page
+    }
+
     const page = window._workoutPage;
     const pageSize = 5;
-    const slice = dates.slice(page * pageSize, (page + 1) * pageSize);
+    const slice = filteredDates.slice(page * pageSize, (page + 1) * pageSize);
+
+    // If empty after filter
+    if (filteredDates.length === 0) {
+        container.innerHTML = "<small style='display:block; text-align:center; padding:10px;'>No matches found.</small>";
+        return;
+    }
 
     slice.forEach(date => {
         let dayCount = Object.keys(workouts[date]).length;
@@ -779,7 +826,7 @@ function renderWorkoutHistory(workouts) {
 
     const next = document.createElement('button');
     next.innerText = "Older >";
-    next.style.visibility = ((page + 1) * pageSize < dates.length) ? 'visible' : 'hidden';
+    next.style.visibility = ((page + 1) * pageSize < filteredDates.length) ? 'visible' : 'hidden'; // Use filteredDates length
     next.onclick = () => { window._workoutPage++; renderWorkoutHistory(window._lastWorkoutData); };
 
     controls.appendChild(prev);
