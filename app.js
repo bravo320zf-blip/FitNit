@@ -1711,15 +1711,21 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     // 2. Report Container (Placed UNDER overlay but IN viewport to ensure rendering)
     const container = document.createElement('div');
     container.id = 'report-container';
-    container.style.position = 'absolute';
-    container.style.top = '0';
-    container.style.left = '0'; // On screen!
-    container.style.width = '850px';
-    container.style.background = 'white'; // White background
+    // V3 Fix: Print Mode - Static Positioning, Full Screen
+    container.style.position = 'relative';
+    container.style.width = '100%';
+    container.style.maxWidth = '1000px';
+    container.style.margin = '0 auto'; // Center it
+    container.style.background = 'white';
     container.style.color = 'black';
     container.style.fontFamily = "'Helvetica', sans-serif";
-    container.style.zIndex = '60000'; // FIX: Must be higher than overlay (50000) to be seen/captured
     container.style.padding = '40px';
+
+    // Hide UI for Print Mode
+    document.getElementById('app').style.display = 'none';
+    document.querySelector('header').style.display = 'none';
+
+    document.body.appendChild(container);
     // container.style.visibility = 'hidden'; // DO NOT USE HIDDEN. Browser optimizes it away.
     // Instead relies on Overlay covering it.
     document.body.appendChild(container);
@@ -2017,14 +2023,22 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
-            overlay.remove(); // Remove overlay
-            container.remove(); // Cleanup
+            overlay.remove();
+            container.remove();
+
+            // Restore UI
+            document.getElementById('app').style.display = '';
+            document.querySelector('header').style.display = '';
         }).catch(err => {
             console.error(err);
             alert("PDF Generation Error: " + err);
             btn.innerHTML = originalText; btn.disabled = false;
             overlay.remove();
-            container.remove(); // Cleanup
+            container.remove();
+
+            // Restore UI
+            document.getElementById('app').style.display = '';
+            document.querySelector('header').style.display = '';
         });
     } else {
         alert("PDF library not ready.");
