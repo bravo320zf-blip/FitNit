@@ -406,11 +406,8 @@ function renderDashboard(data) {
     // DO NOT force search input to value (fixes "Disappearing History" bug)
     // if (document.getElementById('date-search-input')) ...
 
-    // Sync Workout Input ( Safe to sync if date matches )
-    const wInput = document.getElementById('workout-date-search-input');
-    if (wInput && window._selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(window._selectedDate)) {
-        if (wInput.value !== window._selectedDate) wInput.value = window._selectedDate;
-    }
+    // Sync Workout Input (Removed to allow full history visibility by default)
+    // Only filter if user explicitly enters a date in the exercises tab.
 
     // We only re-render history if we are NOT just updating stats? 
     // Actually, renderDashboard is called on DB update. So we must re-render history to show new items.
