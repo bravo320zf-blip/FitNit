@@ -47,8 +47,13 @@ const db = getDatabase(app);
 
 let html5QrCode, currentScannedItem, weightChart;
 
-// HELPER: Get Today's Date in Local YYYY-MM-DD (Prevents 0 calorie bug)
-const getToday = () => new Date().toLocaleDateString('en-CA');
+// HELPER: Get Today's Date in Local YYYY-MM-DD
+const getToday = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const local = new Date(now - offset);
+    return local.toISOString().split('T')[0];
+};
 window._selectedDate = getToday(); // Default to today
 
 // --- NAVIGATION ---
@@ -3340,10 +3345,12 @@ function checkGoalsProgress(userData) {
 
         // A. Weight Loss Logic
         if (goal.type === 'weight_loss') {
-            // Logic: Target is amount to lose (e.g. 5)
-            let latestWeight = goal.startValue;
-            if (userData.weight_history) {
-                const dates = Object.keys(userData.weight_history).sort(); // Sort chronological
+            // FIX: Use latest_weight directly instead of sorting history which can be flaky
+            let latestWeight = userData.latest_weight !== undefined ? parseFloat(userData.latest_weight) : goal.startValue;
+
+            // Fallback to history only if latest_weight is missing
+            if ((!latestWeight || isNaN(latestWeight)) && userData.weight_history) {
+                const dates = Object.keys(userData.weight_history).sort();
                 if (dates.length > 0) latestWeight = parseFloat(userData.weight_history[dates[dates.length - 1]]);
             }
 
