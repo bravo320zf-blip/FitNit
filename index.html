@@ -18,6 +18,13 @@
 </head>
 
 <body>
+    <!-- AD BANNER -->
+    <div id="ad-banner"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:50px; background:#333; color:white; z-index:2000; text-align:center; line-height:50px; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+        <span>FitNit Free Version - <a href="#"
+                onclick="document.getElementById('store-modal').style.display='flex'; return false;"
+                style="color:#3498db;">Remove Ads</a></span>
+    </div>
 
     <header>
         <h1 id="view-title">FitNit</h1>
@@ -466,6 +473,13 @@
                 <button id="account-settings-btn" style="width:100%; background:var(--accent-color);"><i
                         class="material-icons" style="vertical-align:middle; font-size:18px;">settings</i> Account
                     Settings</button>
+            </div>
+            <div class="settings-row" style="margin-bottom:10px;">
+                <button
+                    onclick="document.getElementById('store-modal').style.display='flex'; document.getElementById('settings-modal').style.display='none'"
+                    style="width:100%; background:gold; color:black; font-weight:bold;">
+                    <i class="material-icons" style="vertical-align:middle; font-size:18px;">store</i> FitNit Store
+                </button>
             </div>
             <div class="settings-row" style="margin-bottom:10px;">
                 <button id="open-report-btn" style="width:100%; background:var(--accent-color);">Generate PDF
