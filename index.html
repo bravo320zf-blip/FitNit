@@ -20,7 +20,7 @@
 <body>
     <!-- AD BANNER -->
     <div id="ad-banner"
-        style="display:none; position:fixed; top:0; left:0; width:100%; height:50px; background:#333; color:white; z-index:2000; text-align:center; line-height:50px; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+        style="display:block; position:fixed; top:0; left:0; width:100%; height:50px; background:#333; color:white; z-index:2000; text-align:center; line-height:50px; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
         <span>FitNit Free Version - <a href="#"
                 onclick="document.getElementById('store-modal').style.display='flex'; return false;"
                 style="color:#3498db;">Remove Ads</a></span>
@@ -897,6 +897,45 @@
                 style="margin-bottom:15px; width:100%;">
 
             <button id="perform-register-btn" style="width:100%; background:#27ae60; padding:12px;">Sign Up</button>
+        </div>
+    </div>
+
+    <!-- STORE MODAL -->
+    <div id="store-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card" style="text-align:center;">
+            <div class="modal-header">
+                <h3>FitNit Premium</h3>
+                <button onclick="document.getElementById('store-modal').style.display='none'" class="icon-btn">
+                    <i class="material-icons">close</i>
+                </button>
+            </div>
+
+            <div style="padding:20px;">
+                <i class="material-icons" style="font-size:48px; color:gold; margin-bottom:10px;">verified</i>
+                <p>Support the developer & unlock features!</p>
+
+                <hr style="opacity:0.2; margin:15px 0;">
+
+                <!-- Remove Ads -->
+                <div style="margin-bottom:20px;">
+                    <h4>Remove Ads</h4>
+                    <p style="font-size:12px; color:#777;">Get a cleaner experience and more screen space.</p>
+                    <button id="btn-buy-no-ads" style="background:#27ae60; width:100%; margin-top:5px;">Purchase
+                        ($5.00)</button>
+                </div>
+
+                <!-- Subscription -->
+                <div style="margin-bottom:10px;">
+                    <h4>FitNit Pro Subscription</h4>
+                    <p style="font-size:12px; color:#777;">Unlock <b>Custom Foods</b>, <b>Premium Stats</b>, and more!
+                    </p>
+                    <button id="btn-buy-sub"
+                        style="background:var(--accent-color); width:100%; margin-top:5px;">Subscribe
+                        ($1.00/mo)</button>
+                </div>
+
+                <div id="store-status-msg" style="margin-top:15px; font-size:12px; color:var(--text-color);"></div>
+            </div>
         </div>
     </div>
 
