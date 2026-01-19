@@ -537,7 +537,10 @@
                     class="icon-btn"><i class="material-icons">close</i></button>
             </div>
             <!-- ... content ... -->
-            <div id="preset-goals-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <input type="text" id="goal-search-input" placeholder="Search goals (e.g. 'Lose' or 'Streak')..."
+                style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px; font-size:16px;">
+            <div id="goal-list-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <!-- Old preset-goals-list was unused? Let's assume app.js uses goal-list-container now -->
         </div>
     </div>
 
