@@ -3644,10 +3644,13 @@ function renderGoalsWidget(goalsData, containerOrId) {
 }
 
 // Render Completed Goals (Profile Only)
+// Render Completed Goals (Profile Only)
 function renderCompletedGoals(goalsData) {
     const container = document.getElementById('completed-goals-section');
-    const list = document.getElementById('completed-goals-list');
-    if (!container || !list) return;
+    const btn = document.getElementById('view-completed-goals-btn');
+    const list = document.getElementById('completed-goals-modal-list');
+
+    if (!container || !list || !btn) return;
 
     if (!goalsData) {
         container.style.display = 'none';
@@ -3661,14 +3664,29 @@ function renderCompletedGoals(goalsData) {
         return;
     }
 
+    // Show button section
     container.style.display = 'block';
-    list.innerHTML = "";
+    btn.innerText = `View Completed Goals (${completed.length})`;
 
+    // Render into Modal List
+    list.innerHTML = "";
     completed.forEach(g => {
-        const chip = document.createElement('div');
-        chip.style.cssText = "display:flex; align-items:center; gap:5px; padding:5px 10px; background:rgba(39, 174, 96, 0.1); border:1px solid rgba(39, 174, 96, 0.2); border-radius:20px; font-size:12px; color:#27ae60;";
-        chip.innerHTML = `<i class="material-icons" style="font-size:16px;">check_circle</i> ${g.title}`;
-        list.appendChild(chip);
+        const item = document.createElement('div');
+        item.className = 'card';
+        // Add completion date if available
+        const dateStr = g.completedAt ? new Date(g.completedAt).toLocaleDateString() : 'Unknown Date';
+
+        item.innerHTML = `
+            <div style="display:flex; gap:15px; align-items:center;">
+                 <i class="material-icons" style="font-size:32px; color:#27ae60;">${g.icon || 'emoji_events'}</i>
+                 <div>
+                    <div style="font-weight:bold; font-size:16px;">${g.title}</div>
+                    <div style="font-size:12px; color:#777;">Completed on ${dateStr}</div>
+                    <div style="font-size:12px; color:#27ae60;">${g.target} / ${g.target} achieved!</div>
+                 </div>
+            </div>
+        `;
+        list.appendChild(item);
     });
 }
 

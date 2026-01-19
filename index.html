@@ -245,8 +245,11 @@
                 <!-- COMPLETED GOALS SECTION -->
                 <div id="completed-goals-section"
                     style="margin-top:20px; border-top:1px solid #eee; padding-top:10px; display:none;">
-                    <h4 style="margin:0 0 10px 0; color:#27ae60; font-size:14px;">Completed</h4>
-                    <div id="completed-goals-list" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+                    <button id="view-completed-goals-btn"
+                        style="width:100%; border:1px solid #27ae60; background:transparent; color:#27ae60; border-radius:8px; padding:10px;"
+                        onclick="document.getElementById('completed-goals-modal').style.display='flex'">
+                        View Completed Goals
+                    </button>
                 </div>
             </div>
 
@@ -519,22 +522,44 @@
         <div class="modal-content card"
             style="width:90%; max-width:500px; max-height:85vh; overflow-y:auto; display:flex; flex-direction:column;">
             <div class="modal-header">
-                <h3>Select a Goal</h3>
-                <button onclick="document.getElementById('add-goal-modal').style.display='none'" class="icon-btn"><i
-                        class="material-icons">close</i></button>
+                <h3>Add New Goal</h3><button onclick="document.getElementById('add-goal-modal').style.display='none'"
+                    class="icon-btn"><i class="material-icons">close</i></button>
             </div>
+            <!-- ... content ... -->
+            <div id="preset-goals-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+    </div>
 
-            <p style="color:#777; font-size:14px; margin-bottom:15px;">Choose from our preset goals to track your
-                progress automatically.</p>
-
-            <input type="text" id="goal-search-input" placeholder="Search goals (e.g. 'Lose' or 'Streak')..."
-                style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px; font-size:16px;">
-
-            <div id="goal-list-container"
-                style="display:flex; flex-direction:column; gap:10px; flex-grow:1; overflow-y:auto;">
-                <!-- Goals injected here by JS -->
+    <!-- COMPLETED GOALS MODAL -->
+    <div id="completed-goals-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>Completed Goals</h3>
+                <button onclick="document.getElementById('completed-goals-modal').style.display='none'"
+                    class="icon-btn">
+                    <i class="material-icons">close</i>
+                </button>
+            </div>
+            <div id="completed-goals-modal-list" class="list-container" style="max-height:60vh; overflow-y:auto;">
+                <!-- List rendered here -->
             </div>
         </div>
+    </div>
+    <h3>Select a Goal</h3>
+    <button onclick="document.getElementById('add-goal-modal').style.display='none'" class="icon-btn"><i
+            class="material-icons">close</i></button>
+    </div>
+
+    <p style="color:#777; font-size:14px; margin-bottom:15px;">Choose from our preset goals to track your
+        progress automatically.</p>
+
+    <input type="text" id="goal-search-input" placeholder="Search goals (e.g. 'Lose' or 'Streak')..."
+        style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px; font-size:16px;">
+
+    <div id="goal-list-container" style="display:flex; flex-direction:column; gap:10px; flex-grow:1; overflow-y:auto;">
+        <!-- Goals injected here by JS -->
+    </div>
+    </div>
     </div>
 
     <nav class="bottom-nav">
