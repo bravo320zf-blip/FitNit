@@ -3592,13 +3592,8 @@ function renderGoalsWidget(goalsData, containerOrId) {
         let infoText = `${pct}%`;
         if (g.type === 'weight_loss') {
             const lost = (g.target * (pct / 100)).toFixed(1);
-            // Handling tiny rounding errors, maybe calculate explicitly if we saved it, 
-            // but relying on pct approximation is fine for prototype UI or:
-            // Better: re-calculate "lost" based on startValue - current?
-            // Actually, for UI simplicity, we can reverse calc from \% or we should store 'currentValue' in DB.
-            // Let's just use % to approx. 
-            // Wait, User asked for "3 out of 10 lb lost".
-            infoText = `${lost} / ${g.target} lbs lost`;
+            // Show Start Weight as requested
+            infoText = `${lost} / ${g.target} lbs lost<br><span style="font-size:9px">(Start: ${g.startValue || '?'} lbs)</span>`;
         } else if (g.type === 'streak') {
             const days = Math.round(g.target * (pct / 100));
             infoText = `${days} / ${g.target} day streak`;
