@@ -1675,7 +1675,13 @@ document.getElementById('add-food-btn').onclick = () => {
     const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
     const clean = item.name.replace(/[.#$[\]]/g, "");
     push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
-    update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
+    update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item); // Save to recent
+
+    // Manual Goal Check (Food/Streak)
+    if (window._lastUserData) {
+        checkGoalsProgress(window._lastUserData);
+    }
+
     alert("Added!");
     window.showView('dashboard-screen');
 };
@@ -1687,6 +1693,15 @@ document.getElementById('save-weight-btn').onclick = () => {
     const today = getToday();
     update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
     set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
+
+    // Manual Goal Check (Weight) - Force update with new weight
+    if (window._lastUserData) {
+        // Create temporary updated data to check immediately
+        const updated = { ...window._lastUserData, latest_weight: w };
+        // We also need to update history in the temp object if we want it perfect, but latest_weight is key
+        checkGoalsProgress(updated);
+    }
+
     alert("Logged!");
 };
 
@@ -3192,6 +3207,9 @@ async function saveCustomFood(item, saveToPublic) {
                 return; // Exit early
             }
         }
+
+        // Manual Goal Check
+        if (window._lastUserData) checkGoalsProgress(window._lastUserData);
 
         alert(`Item Added! ${saveToPublic ? '(And shared)' : ''}`);
         if (document.getElementById('mode-custom')) document.getElementById('mode-custom').style.display = 'none';
