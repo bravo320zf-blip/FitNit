@@ -77,7 +77,7 @@ window.toggleAddMode = (m) => {
     });
     document.getElementById('scanned-result').style.display = 'none';
     if (m === 'recent') loadFoodList('recent_items', 'recent-list');
-    if (m === 'favs') loadFoodList('favorites', 'favs-list');
+    if (m === 'favs') window.loadFavoritesList();
     if (m !== 'scan' && html5QrCode) {
         try { html5QrCode.stop().catch(() => { }); } catch (e) { }
     }
@@ -1661,6 +1661,67 @@ function loadFoodList(path, elId) {
             card.onclick = () => { currentScannedItem = f; showConfirm(); };
             list.appendChild(card);
         });
+    });
+}
+
+window.loadFavoritesList = function () {
+    const list = document.getElementById('favs-list');
+    const input = document.getElementById('fav-search-input');
+    const q = input ? input.value.toLowerCase() : "";
+
+    list.innerHTML = "<p style='text-align:center; color:#777;'>Loading...</p>";
+
+    get(ref(db, `users/${auth.currentUser.uid}/favorites`)).then(s => {
+        list.innerHTML = "";
+        if (!s.exists()) { list.innerHTML = "<p style='text-align:center;color:#777;'>No favorites yet.</p>"; return; }
+
+        const items = s.val();
+        let hasMatches = false;
+
+        Object.entries(items).forEach(([key, f]) => {
+            // Filter
+            if (q && !f.name.toLowerCase().includes(q)) return;
+            hasMatches = true;
+
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.cssText = "padding:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;";
+
+            // Left side: Info (Click to add)
+            const info = document.createElement('div');
+            info.style.flexGrow = '1';
+            info.style.cursor = 'pointer';
+            info.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
+            info.onclick = () => { currentScannedItem = f; showConfirm(); };
+
+            // Right side: Delete Button
+            const delBtn = document.createElement('button');
+            delBtn.className = "icon-btn";
+            delBtn.style.color = "#e74c3c";
+            delBtn.style.padding = "10px";
+            delBtn.innerHTML = '<i class="material-icons">delete</i>';
+            delBtn.onclick = (e) => {
+                e.stopPropagation(); // Don't trigger add
+                if (confirm(`Remove ${f.name} from favorites?`)) {
+                    set(ref(db, `users/${auth.currentUser.uid}/favorites/${key}`), null);
+                    card.remove(); // Optimistic
+                }
+            };
+
+            card.appendChild(info);
+            card.appendChild(delBtn);
+            list.appendChild(card);
+        });
+
+        if (!hasMatches) list.innerHTML = "<p style='text-align:center;color:#777;'>No matches found.</p>";
+    });
+};
+
+// Search Listener
+const favInput = document.getElementById('fav-search-input');
+if (favInput) {
+    favInput.addEventListener('input', () => {
+        window.loadFavoritesList();
     });
 }
 
