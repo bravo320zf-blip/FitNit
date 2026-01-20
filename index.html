@@ -366,6 +366,14 @@
             <div id="mode-favs" style="display:none;">
                 <input type="text" id="fav-search-input" placeholder="Search favorites..." style="margin-bottom:10px;">
                 <div id="favs-list" class="list-container"></div>
+                <div id="favs-pagination"
+                    style="display:flex; justify-content:center; gap:15px; margin-top:10px; align-items:center;">
+                    <button id="fav-prev-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&lt;</button>
+                    <span id="fav-page-num" style="font-size:14px; color:#777;">1</span>
+                    <button id="fav-next-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&gt;</button>
+                </div>
             </div>
             <div id="mode-custom" style="display:none;">
                 <div class="card">
