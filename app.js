@@ -1690,6 +1690,7 @@ function loadFoodList(path, elId) {
 // PAGINATION STATE
 window._recPage = 1;
 window._frPage = 1;
+window._favPage = 1;
 
 window.loadRecentList = function () {
     const list = document.getElementById('recent-list');
@@ -1761,6 +1762,7 @@ window.loadFavoritesList = function () {
     const list = document.getElementById('favs-list');
     const input = document.getElementById('fav-search-input');
     const q = input ? input.value.toLowerCase() : "";
+    const pageSize = 6;
 
     list.innerHTML = "<p style='text-align:center; color:#777;'>Loading...</p>";
 
@@ -1768,36 +1770,55 @@ window.loadFavoritesList = function () {
         list.innerHTML = "";
         if (!s.exists()) { list.innerHTML = "<p style='text-align:center;color:#777;'>No favorites yet.</p>"; return; }
 
-        const items = s.val();
-        let hasMatches = false;
+        const raw = s.val();
+        let items = [];
 
-        Object.entries(items).forEach(([key, f]) => {
-            // Filter
+        // Convert to array for filtering/paging
+        Object.entries(raw).forEach(([key, f]) => {
             if (q && !f.name.toLowerCase().includes(q)) return;
-            hasMatches = true;
+            f._key = key;
+            items.push(f);
+        });
 
+        items.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (items.length === 0) {
+            list.innerHTML = "<p style='text-align:center;color:#777;'>No matches found.</p>";
+            document.getElementById('favs-pagination').style.display = 'none';
+            return;
+        }
+
+        // Pagination Logic
+        document.getElementById('favs-pagination').style.display = 'flex';
+        const totalPages = Math.ceil(items.length / pageSize);
+        if (window._favPage > totalPages) window._favPage = 1;
+
+        const start = (window._favPage - 1) * pageSize;
+        const pageItems = items.slice(start, start + pageSize);
+
+        pageItems.forEach(f => {
             const card = document.createElement('div');
             card.className = "card";
             card.style.cssText = "padding:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;";
 
-            // Left side: Info (Click to add)
             const info = document.createElement('div');
             info.style.flexGrow = '1';
             info.style.cursor = 'pointer';
             info.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
             info.onclick = () => { currentScannedItem = f; showConfirm(); };
 
-            // Right side: Delete Button
             const delBtn = document.createElement('button');
             delBtn.className = "icon-btn";
             delBtn.style.color = "#e74c3c";
             delBtn.style.padding = "10px";
             delBtn.innerHTML = '<i class="material-icons">delete</i>';
             delBtn.onclick = (e) => {
-                e.stopPropagation(); // Don't trigger add
+                e.stopPropagation();
                 if (confirm(`Remove ${f.name} from favorites?`)) {
-                    set(ref(db, `users/${auth.currentUser.uid}/favorites/${key}`), null);
-                    card.remove(); // Optimistic
+                    set(ref(db, `users/${auth.currentUser.uid}/favorites/${f._key}`), null)
+                        .then(() => {
+                            window.loadFavoritesList();
+                        });
                 }
             };
 
@@ -1806,7 +1827,16 @@ window.loadFavoritesList = function () {
             list.appendChild(card);
         });
 
-        if (!hasMatches) list.innerHTML = "<p style='text-align:center;color:#777;'>No matches found.</p>";
+        document.getElementById('fav-page-num').innerText = `${window._favPage} / ${totalPages}`;
+        document.getElementById('fav-prev-btn').disabled = window._favPage === 1;
+        document.getElementById('fav-next-btn').disabled = window._favPage === totalPages;
+
+        document.getElementById('fav-prev-btn').onclick = () => {
+            if (window._favPage > 1) { window._favPage--; window.loadFavoritesList(); }
+        };
+        document.getElementById('fav-next-btn').onclick = () => {
+            if (window._favPage < totalPages) { window._favPage++; window.loadFavoritesList(); }
+        };
     });
 };
 
@@ -1814,6 +1844,7 @@ window.loadFavoritesList = function () {
 const favInput = document.getElementById('fav-search-input');
 if (favInput) {
     favInput.addEventListener('input', () => {
+        window._favPage = 1;
         window.loadFavoritesList();
     });
 }
