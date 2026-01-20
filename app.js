@@ -1492,18 +1492,41 @@ window.renderDietHistory = window.renderFullDietHistory = function (diary) {
 };
 
 // 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
+// 3. Render Friend Lists (Paginated)
 function renderSocialLists(socialData) {
     const list = document.getElementById('followers-list-container');
+    const pageSize = 6;
 
-    // Check 'following' instead of 'followers' since 'Friends' usually means people I follow/mutuals
-    // The user asked for "Friends list", so we show who THEY follow.
     if (!socialData || !socialData.following) {
         list.innerHTML = `<p style="text-align:center; color:#777;">You haven't added any friends yet.</p>`;
+        document.getElementById('friends-pagination').style.display = 'none';
         return;
     }
 
+    const allUids = Object.keys(socialData.following);
+    const totalPages = Math.ceil(allUids.length / pageSize);
+
+    if (window._frPage > totalPages) window._frPage = 1;
+
+    // Pagination Controls
+    document.getElementById('friends-pagination').style.display = 'flex';
+    document.getElementById('fr-page-num').innerText = `${window._frPage} / ${totalPages}`;
+    document.getElementById('fr-prev-btn').disabled = window._frPage === 1;
+    document.getElementById('fr-next-btn').disabled = window._frPage === totalPages;
+
+    document.getElementById('fr-prev-btn').onclick = () => {
+        if (window._frPage > 1) { window._frPage--; renderSocialLists(socialData); }
+    };
+    document.getElementById('fr-next-btn').onclick = () => {
+        if (window._frPage < totalPages) { window._frPage++; renderSocialLists(socialData); }
+    };
+
+    // Render Page
+    const start = (window._frPage - 1) * pageSize;
+    const pageUids = allUids.slice(start, start + pageSize);
+
     list.innerHTML = "";
-    Object.keys(socialData.following).forEach(friendUid => {
+    pageUids.forEach(friendUid => {
         // Fetch friend's name from public_users
         get(ref(db, `public_users/${friendUid}`)).then(snap => {
             if (snap.exists()) {
@@ -1661,6 +1684,76 @@ function loadFoodList(path, elId) {
             card.onclick = () => { currentScannedItem = f; showConfirm(); };
             list.appendChild(card);
         });
+    });
+}
+
+// PAGINATION STATE
+window._recPage = 1;
+window._frPage = 1;
+
+window.loadRecentList = function () {
+    const list = document.getElementById('recent-list');
+    const input = document.getElementById('recent-search-input');
+    const q = input ? input.value.toLowerCase() : "";
+    const pageSize = 6;
+
+    list.innerHTML = "<p style='text-align:center; color:#777;'>Loading...</p>";
+
+    get(ref(db, `users/${auth.currentUser.uid}/recent_items`)).then(s => {
+        list.innerHTML = "";
+        if (!s.exists()) { list.innerHTML = "<p style='text-align:center;color:#777;'>No recent items.</p>"; return; }
+
+        const raw = s.val();
+        // Filter & Convert to Array
+        let items = Object.values(raw).filter(f => !q || f.name.toLowerCase().includes(q));
+
+        // Sort by timestamp (Newest first) if available, else name?
+        // Assuming timestamp exists as added in previous steps
+        items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        if (items.length === 0) {
+            list.innerHTML = "<p style='text-align:center;color:#777;'>No matches found.</p>";
+            document.getElementById('recent-pagination').style.display = 'none';
+            return;
+        }
+
+        // Pagination Logic
+        document.getElementById('recent-pagination').style.display = 'flex';
+        const totalPages = Math.ceil(items.length / pageSize);
+        if (window._recPage > totalPages) window._recPage = 1;
+
+        const start = (window._recPage - 1) * pageSize;
+        const pageItems = items.slice(start, start + pageSize);
+
+        pageItems.forEach(f => {
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.cssText = "padding:10px; cursor:pointer; margin-bottom:5px;";
+            card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
+            card.onclick = () => { currentScannedItem = f; showConfirm(); };
+            list.appendChild(card);
+        });
+
+        // Controls
+        document.getElementById('rec-page-num').innerText = `${window._recPage} / ${totalPages}`;
+        document.getElementById('rec-prev-btn').disabled = window._recPage === 1;
+        document.getElementById('rec-next-btn').disabled = window._recPage === totalPages;
+
+        document.getElementById('rec-prev-btn').onclick = () => {
+            if (window._recPage > 1) { window._recPage--; window.loadRecentList(); }
+        };
+        document.getElementById('rec-next-btn').onclick = () => {
+            if (window._recPage < totalPages) { window._recPage++; window.loadRecentList(); }
+        };
+    });
+};
+
+// Recent Search Listener
+const recentInput = document.getElementById('recent-search-input');
+if (recentInput) {
+    recentInput.addEventListener('input', () => {
+        window._recPage = 1; // Reset page on search
+        window.loadRecentList();
     });
 }
 

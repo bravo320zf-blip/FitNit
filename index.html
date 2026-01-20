@@ -354,6 +354,14 @@
                 <input type="text" id="recent-search-input" placeholder="Search recent items..."
                     style="margin-bottom:10px;">
                 <div id="recent-list" class="list-container"></div>
+                <div id="recent-pagination"
+                    style="display:flex; justify-content:center; gap:15px; margin-top:10px; align-items:center;">
+                    <button id="rec-prev-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&lt;</button>
+                    <span id="rec-page-num" style="font-size:14px; color:#777;">1</span>
+                    <button id="rec-next-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&gt;</button>
+                </div>
             </div>
             <div id="mode-favs" style="display:none;">
                 <input type="text" id="fav-search-input" placeholder="Search favorites..." style="margin-bottom:10px;">
@@ -408,6 +416,14 @@
             </div>
             <div id="friends-list-container" class="list-container">
                 <p style="text-align:center; color:#777;">You are following 0 people.</p>
+            </div>
+            <div id="friends-pagination"
+                style="display:flex; justify-content:center; gap:15px; margin-top:5px; margin-bottom:10px; align-items:center;">
+                <button id="fr-prev-btn" class="icon-btn"
+                    style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&lt;</button>
+                <span id="fr-page-num" style="font-size:14px; color:#777;">1</span>
+                <button id="fr-next-btn" class="icon-btn"
+                    style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&gt;</button>
             </div>
             <hr>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
