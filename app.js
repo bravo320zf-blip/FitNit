@@ -76,7 +76,7 @@ window.toggleAddMode = (m) => {
         document.getElementById(id).style.display = (id === 'mode-' + m) ? 'block' : 'none';
     });
     document.getElementById('scanned-result').style.display = 'none';
-    if (m === 'recent') loadFoodList('recent_items', 'recent-list');
+    if (m === 'recent') window.loadRecentList();
     if (m === 'favs') window.loadFavoritesList();
     if (m !== 'scan' && html5QrCode) {
         try { html5QrCode.stop().catch(() => { }); } catch (e) { }
