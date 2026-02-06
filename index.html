@@ -17,9 +17,16 @@
     <meta name="mobile-web-app-capable" content="yes">
 </head>
 
-<body>
+<body style="padding-top:50px;">
+    <!-- AD BANNER -->
+    <div id="ad-banner"
+        style="display:block; position:fixed; top:0; left:0; width:100%; height:50px; background:#333; color:white; z-index:2000; text-align:center; line-height:50px; font-size:14px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+        <span>FitNit Free Version - <a href="#"
+                onclick="document.getElementById('store-modal').style.display='flex'; return false;"
+                style="color:#3498db;">Remove Ads</a></span>
+    </div>
 
-    <header>
+    <header style="top:50px;">
         <h1 id="view-title">FitNit</h1>
         <div id="header-icons" style="display:none; gap:15px; align-items:center;">
             <button id="notif-btn" class="icon-btn" style="color:white;"><i class="material-icons"
@@ -57,10 +64,7 @@
 
         <!-- DASHBOARD (HOME) -->
         <section id="dashboard-screen" class="view" style="display:none;">
-            <!-- ACTIVE GOALS WIDGET -->
-            <div id="goals-widget-container" class="card" style="display:none; overflow-x:auto;">
-                <div id="goals-widget-content" style="display:flex; gap:10px;"></div>
-            </div>
+            <!-- ACTIVE GOALS WIDGET REMOVED -->
 
 
 
@@ -202,6 +206,27 @@
                 <button id="btn-save-cardio">Log Cardio</button>
             </div>
 
+            <!-- Workout Date Search -->
+            <div class="card" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="position:relative; flex-grow:1;">
+                        <input type="text" id="workout-date-search-input" placeholder="Search Date (YYYY-MM-DD)..."
+                            style="width:100%; padding:10px; padding-right:35px; box-sizing:border-box;">
+                        <i class="material-icons"
+                            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#777;">search</i>
+                    </div>
+                    <!-- Calendar Trigger -->
+                    <div style="position:relative;">
+                        <input type="date" id="workout-date-picker-native"
+                            style="position:absolute; opacity:0; width:100%; height:100%; cursor:pointer;">
+                        <button class="icon-btn"
+                            style="background:var(--card-bg); border:1px solid #ddd; padding:8px; border-radius:4px;">
+                            <i class="material-icons" style="color:var(--text-color);">calendar_today</i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div id="workout-history-container"></div>
         </section>
 
@@ -230,8 +255,11 @@
                 <!-- COMPLETED GOALS SECTION -->
                 <div id="completed-goals-section"
                     style="margin-top:20px; border-top:1px solid #eee; padding-top:10px; display:none;">
-                    <h4 style="margin:0 0 10px 0; color:#27ae60; font-size:14px;">Completed</h4>
-                    <div id="completed-goals-list" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+                    <button id="view-completed-goals-btn"
+                        style="width:100%; border:1px solid #27ae60; background:transparent; color:#27ae60; border-radius:8px; padding:10px;"
+                        onclick="document.getElementById('completed-goals-modal').style.display='flex'">
+                        View Completed Goals
+                    </button>
                 </div>
             </div>
 
@@ -329,10 +357,29 @@
                 </div>
             </div>
             <div id="mode-recent" style="display:none;">
+                <input type="text" id="recent-search-input" placeholder="Search recent items..."
+                    style="margin-bottom:10px;">
                 <div id="recent-list" class="list-container"></div>
+                <div id="recent-pagination"
+                    style="display:flex; justify-content:center; gap:15px; margin-top:10px; align-items:center;">
+                    <button id="rec-prev-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&lt;</button>
+                    <span id="rec-page-num" style="font-size:14px; color:#777;">1</span>
+                    <button id="rec-next-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&gt;</button>
+                </div>
             </div>
             <div id="mode-favs" style="display:none;">
+                <input type="text" id="fav-search-input" placeholder="Search favorites..." style="margin-bottom:10px;">
                 <div id="favs-list" class="list-container"></div>
+                <div id="favs-pagination"
+                    style="display:flex; justify-content:center; gap:15px; margin-top:10px; align-items:center;">
+                    <button id="fav-prev-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&lt;</button>
+                    <span id="fav-page-num" style="font-size:14px; color:#777;">1</span>
+                    <button id="fav-next-btn" class="icon-btn"
+                        style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&gt;</button>
+                </div>
             </div>
             <div id="mode-custom" style="display:none;">
                 <div class="card">
@@ -343,6 +390,12 @@
                         <input type="number" id="c-carb" placeholder="Carbs (g)">
                         <input type="number" id="c-fat" placeholder="Fat (g)">
                         <input type="number" id="c-sugar" placeholder="Sugar (g)">
+                        <input type="number" id="c-fiber" placeholder="Fiber (g)">
+                        <input type="number" id="c-sodium" placeholder="Sodium (mg)">
+                        <input type="number" id="c-vitc" placeholder="Vit C (mg)">
+                        <input type="number" id="c-calcium" placeholder="Calcium (mg)">
+                        <input type="number" id="c-iron" placeholder="Iron (mg)">
+                        <input type="number" id="c-potassium" placeholder="Potassium (mg)">
                         <input type="hidden" id="c-barcode">
                     </div>
                     <button id="btn-submit-custom">Save Custom</button>
@@ -377,6 +430,14 @@
             </div>
             <div id="friends-list-container" class="list-container">
                 <p style="text-align:center; color:#777;">You are following 0 people.</p>
+            </div>
+            <div id="friends-pagination"
+                style="display:flex; justify-content:center; gap:15px; margin-top:5px; margin-bottom:10px; align-items:center;">
+                <button id="fr-prev-btn" class="icon-btn"
+                    style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&lt;</button>
+                <span id="fr-page-num" style="font-size:14px; color:#777;">1</span>
+                <button id="fr-next-btn" class="icon-btn"
+                    style="border:1px solid #ddd; padding:5px 10px; border-radius:4px;">&gt;</button>
             </div>
             <hr>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -444,6 +505,13 @@
                     Settings</button>
             </div>
             <div class="settings-row" style="margin-bottom:10px;">
+                <button
+                    onclick="document.getElementById('store-modal').style.display='flex'; document.getElementById('settings-modal').style.display='none'"
+                    style="width:100%; background:gold; color:black; font-weight:bold;">
+                    <i class="material-icons" style="vertical-align:middle; font-size:18px;">store</i> FitNit Store
+                </button>
+            </div>
+            <div class="settings-row" style="margin-bottom:10px;">
                 <button id="open-report-btn" style="width:100%; background:var(--accent-color);">Generate PDF
                     Report</button>
             </div>
@@ -498,20 +566,29 @@
         <div class="modal-content card"
             style="width:90%; max-width:500px; max-height:85vh; overflow-y:auto; display:flex; flex-direction:column;">
             <div class="modal-header">
-                <h3>Select a Goal</h3>
-                <button onclick="document.getElementById('add-goal-modal').style.display='none'" class="icon-btn"><i
-                        class="material-icons">close</i></button>
+                <h3>Add New Goal</h3><button onclick="document.getElementById('add-goal-modal').style.display='none'"
+                    class="icon-btn"><i class="material-icons">close</i></button>
             </div>
-
-            <p style="color:#777; font-size:14px; margin-bottom:15px;">Choose from our preset goals to track your
-                progress automatically.</p>
-
+            <!-- ... content ... -->
             <input type="text" id="goal-search-input" placeholder="Search goals (e.g. 'Lose' or 'Streak')..."
                 style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; margin-bottom:15px; font-size:16px;">
+            <div id="goal-list-container" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <!-- Old preset-goals-list was unused? Let's assume app.js uses goal-list-container now -->
+        </div>
+    </div>
 
-            <div id="goal-list-container"
-                style="display:flex; flex-direction:column; gap:10px; flex-grow:1; overflow-y:auto;">
-                <!-- Goals injected here by JS -->
+    <!-- COMPLETED GOALS MODAL -->
+    <div id="completed-goals-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h3>Completed Goals</h3>
+                <button onclick="document.getElementById('completed-goals-modal').style.display='none'"
+                    class="icon-btn">
+                    <i class="material-icons">close</i>
+                </button>
+            </div>
+            <div id="completed-goals-modal-list" class="list-container" style="max-height:60vh; overflow-y:auto;">
+                <!-- List rendered here -->
             </div>
         </div>
     </div>
@@ -657,13 +734,23 @@
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:25px;">
                 <div style="flex-grow:1;">
                     <label style="font-size:12px; color:#999; display:block; margin-bottom:5px;">Start Date</label>
-                    <input type="date" id="rep-start-date"
-                        style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                    <div style="display:flex; gap:5px;">
+                        <input type="date" id="rep-start-date"
+                            style="flex-grow:1; padding:10px; border:1px solid #ddd; border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                        <button onclick="document.getElementById('rep-start-date').showPicker()" class="icon-btn"
+                            style="background:var(--card-bg); border:1px solid #ddd; border-radius:6px; padding:0 10px;"><i
+                                class="material-icons" style="color:var(--text-color);">calendar_today</i></button>
+                    </div>
                 </div>
                 <div style="flex-grow:1;">
                     <label style="font-size:12px; color:#999; display:block; margin-bottom:5px;">End Date</label>
-                    <input type="date" id="rep-end-date"
-                        style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                    <div style="display:flex; gap:5px;">
+                        <input type="date" id="rep-end-date"
+                            style="flex-grow:1; padding:10px; border:1px solid #ddd; border-radius:6px; background:var(--bg-color); color:var(--text-color);">
+                        <button onclick="document.getElementById('rep-end-date').showPicker()" class="icon-btn"
+                            style="background:var(--card-bg); border:1px solid #ddd; border-radius:6px; padding:0 10px;"><i
+                                class="material-icons" style="color:var(--text-color);">calendar_today</i></button>
+                    </div>
                 </div>
             </div>
 
@@ -841,6 +928,45 @@
             </div>
 
             <button id="perform-register-btn" style="width:100%; background:#27ae60; padding:12px;">Sign Up</button>
+        </div>
+    </div>
+
+    <!-- STORE MODAL -->
+    <div id="store-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content card" style="text-align:center;">
+            <div class="modal-header">
+                <h3>FitNit Premium</h3>
+                <button onclick="document.getElementById('store-modal').style.display='none'" class="icon-btn">
+                    <i class="material-icons">close</i>
+                </button>
+            </div>
+
+            <div style="padding:20px;">
+                <i class="material-icons" style="font-size:48px; color:gold; margin-bottom:10px;">verified</i>
+                <p>Support the developer & unlock features!</p>
+
+                <hr style="opacity:0.2; margin:15px 0;">
+
+                <!-- Remove Ads -->
+                <div style="margin-bottom:20px;">
+                    <h4>Remove Ads</h4>
+                    <p style="font-size:12px; color:#777;">Get a cleaner experience and more screen space.</p>
+                    <button id="btn-buy-no-ads" style="background:#27ae60; width:100%; margin-top:5px;">Purchase
+                        ($5.00)</button>
+                </div>
+
+                <!-- Subscription -->
+                <div style="margin-bottom:10px;">
+                    <h4>FitNit Pro Subscription</h4>
+                    <p style="font-size:12px; color:#777;">Unlock <b>Custom Foods</b>, <b>Premium Stats</b>, and more!
+                    </p>
+                    <button id="btn-buy-sub"
+                        style="background:var(--accent-color); width:100%; margin-top:5px;">Subscribe
+                        ($1.00/mo)</button>
+                </div>
+
+                <div id="store-status-msg" style="margin-top:15px; font-size:12px; color:var(--text-color);"></div>
+            </div>
         </div>
     </div>
 

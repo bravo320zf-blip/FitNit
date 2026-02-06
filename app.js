@@ -47,8 +47,13 @@ const db = getDatabase(app);
 
 let html5QrCode, currentScannedItem, weightChart;
 
-// HELPER: Get Today's Date in Local YYYY-MM-DD (Prevents 0 calorie bug)
-const getToday = () => new Date().toLocaleDateString('en-CA');
+// HELPER: Get Today's Date in Local YYYY-MM-DD
+const getToday = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const local = new Date(now - offset);
+    return local.toISOString().split('T')[0];
+};
 window._selectedDate = getToday(); // Default to today
 
 // --- NAVIGATION ---
@@ -71,8 +76,8 @@ window.toggleAddMode = (m) => {
         document.getElementById(id).style.display = (id === 'mode-' + m) ? 'block' : 'none';
     });
     document.getElementById('scanned-result').style.display = 'none';
-    if (m === 'recent') loadFoodList('recent_items', 'recent-list');
-    if (m === 'favs') loadFoodList('favorites', 'favs-list');
+    if (m === 'recent') window.loadRecentList();
+    if (m === 'favs') window.loadFavoritesList();
     if (m !== 'scan' && html5QrCode) {
         try { html5QrCode.stop().catch(() => { }); } catch (e) { }
     }
@@ -265,6 +270,33 @@ if (picker) {
     };
 }
 
+// --- WORKOUT DATE SEARCH ---
+const wDateInput = document.getElementById('workout-date-search-input');
+const wPicker = document.getElementById('workout-date-picker-native');
+
+if (wDateInput) {
+    wDateInput.onchange = (e) => {
+        const val = e.target.value;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            window._selectedDate = val;
+            renderDashboard(window._lastUserData);
+        } else {
+            // Just filter list if not full date?
+            renderWorkoutHistory(window._lastWorkoutData);
+        }
+    };
+    wDateInput.onkeypress = (e) => { if (e.key === 'Enter') wDateInput.blur(); }
+}
+
+if (wPicker) {
+    wPicker.onchange = (e) => {
+        window._selectedDate = e.target.value;
+        // Sync text input
+        if (wDateInput) wDateInput.value = e.target.value;
+        renderDashboard(window._lastUserData);
+    }
+}
+
 // --- DATA WATCHER (DASHBOARD & WORKOUTS) ---
 function startDataListener(uid) {
     onValue(ref(db, `users/${uid}`), (snap) => {
@@ -348,7 +380,7 @@ function updateDashboardStats(data, dateOverride) {
     // We need to pass granular macros to renderNutritionDashboard. 
     // Optimization: Recalculate granulars here or just let renderNutritionDashboard handle it?
     // Actually renderNutritionDashboard takes args. So we need to calc them.
-    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0;
+    let sugar = 0, satFat = 0, fiber = 0, sodium = 0, vitC = 0, calcium = 0, iron = 0, potassium = 0;
     if (data.diary && data.diary[today]) {
         Object.values(data.diary[today]).forEach(cat => {
             Object.values(cat).forEach(i => {
@@ -359,10 +391,11 @@ function updateDashboardStats(data, dateOverride) {
                 vitC += Number(i.vitC || 0);
                 calcium += Number(i.calcium || 0);
                 iron += Number(i.iron || 0);
+                potassium += Number(i.potassium || 0);
             });
         });
     }
-    renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals);
+    renderNutritionDashboard(protein, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, potassium, goals);
 }
 
 function renderDashboard(data) {
@@ -377,6 +410,9 @@ function renderDashboard(data) {
 
     // DO NOT force search input to value (fixes "Disappearing History" bug)
     // if (document.getElementById('date-search-input')) ...
+
+    // Sync Workout Input (Removed to allow full history visibility by default)
+    // Only filter if user explicitly enters a date in the exercises tab.
 
     // We only re-render history if we are NOT just updating stats? 
     // Actually, renderDashboard is called on DB update. So we must re-render history to show new items.
@@ -676,9 +712,26 @@ function renderWorkoutHistory(workouts) {
     }
 
     const dates = Object.keys(workouts).sort().reverse();
+
+    // FILTER LOGIC
+    let filteredDates = dates;
+    const wSearchVal = document.getElementById('workout-date-search-input') ? document.getElementById('workout-date-search-input').value.trim() : "";
+
+    // If text search is active
+    if (wSearchVal) {
+        filteredDates = dates.filter(d => d.includes(wSearchVal));
+        window._workoutPage = 0; // Reset page
+    }
+
     const page = window._workoutPage;
     const pageSize = 5;
-    const slice = dates.slice(page * pageSize, (page + 1) * pageSize);
+    const slice = filteredDates.slice(page * pageSize, (page + 1) * pageSize);
+
+    // If empty after filter
+    if (filteredDates.length === 0) {
+        container.innerHTML = "<small style='display:block; text-align:center; padding:10px;'>No matches found.</small>";
+        return;
+    }
 
     slice.forEach(date => {
         let dayCount = Object.keys(workouts[date]).length;
@@ -778,7 +831,7 @@ function renderWorkoutHistory(workouts) {
 
     const next = document.createElement('button');
     next.innerText = "Older >";
-    next.style.visibility = ((page + 1) * pageSize < dates.length) ? 'visible' : 'hidden';
+    next.style.visibility = ((page + 1) * pageSize < filteredDates.length) ? 'visible' : 'hidden'; // Use filteredDates length
     next.onclick = () => { window._workoutPage++; renderWorkoutHistory(window._lastWorkoutData); };
 
     controls.appendChild(prev);
@@ -1439,18 +1492,41 @@ window.renderDietHistory = window.renderFullDietHistory = function (diary) {
 };
 
 // 3. Render Friend Lists (Called in startDataListener mainly, or updated here)
+// 3. Render Friend Lists (Paginated)
 function renderSocialLists(socialData) {
     const list = document.getElementById('followers-list-container');
+    const pageSize = 6;
 
-    // Check 'following' instead of 'followers' since 'Friends' usually means people I follow/mutuals
-    // The user asked for "Friends list", so we show who THEY follow.
     if (!socialData || !socialData.following) {
         list.innerHTML = `<p style="text-align:center; color:#777;">You haven't added any friends yet.</p>`;
+        document.getElementById('friends-pagination').style.display = 'none';
         return;
     }
 
+    const allUids = Object.keys(socialData.following);
+    const totalPages = Math.ceil(allUids.length / pageSize);
+
+    if (window._frPage > totalPages) window._frPage = 1;
+
+    // Pagination Controls
+    document.getElementById('friends-pagination').style.display = 'flex';
+    document.getElementById('fr-page-num').innerText = `${window._frPage} / ${totalPages}`;
+    document.getElementById('fr-prev-btn').disabled = window._frPage === 1;
+    document.getElementById('fr-next-btn').disabled = window._frPage === totalPages;
+
+    document.getElementById('fr-prev-btn').onclick = () => {
+        if (window._frPage > 1) { window._frPage--; renderSocialLists(socialData); }
+    };
+    document.getElementById('fr-next-btn').onclick = () => {
+        if (window._frPage < totalPages) { window._frPage++; renderSocialLists(socialData); }
+    };
+
+    // Render Page
+    const start = (window._frPage - 1) * pageSize;
+    const pageUids = allUids.slice(start, start + pageSize);
+
     list.innerHTML = "";
-    Object.keys(socialData.following).forEach(friendUid => {
+    pageUids.forEach(friendUid => {
         // Fetch friend's name from public_users
         get(ref(db, `public_users/${friendUid}`)).then(snap => {
             if (snap.exists()) {
@@ -1611,6 +1687,168 @@ function loadFoodList(path, elId) {
     });
 }
 
+// PAGINATION STATE
+window._recPage = 1;
+window._frPage = 1;
+window._favPage = 1;
+
+window.loadRecentList = function () {
+    const list = document.getElementById('recent-list');
+    const input = document.getElementById('recent-search-input');
+    const q = input ? input.value.toLowerCase() : "";
+    const pageSize = 6;
+
+    list.innerHTML = "<p style='text-align:center; color:#777;'>Loading...</p>";
+
+    get(ref(db, `users/${auth.currentUser.uid}/recent_items`)).then(s => {
+        list.innerHTML = "";
+        if (!s.exists()) { list.innerHTML = "<p style='text-align:center;color:#777;'>No recent items.</p>"; return; }
+
+        const raw = s.val();
+        // Filter & Convert to Array
+        let items = Object.values(raw).filter(f => !q || f.name.toLowerCase().includes(q));
+
+        // Sort by timestamp (Newest first) if available, else name?
+        // Assuming timestamp exists as added in previous steps
+        items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        if (items.length === 0) {
+            list.innerHTML = "<p style='text-align:center;color:#777;'>No matches found.</p>";
+            document.getElementById('recent-pagination').style.display = 'none';
+            return;
+        }
+
+        // Pagination Logic
+        document.getElementById('recent-pagination').style.display = 'flex';
+        const totalPages = Math.ceil(items.length / pageSize);
+        if (window._recPage > totalPages) window._recPage = 1;
+
+        const start = (window._recPage - 1) * pageSize;
+        const pageItems = items.slice(start, start + pageSize);
+
+        pageItems.forEach(f => {
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.cssText = "padding:10px; cursor:pointer; margin-bottom:5px;";
+            card.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
+            card.onclick = () => { currentScannedItem = f; showConfirm(); };
+            list.appendChild(card);
+        });
+
+        // Controls
+        document.getElementById('rec-page-num').innerText = `${window._recPage} / ${totalPages}`;
+        document.getElementById('rec-prev-btn').disabled = window._recPage === 1;
+        document.getElementById('rec-next-btn').disabled = window._recPage === totalPages;
+
+        document.getElementById('rec-prev-btn').onclick = () => {
+            if (window._recPage > 1) { window._recPage--; window.loadRecentList(); }
+        };
+        document.getElementById('rec-next-btn').onclick = () => {
+            if (window._recPage < totalPages) { window._recPage++; window.loadRecentList(); }
+        };
+    });
+};
+
+// Recent Search Listener
+const recentInput = document.getElementById('recent-search-input');
+if (recentInput) {
+    recentInput.addEventListener('input', () => {
+        window._recPage = 1; // Reset page on search
+        window.loadRecentList();
+    });
+}
+
+window.loadFavoritesList = function () {
+    const list = document.getElementById('favs-list');
+    const input = document.getElementById('fav-search-input');
+    const q = input ? input.value.toLowerCase() : "";
+    const pageSize = 6;
+
+    list.innerHTML = "<p style='text-align:center; color:#777;'>Loading...</p>";
+
+    get(ref(db, `users/${auth.currentUser.uid}/favorites`)).then(s => {
+        list.innerHTML = "";
+        if (!s.exists()) { list.innerHTML = "<p style='text-align:center;color:#777;'>No favorites yet.</p>"; return; }
+
+        const raw = s.val();
+        let items = [];
+
+        // Convert to array for filtering/paging
+        Object.entries(raw).forEach(([key, f]) => {
+            if (q && !f.name.toLowerCase().includes(q)) return;
+            f._key = key;
+            items.push(f);
+        });
+
+        items.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (items.length === 0) {
+            list.innerHTML = "<p style='text-align:center;color:#777;'>No matches found.</p>";
+            document.getElementById('favs-pagination').style.display = 'none';
+            return;
+        }
+
+        // Pagination Logic
+        document.getElementById('favs-pagination').style.display = 'flex';
+        const totalPages = Math.ceil(items.length / pageSize);
+        if (window._favPage > totalPages) window._favPage = 1;
+
+        const start = (window._favPage - 1) * pageSize;
+        const pageItems = items.slice(start, start + pageSize);
+
+        pageItems.forEach(f => {
+            const card = document.createElement('div');
+            card.className = "card";
+            card.style.cssText = "padding:10px; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;";
+
+            const info = document.createElement('div');
+            info.style.flexGrow = '1';
+            info.style.cursor = 'pointer';
+            info.innerHTML = `<strong>${f.name}</strong><br><small>${f.calories} kcal</small>`;
+            info.onclick = () => { currentScannedItem = f; showConfirm(); };
+
+            const delBtn = document.createElement('button');
+            delBtn.className = "icon-btn";
+            delBtn.style.color = "#e74c3c";
+            delBtn.style.padding = "10px";
+            delBtn.innerHTML = '<i class="material-icons">delete</i>';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm(`Remove ${f.name} from favorites?`)) {
+                    set(ref(db, `users/${auth.currentUser.uid}/favorites/${f._key}`), null)
+                        .then(() => {
+                            window.loadFavoritesList();
+                        });
+                }
+            };
+
+            card.appendChild(info);
+            card.appendChild(delBtn);
+            list.appendChild(card);
+        });
+
+        document.getElementById('fav-page-num').innerText = `${window._favPage} / ${totalPages}`;
+        document.getElementById('fav-prev-btn').disabled = window._favPage === 1;
+        document.getElementById('fav-next-btn').disabled = window._favPage === totalPages;
+
+        document.getElementById('fav-prev-btn').onclick = () => {
+            if (window._favPage > 1) { window._favPage--; window.loadFavoritesList(); }
+        };
+        document.getElementById('fav-next-btn').onclick = () => {
+            if (window._favPage < totalPages) { window._favPage++; window.loadFavoritesList(); }
+        };
+    });
+};
+
+// Search Listener
+const favInput = document.getElementById('fav-search-input');
+if (favInput) {
+    favInput.addEventListener('input', () => {
+        window._favPage = 1;
+        window.loadFavoritesList();
+    });
+}
+
 function showConfirm() {
     document.getElementById('scanned-result').style.display = 'block';
     document.getElementById('food-name').innerText = currentScannedItem.name;
@@ -1622,7 +1860,13 @@ document.getElementById('add-food-btn').onclick = () => {
     const item = { ...currentScannedItem, scanTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now() };
     const clean = item.name.replace(/[.#$[\]]/g, "");
     push(ref(db, `users/${auth.currentUser.uid}/diary/${today}/${document.getElementById('meal-type').value}`), item);
-    update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item);
+    update(ref(db, `users/${auth.currentUser.uid}/recent_items/${clean}`), item); // Save to recent
+
+    // Manual Goal Check (Food/Streak)
+    if (window._lastUserData) {
+        checkGoalsProgress(window._lastUserData);
+    }
+
     alert("Added!");
     window.showView('dashboard-screen');
 };
@@ -1634,6 +1878,15 @@ document.getElementById('save-weight-btn').onclick = () => {
     const today = getToday();
     update(ref(db, `users/${auth.currentUser.uid}`), { latest_weight: w });
     set(ref(db, `users/${auth.currentUser.uid}/weight_history/${today}`), w);
+
+    // Manual Goal Check (Weight) - Force update with new weight
+    if (window._lastUserData) {
+        // Create temporary updated data to check immediately
+        const updated = { ...window._lastUserData, latest_weight: w };
+        // We also need to update history in the temp object if we want it perfect, but latest_weight is key
+        checkGoalsProgress(updated);
+    }
+
     alert("Logged!");
 };
 
@@ -1711,15 +1964,21 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
     // 2. Report Container (Placed UNDER overlay but IN viewport to ensure rendering)
     const container = document.createElement('div');
     container.id = 'report-container';
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0'; // On screen!
-    container.style.width = '850px';
-    container.style.background = 'white'; // White background
+    // V3 Fix: Print Mode - Static Positioning, Full Screen
+    container.style.position = 'relative';
+    container.style.width = '750px'; // FIX: V5 - 750px for safer margins
+    container.style.maxWidth = 'none';
+    container.style.margin = '0 auto'; // Center it
+    container.style.background = 'white';
     container.style.color = 'black';
     container.style.fontFamily = "'Helvetica', sans-serif";
-    container.style.zIndex = '40000'; // Under overlay, over app
     container.style.padding = '40px';
+
+    // Hide UI for Print Mode
+    document.getElementById('app').style.display = 'none';
+    document.querySelector('header').style.display = 'none';
+
+    document.body.appendChild(container);
     // container.style.visibility = 'hidden'; // DO NOT USE HIDDEN. Browser optimizes it away.
     // Instead relies on Overlay covering it.
     document.body.appendChild(container);
@@ -1999,8 +2258,13 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         html2canvas: {
             scale: 2,
             useCORS: true,
+            useCORS: true,
             logging: false,
-            windowWidth: 1600 // Tell renderer window is wide enough for 200vw
+            scrollY: 0,
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            windowWidth: 750 // FIX: Match container width (V5)
         },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
@@ -2015,14 +2279,22 @@ document.getElementById('generate-pdf-btn').onclick = async () => {
         window.html2pdf().set(opt).from(container).save().then(() => {
             btn.innerHTML = originalText; btn.disabled = false;
             document.getElementById('report-modal').style.display = 'none';
-            overlay.remove(); // Remove overlay
-            container.remove(); // Cleanup
+            overlay.remove();
+            container.remove();
+
+            // Restore UI
+            document.getElementById('app').style.display = '';
+            document.querySelector('header').style.display = '';
         }).catch(err => {
             console.error(err);
             alert("PDF Generation Error: " + err);
             btn.innerHTML = originalText; btn.disabled = false;
             overlay.remove();
-            container.remove(); // Cleanup
+            container.remove();
+
+            // Restore UI
+            document.getElementById('app').style.display = '';
+            document.querySelector('header').style.display = '';
         });
     } else {
         alert("PDF library not ready.");
@@ -2461,7 +2733,7 @@ document.getElementById('friends-btn').onclick = () => document.getElementById('
 
 
 // --- NUTRITION DASHBOARD RENDERER ---
-function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, goals) {
+function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium, vitC, calcium, iron, potassium, goals) {
     const container = document.getElementById('nutrition-dashboard-container');
     if (!container) return;
 
@@ -2476,6 +2748,7 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
     const gVitC = goals.vitC || 90;
     const gCalcium = goals.calcium || 1000;
     const gIron = goals.iron || 18;
+    const gPotassium = goals.potassium || 4700;
 
     container.innerHTML = `
         <h3 style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">Nutrition Breakdown Today</h3>
@@ -2549,9 +2822,13 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
                 <span style="display:block; font-weight:bold; color:#2980b9;">Calcium</span>
                 <span>${Math.round(calcium)}mg</span>
             </div>
-             <div style="text-align:center;">
+            <div style="text-align:center;">
                 <span style="display:block; font-weight:bold; color:#c0392b;">Iron</span>
                 <span>${Math.round(iron)}mg</span>
+            </div>
+             <div style="text-align:center;">
+                <span style="display:block; font-weight:bold; color:#27ae60;">Potassium</span>
+                <span>${Math.round(potassium)}mg</span>
             </div>
         </div>
     `;
@@ -2717,7 +2994,17 @@ const initSmartScanner = () => {
         document.getElementById('c-prot').value = gwData.protein;
         document.getElementById('c-carb').value = gwData.carbs;
         document.getElementById('c-fat').value = gwData.fat;
+        document.getElementById('c-fat').value = gwData.fat;
         document.getElementById('c-sugar').value = gwData.sugar;
+
+        // Extended Nutrients (Wizard doesn't capture these yet, but placeholders if we updated wizard later)
+        if (gwData.fiber) document.getElementById('c-fiber').value = gwData.fiber;
+        if (gwData.sodium) document.getElementById('c-sodium').value = gwData.sodium;
+        if (gwData.vitC) document.getElementById('c-vitc').value = gwData.vitC;
+        if (gwData.calcium) document.getElementById('c-calcium').value = gwData.calcium;
+        if (gwData.iron) document.getElementById('c-iron').value = gwData.iron;
+        if (gwData.potassium) document.getElementById('c-potassium').value = gwData.potassium;
+
         document.getElementById('c-barcode').value = gwData.barcode;
 
         closeGuidedWizard();
@@ -2909,6 +3196,15 @@ function setupCustomSubmit() {
             const carbs = parseMacro('c-carb');
             const fat = parseMacro('c-fat');
             const sugar = parseMacro('c-sugar');
+
+            // Extended
+            const fiber = parseMacro('c-fiber');
+            const sodium = parseMacro('c-sodium');
+            const vitC = parseMacro('c-vitc');
+            const calcium = parseMacro('c-calcium');
+            const iron = parseMacro('c-iron');
+            const potassium = parseMacro('c-potassium');
+
             const barcode = document.getElementById('c-barcode').value || null;
 
             if (!name || !rawCals || isNaN(cals)) {
@@ -2922,7 +3218,9 @@ function setupCustomSubmit() {
             const dupItem = await checkDuplicate(name);
 
             const currentItem = {
-                name, calories: cals, protein: prot, carbs, fat, sugar, timestamp: Date.now(),
+                name, calories: cals, protein: prot, carbs, fat, sugar,
+                fiber, sodium, vitC, calcium, iron, potassium,
+                timestamp: Date.now(),
                 createdBy: auth.currentUser.uid
             };
             // Attach barcode to item if present
@@ -3095,6 +3393,9 @@ async function saveCustomFood(item, saveToPublic) {
             }
         }
 
+        // Manual Goal Check
+        if (window._lastUserData) checkGoalsProgress(window._lastUserData);
+
         alert(`Item Added! ${saveToPublic ? '(And shared)' : ''}`);
         if (document.getElementById('mode-custom')) document.getElementById('mode-custom').style.display = 'none';
 
@@ -3247,12 +3548,16 @@ function checkGoalsProgress(userData) {
 
         // A. Weight Loss Logic
         if (goal.type === 'weight_loss') {
-            // Logic: Target is amount to lose (e.g. 5)
-            let latestWeight = goal.startValue;
-            if (userData.weight_history) {
-                const dates = Object.keys(userData.weight_history).sort(); // Sort chronological
+            // FIX: Use latest_weight directly instead of sorting history which can be flaky
+            let latestWeight = userData.latest_weight !== undefined ? parseFloat(userData.latest_weight) : goal.startValue;
+
+            // Fallback to history only if latest_weight is missing
+            if ((!latestWeight || isNaN(latestWeight)) && userData.weight_history) {
+                const dates = Object.keys(userData.weight_history).sort();
                 if (dates.length > 0) latestWeight = parseFloat(userData.weight_history[dates[dates.length - 1]]);
             }
+
+            console.log(`[Goal Debug] Goal: ${goal.title} | Start: ${goal.startValue} | Current: ${latestWeight} | Target: ${goal.target}`);
 
             // Progress = (Start - Current) / Target
             const lost = parseFloat((goal.startValue - latestWeight).toFixed(1));
@@ -3497,13 +3802,8 @@ function renderGoalsWidget(goalsData, containerOrId) {
         let infoText = `${pct}%`;
         if (g.type === 'weight_loss') {
             const lost = (g.target * (pct / 100)).toFixed(1);
-            // Handling tiny rounding errors, maybe calculate explicitly if we saved it, 
-            // but relying on pct approximation is fine for prototype UI or:
-            // Better: re-calculate "lost" based on startValue - current?
-            // Actually, for UI simplicity, we can reverse calc from \% or we should store 'currentValue' in DB.
-            // Let's just use % to approx. 
-            // Wait, User asked for "3 out of 10 lb lost".
-            infoText = `${lost} / ${g.target} lbs lost`;
+            // Show Start Weight as requested
+            infoText = `${lost} / ${g.target} lbs lost<br><span style="font-size:9px">(Start: ${g.startValue || '?'} lbs)</span>`;
         } else if (g.type === 'streak') {
             const days = Math.round(g.target * (pct / 100));
             infoText = `${days} / ${g.target} day streak`;
@@ -3529,10 +3829,13 @@ function renderGoalsWidget(goalsData, containerOrId) {
 }
 
 // Render Completed Goals (Profile Only)
+// Render Completed Goals (Profile Only)
 function renderCompletedGoals(goalsData) {
     const container = document.getElementById('completed-goals-section');
-    const list = document.getElementById('completed-goals-list');
-    if (!container || !list) return;
+    const btn = document.getElementById('view-completed-goals-btn');
+    const list = document.getElementById('completed-goals-modal-list');
+
+    if (!container || !list || !btn) return;
 
     if (!goalsData) {
         container.style.display = 'none';
@@ -3546,14 +3849,29 @@ function renderCompletedGoals(goalsData) {
         return;
     }
 
+    // Show button section
     container.style.display = 'block';
-    list.innerHTML = "";
+    btn.innerText = `View Completed Goals (${completed.length})`;
 
+    // Render into Modal List
+    list.innerHTML = "";
     completed.forEach(g => {
-        const chip = document.createElement('div');
-        chip.style.cssText = "display:flex; align-items:center; gap:5px; padding:5px 10px; background:rgba(39, 174, 96, 0.1); border:1px solid rgba(39, 174, 96, 0.2); border-radius:20px; font-size:12px; color:#27ae60;";
-        chip.innerHTML = `<i class="material-icons" style="font-size:16px;">check_circle</i> ${g.title}`;
-        list.appendChild(chip);
+        const item = document.createElement('div');
+        item.className = 'card';
+        // Add completion date if available
+        const dateStr = g.completedAt ? new Date(g.completedAt).toLocaleDateString() : 'Unknown Date';
+
+        item.innerHTML = `
+            <div style="display:flex; gap:15px; align-items:center;">
+                 <i class="material-icons" style="font-size:32px; color:#27ae60;">${g.icon || 'emoji_events'}</i>
+                 <div>
+                    <div style="font-weight:bold; font-size:16px;">${g.title}</div>
+                    <div style="font-size:12px; color:#777;">Completed on ${dateStr}</div>
+                    <div style="font-size:12px; color:#27ae60;">${g.target} / ${g.target} achieved!</div>
+                 </div>
+            </div>
+        `;
+        list.appendChild(item);
     });
 }
 
