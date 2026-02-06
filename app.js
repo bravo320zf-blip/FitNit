@@ -646,7 +646,19 @@ function renderDietHistory(diary) {
                     window.promptDeleteItem({ category: 'food', date: date, subType: type, key: key, name: i.name });
                 };
 
+                const dupBtn = document.createElement('button');
+                dupBtn.className = "icon-btn duplicate-btn";
+                dupBtn.innerHTML = `<i class="material-icons">content_copy</i>`;
+                dupBtn.style.color = "#3498db";
+                dupBtn.style.marginLeft = "10px";
+                dupBtn.title = "Duplicate";
+                dupBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    window.duplicateItem({ category: 'food', date: date, subType: type, key: key, name: i.name, item: i });
+                };
+
                 itemEl.appendChild(leftDiv);
+                itemEl.appendChild(dupBtn);
                 itemEl.appendChild(delBtn);
                 mealBox.appendChild(itemEl);
             });
@@ -2834,6 +2846,25 @@ function renderNutritionDashboard(prot, carbs, fat, sugar, satFat, fiber, sodium
     `;
 }
 
+window.duplicateItem = (meta) => {
+    // meta: { category, date, subType, key, name, item } 
+    // item contains the full food object
+
+    if (!meta || !meta.item) return;
+
+    const path = `users/${auth.currentUser.uid}/diary/${meta.date}/${meta.subType}`;
+
+    // Create copy without ID (push will generate new ID)
+    const newItem = { ...meta.item };
+
+    push(ref(db, path), newItem)
+        .then(() => {
+            // Optional: Feedback? Toast?
+            // renderDietHistory will update via onValue listeners usually, or manually if triggered.
+        })
+        .catch(e => alert("Error duplicating: " + e.message));
+};
+
 // --- DELETE & DETAILS ACTIONS ---
 // --- DELETE & DETAILS ACTIONS ---
 
@@ -2841,7 +2872,33 @@ window.promptDeleteItem = (meta) => {
     // meta: { category: 'food'|'workout', date, subType, key, name }
     window.pendingDelete = meta;
     document.getElementById('delete-confirm-msg').innerText = `Remove ${meta.name}?`;
-    document.getElementById('delete-confirm-modal').style.display = 'flex';
+
+    const modal = document.getElementById('delete-confirm-modal');
+    const btn = document.getElementById('btn-confirm-delete');
+
+    if (modal && btn) {
+        modal.style.display = 'flex';
+        // FIX: Attach specific listener for this delete action
+        btn.onclick = () => {
+            // Perform Delete
+            const uid = auth.currentUser.uid;
+            let path = "";
+            if (meta.category === 'food') {
+                path = `users/${uid}/diary/${meta.date}/${meta.subType}/${meta.key}`;
+            } else if (meta.category === 'workout') {
+                path = `users/${uid}/workouts/${meta.date}/${meta.key}`;
+            }
+
+            if (path) {
+                set(ref(db, path), null)
+                    .then(() => {
+                        modal.style.display = 'none';
+                        btn.onclick = null; // cleanup
+                    })
+                    .catch(e => alert("Delete failed: " + e.message));
+            }
+        };
+    }
 }
 
 window.confirmDelete = () => {
