@@ -3611,3 +3611,16 @@ if (fb) {
         if (fm) fm.style.display = 'flex';
     });
 }
+
+// PASSWORD REVEAL TOGGLE
+window.togglePassword = (inputId, btn) => {
+    const input = document.getElementById(inputId);
+    const icon = btn.querySelector('i');
+    if (input.type === "password") {
+        input.type = "text";
+        icon.innerText = "visibility";
+    } else {
+        input.type = "password";
+        icon.innerText = "visibility_off";
+    }
+};

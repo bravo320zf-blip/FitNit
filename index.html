@@ -35,7 +35,13 @@
             <div class="card">
                 <h2>Welcome</h2>
                 <input type="email" id="email" placeholder="Email">
-                <input type="password" id="password" placeholder="Password">
+                <div class="password-container">
+                    <input type="password" id="password" placeholder="Password">
+                    <button type="button" class="password-toggle" onclick="togglePassword('password', this)"
+                        tabindex="-1">
+                        <i class="material-icons">visibility_off</i>
+                    </button>
+                </div>
                 <button id="login-click">Login</button>
                 <div style="display:flex; justify-content:space-between; margin-top:10px;">
                     <button id="open-register-btn"
@@ -819,9 +825,20 @@
             </div>
             <input type="text" id="reg-username" placeholder="Username" style="margin-bottom:10px; width:100%;">
             <input type="email" id="reg-email" placeholder="Email" style="margin-bottom:10px; width:100%;">
-            <input type="password" id="reg-pass" placeholder="Password" style="margin-bottom:10px; width:100%;">
-            <input type="password" id="reg-pass-confirm" placeholder="Confirm Password"
-                style="margin-bottom:15px; width:100%;">
+            <div class="password-container">
+                <input type="password" id="reg-pass" placeholder="Password" style="margin-bottom:10px; width:100%;">
+                <button type="button" class="password-toggle" onclick="togglePassword('reg-pass', this)" tabindex="-1">
+                    <i class="material-icons">visibility_off</i>
+                </button>
+            </div>
+            <div class="password-container">
+                <input type="password" id="reg-pass-confirm" placeholder="Confirm Password"
+                    style="margin-bottom:15px; width:100%;">
+                <button type="button" class="password-toggle" onclick="togglePassword('reg-pass-confirm', this)"
+                    tabindex="-1">
+                    <i class="material-icons">visibility_off</i>
+                </button>
+            </div>
 
             <button id="perform-register-btn" style="width:100%; background:#27ae60; padding:12px;">Sign Up</button>
         </div>

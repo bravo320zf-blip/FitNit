@@ -273,3 +273,32 @@ button {
 .suggestion-item:hover {
     background-color: var(--bg-color);
 }
+
+/* Password Toggle */
+.password-container {
+    position: relative;
+    width: 100%;
+}
+
+.password-container input {
+    width: 100%;
+    padding-right: 40px; /* Make space for the icon */
+    box-sizing: border-box;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #777;
+    padding: 0;
+    margin: 0;
+    width: auto;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+}
