@@ -1,8 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt, limitToLast, orderByChild } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-// Assuming native ES modules are supported or handled by a bundler. 
+import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt, limitToLast, orderByChild } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";// Assuming native ES modules are supported or handled by a bundler. 
 // Since the environment seems to be using standard script tags or simple modules, 
 // I'll append the function directly to app.js instead of a separate file 
 // to avoid module loading issues if not configured. 
