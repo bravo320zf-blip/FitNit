@@ -1611,8 +1611,7 @@ async function checkInviteOnLogin(user) {
 document.getElementById('btn-execute-search').onclick = async () => {
     const rawQ = document.getElementById('search-input').value.trim();
     if (!rawQ) return;
-    
-    // 1. Encode the search term for the API (handles spaces/special chars)
+
     const q = encodeURIComponent(rawQ.toLowerCase());
     const list = document.getElementById('search-results-list');
     list.innerHTML = "Searching Community & World...";
@@ -1620,55 +1619,63 @@ document.getElementById('btn-execute-search').onclick = async () => {
     let communityMatches = [];
     let apiMatches = [];
 
-    // 2. Search FitNit Community (Firebase)
+    // 1. Search FitNit Community (Firebase)
     try {
-        // We fetch the public_foods node
         const snap = await get(ref(db, 'public_foods'));
         if (snap.exists()) {
             const val = snap.val();
-            // We use the raw string for the filter
             communityMatches = Object.values(val)
                 .filter(item => item.name && item.name.toLowerCase().includes(rawQ.toLowerCase()))
                 .map(item => ({ ...item, source: 'FitNit Community', isCommunity: true }));
         }
     } catch (e) { 
-        console.error("Community Fetch Error:", e); 
+        console.warn("Firebase Search Error:", e); 
     }
 
-    // 3. Search OpenFoodFacts (External API)
+    // 2. Search OpenFoodFacts (External API)
     try {
-        // Added page_size=24 and ensured URL is properly encoded
-        const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&search_simple=1&action=process&json=1&page_size=24`);
+        // IMPROVED URL: We added 'fields' to ensure the API sends back the calories and names
+        const searchUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&search_simple=1&action=process&json=1&page_size=24&fields=product_name,nutriments,code,image_front_small_url`;
+        
+        const response = await fetch(searchUrl);
         const data = await response.json();
         
         if (data.products && data.products.length > 0) {
             apiMatches = data.products.map(p => {
-                const n = p.nutriments;
-                // Fallback logic for calories: check serving, then 100g, then default 0
-                const calories = Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal'] || 0);
+                const n = p.nutriments || {};
                 
+                // Search API often returns 'energy-kcal_100g' specifically, not 'serving'
+                // We use a broader fallback logic here
+                const calories = Math.round(
+                    n['energy-kcal_100g'] || 
+                    n['energy-kcal'] || 
+                    n['energy-kcal_serving'] || 
+                    n['energy-kcal_value'] || 0
+                );
+
                 return {
                     name: p.product_name || "Unknown Product",
                     calories: calories,
-                    protein: Math.round(n.proteins_serving || n.proteins_100g || 0),
-                    carbs: Math.round(n.carbohydrates_serving || n.carbohydrates_100g || 0),
-                    fat: Math.round(n.fat_serving || n.fat_100g || 0),
+                    protein: Math.round(n.proteins_100g || n.proteins || 0),
+                    carbs: Math.round(n.carbohydrates_100g || n.carbohydrates || 0),
+                    fat: Math.round(n.fat_100g || n.fat || 0),
+                    sugar: Math.round(n.sugars_100g || 0),
                     source: 'External Database',
                     isCommunity: false,
                     image: p.image_front_small_url || ""
                 };
-            }).filter(item => item.calories > 0); // Filter out items with no data
+            }).filter(item => item.calories > 0); // Only keep items with calorie data
         }
     } catch (e) { 
-        console.error("API Fetch Error:", e); 
+        console.error("External API Search Error:", e); 
     }
 
-    // 4. Merge & Render
+    // 3. Render Results
     list.innerHTML = "";
     const all = [...communityMatches, ...apiMatches];
 
     if (all.length === 0) {
-        list.innerHTML = `<p style="text-align:center; padding:20px;">No results found for "${rawQ}".<br><small>Try checking your spelling or add a custom item.</small></p>`;
+        list.innerHTML = `<p style="text-align:center; padding:20px;">No results found for "${rawQ}".</p>`;
         return;
     }
 
@@ -1677,14 +1684,13 @@ document.getElementById('btn-execute-search').onclick = async () => {
         card.className = "card";
         card.style.cssText = "padding:12px; margin-bottom:10px; cursor:pointer; border-left: 5px solid " + (food.isCommunity ? "#e67e22" : "#3498db");
 
-        const badge = food.isCommunity ? `<span style="background:#e67e22; color:white; padding:2px 6px; border-radius:4px; font-size:10px; float:right;">Community</span>` : '';
+        const badge = food.isCommunity ? `<span style="background:#e67e22; color:white; padding:2px 5px; border-radius:4px; font-size:10px; float:right;">Community</span>` : '';
 
         card.innerHTML = `
             ${badge}
-            <div style="font-weight:bold;">${food.name}</div>
-            <div style="font-size:13px; color:var(--text-color); opacity:0.8;">
-                ${food.calories} kcal <span style="margin:0 5px;">|</span> 
-                P: ${food.protein}g C: ${food.carbs}g F: ${food.fat}g
+            <div style="font-weight:bold; font-size:15px; margin-bottom:4px;">${food.name}</div>
+            <div style="font-size:13px; opacity:0.8;">
+                ${food.calories} kcal | P: ${food.protein}g C: ${food.carbs}g F: ${food.fat}g
             </div>
         `;
 
