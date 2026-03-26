@@ -1612,14 +1612,13 @@ document.getElementById('btn-execute-search').onclick = async () => {
     const rawQ = document.getElementById('search-input').value.trim();
     if (!rawQ) return;
 
-    const q = encodeURIComponent(rawQ.toLowerCase());
     const list = document.getElementById('search-results-list');
     list.innerHTML = "Searching Community & World...";
 
     let communityMatches = [];
     let apiMatches = [];
 
-    // 1. Search FitNit Community (Firebase) - This usually works fine
+    // 1. Search FitNit Community (Firebase - No CORS issues here)
     try {
         const snap = await get(ref(db, 'public_foods'));
         if (snap.exists()) {
@@ -1632,51 +1631,41 @@ document.getElementById('btn-execute-search').onclick = async () => {
         console.warn("Firebase Search Error:", e); 
     }
 
-    // 2. Search OpenFoodFacts (External API v2)
+    // 2. Search OpenFoodFacts (Via CORS Proxy)
     try {
-        // We switch to the /api/v2/search endpoint which supports CORS better than the .pl script
-        // We also add a tag to identify your app as requested by OpenFoodFacts terms
-        const searchUrl = `https://world.openfoodfacts.org/api/v2/search?categories_tags_en=${q}&fields=product_name,nutriments,code,image_front_small_url&page_size=24`;
+        // Construct the target URL
+        const targetUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(rawQ)}&search_simple=1&action=process&json=1&page_size=24&fields=product_name,nutriments,image_front_small_url`;
         
-        // If categories search returns nothing, we try a general "words" search
-        const backupUrl = `https://world.openfoodfacts.org/api/v2/search?words=${q}&fields=product_name,nutriments,code,image_front_small_url&page_size=24`;
+        // Wrap the URL in the AllOrigins proxy to bypass CORS
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
 
-        let response = await fetch(searchUrl);
-        let data = await response.json();
-
-        // If no products found with category search, try the backup word search
-        if (!data.products || data.products.length === 0) {
-            response = await fetch(backupUrl);
-            data = await response.json();
-        }
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Proxy error");
         
+        const proxyData = await response.json();
+        // AllOrigins returns the API's JSON as a string inside the 'contents' property
+        const data = JSON.parse(proxyData.contents);
+
         if (data.products && data.products.length > 0) {
             apiMatches = data.products.map(p => {
                 const n = p.nutriments || {};
-                
-                // Flexible calorie mapping
-                const calories = Math.round(
-                    n['energy-kcal_serving'] || 
-                    n['energy-kcal_100g'] || 
-                    n['energy-kcal'] || 0
-                );
+                const calories = Math.round(n['energy-kcal_100g'] || n['energy-kcal_serving'] || n['energy-kcal'] || 0);
 
                 return {
                     name: p.product_name || "Unknown Product",
                     calories: calories,
-                    protein: Math.round(n.proteins_serving || n.proteins_100g || 0),
-                    carbs: Math.round(n.carbohydrates_serving || n.carbohydrates_100g || 0),
-                    fat: Math.round(n.fat_serving || n.fat_100g || 0),
+                    protein: Math.round(n.proteins_100g || n.proteins_serving || 0),
+                    carbs: Math.round(n.carbohydrates_100g || n.carbohydrates_serving || 0),
+                    fat: Math.round(n.fat_100g || n.fat_serving || 0),
                     source: 'External Database',
                     isCommunity: false,
                     image: p.image_front_small_url || ""
                 };
-            }).filter(item => item.calories > 0); 
+            }).filter(item => item.calories > 0);
         }
     } catch (e) { 
-        console.error("External API Search Error:", e); 
-        // Note: If you still get a CORS error here, the final fallback is to use a proxy, 
-        // but API v2 usually resolves this for OpenFoodFacts.
+        console.error("External API Search Error (CORS Proxy):", e); 
+        // If the proxy fails, we still show the community matches
     }
 
     // 3. Render Results
