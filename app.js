@@ -1618,7 +1618,7 @@ document.getElementById('btn-execute-search').onclick = async () => {
     let communityMatches = [];
     let apiMatches = [];
 
-    // 1. Search FitNit Community (Firebase - No CORS issues here)
+    // 1. Search FitNit Community (Firebase)
     try {
         const snap = await get(ref(db, 'public_foods'));
         if (snap.exists()) {
@@ -1631,19 +1631,28 @@ document.getElementById('btn-execute-search').onclick = async () => {
         console.warn("Firebase Search Error:", e); 
     }
 
-    // 2. Search OpenFoodFacts (Via CORS Proxy)
+    // 2. Search OpenFoodFacts (Via Robust CORS Proxy)
     try {
-        // Construct the target URL
         const targetUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(rawQ)}&search_simple=1&action=process&json=1&page_size=24&fields=product_name,nutriments,image_front_small_url`;
-        
-        // Wrap the URL in the AllOrigins proxy to bypass CORS
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
 
         const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Proxy error");
+        if (!response.ok) throw new Error("Proxy server is down.");
         
         const proxyData = await response.json();
-        // AllOrigins returns the API's JSON as a string inside the 'contents' property
+        
+        // --- NEW SAFETY CHECK ---
+        if (!proxyData.contents) {
+            throw new Error("Proxy returned empty content.");
+        }
+
+        // Check if the content is actually JSON (should start with { or [)
+        const firstChar = proxyData.contents.trim().charAt(0);
+        if (firstChar !== '{' && firstChar !== '[') {
+            console.error("Proxy returned HTML instead of JSON:", proxyData.contents);
+            throw new Error("External database is currently busy. Please try again in a moment.");
+        }
+
         const data = JSON.parse(proxyData.contents);
 
         if (data.products && data.products.length > 0) {
@@ -1664,8 +1673,8 @@ document.getElementById('btn-execute-search').onclick = async () => {
             }).filter(item => item.calories > 0);
         }
     } catch (e) { 
-        console.error("External API Search Error (CORS Proxy):", e); 
-        // If the proxy fails, we still show the community matches
+        console.error("External API Logic Error:", e);
+        // We don't alert() here so the user can still see community results if they exist
     }
 
     // 3. Render Results
@@ -1673,24 +1682,33 @@ document.getElementById('btn-execute-search').onclick = async () => {
     const all = [...communityMatches, ...apiMatches];
 
     if (all.length === 0) {
-        list.innerHTML = `<p style="text-align:center; padding:20px; color:var(--text-color);">No results found for "${rawQ}".</p>`;
+        list.innerHTML = `<p style="text-align:center; padding:20px;">No results found for "${rawQ}".</p>`;
         return;
     }
 
+    // Secure Rendering using TextContent
     all.forEach(food => {
         const card = document.createElement('div');
         card.className = "card";
         card.style.cssText = "padding:12px; margin-bottom:10px; cursor:pointer; border-left: 5px solid " + (food.isCommunity ? "#e67e22" : "#3498db");
 
-        const badge = food.isCommunity ? `<span style="background:#e67e22; color:white; padding:2px 5px; border-radius:4px; font-size:10px; float:right;">Community</span>` : '';
+        const badge = document.createElement('span');
+        if (food.isCommunity) {
+            badge.style.cssText = "background:#e67e22; color:white; padding:2px 5px; border-radius:4px; font-size:10px; float:right;";
+            badge.textContent = "Community";
+            card.appendChild(badge);
+        }
 
-        card.innerHTML = `
-            ${badge}
-            <div style="font-weight:bold; font-size:15px; margin-bottom:4px; color:var(--text-color);">${food.name}</div>
-            <div style="font-size:13px; opacity:0.8; color:var(--text-color);">
-                ${food.calories} kcal | P: ${food.protein}g C: ${food.carbs}g F: ${food.fat}g
-            </div>
-        `;
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = "font-weight:bold; font-size:15px; margin-bottom:4px; color:var(--text-color);";
+        nameEl.textContent = food.name; // Secure from XSS
+
+        const infoEl = document.createElement('div');
+        infoEl.style.cssText = "font-size:13px; opacity:0.8; color:var(--text-color);";
+        infoEl.textContent = `${food.calories} kcal | P: ${food.protein}g C: ${food.carbs}g F: ${food.fat}g`;
+
+        card.appendChild(nameEl);
+        card.appendChild(infoEl);
 
         card.onclick = () => {
             currentScannedItem = food;
