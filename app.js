@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, push, onValue, update, get, query, orderByKey, startAt, limitToLast, orderByChild } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 // Assuming native ES modules are supported or handled by a bundler. 
 // Since the environment seems to be using standard script tags or simple modules, 
 // I'll append the function directly to app.js instead of a separate file 
@@ -1609,73 +1610,84 @@ async function checkInviteOnLogin(user) {
 
 
 // --- SEARCH & SCAN ---
-// --- SEARCH & SCAN ---
 document.getElementById('btn-execute-search').onclick = async () => {
-    const q = document.getElementById('search-input').value.toLowerCase().trim();
-    if (!q) return;
-
+    const rawQ = document.getElementById('search-input').value.trim();
+    if (!rawQ) return;
+    
+    // 1. Encode the search term for the API (handles spaces/special chars)
+    const q = encodeURIComponent(rawQ.toLowerCase());
     const list = document.getElementById('search-results-list');
     list.innerHTML = "Searching Community & World...";
 
-    // 1. Search FitNit Community (Public DB)
-    // Client-side filter of last 100 items (Prototype Scalability)
     let communityMatches = [];
-    try {
-        const publicRef = query(ref(db, 'public_foods'), limitToLast(100)); // Import limitToLast needed? 
-        // Note: 'limitToLast' is not imported in line 3. I need to handle that or use simple get.
-        // Actually, let's just use 'get' on the ref, assuming small DB. 
-        // If I can't change imports easily, I'll just fetch 'public_foods' ref.
+    let apiMatches = [];
 
+    // 2. Search FitNit Community (Firebase)
+    try {
+        // We fetch the public_foods node
         const snap = await get(ref(db, 'public_foods'));
         if (snap.exists()) {
             const val = snap.val();
+            // We use the raw string for the filter
             communityMatches = Object.values(val)
-                .filter(item => item.name.toLowerCase().includes(q))
+                .filter(item => item.name && item.name.toLowerCase().includes(rawQ.toLowerCase()))
                 .map(item => ({ ...item, source: 'FitNit Community', isCommunity: true }));
         }
-    } catch (e) { console.warn("Community Fetch Error", e); }
+    } catch (e) { 
+        console.error("Community Fetch Error:", e); 
+    }
 
-    // 2. Search OpenFoodFacts (External)
-    let apiMatches = [];
+    // 3. Search OpenFoodFacts (External API)
     try {
-        const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&search_simple=1&action=process&json=1&page_size=20`);
+        // Added page_size=24 and ensured URL is properly encoded
+        const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${q}&search_simple=1&action=process&json=1&page_size=24`);
         const data = await response.json();
-        if (data.products) {
+        
+        if (data.products && data.products.length > 0) {
             apiMatches = data.products.map(p => {
                 const n = p.nutriments;
+                // Fallback logic for calories: check serving, then 100g, then default 0
+                const calories = Math.round(n['energy-kcal_serving'] || n['energy-kcal_100g'] || n['energy-kcal'] || 0);
+                
                 return {
-                    name: p.product_name,
-                    calories: Math.round(n['energy-kcal_100g'] || 0),
-                    protein: Math.round(n.proteins_100g || 0),
-                    carbs: Math.round(n.carbohydrates_100g || 0),
-                    fat: Math.round(n.fat_100g || 0),
+                    name: p.product_name || "Unknown Product",
+                    calories: calories,
+                    protein: Math.round(n.proteins_serving || n.proteins_100g || 0),
+                    carbs: Math.round(n.carbohydrates_serving || n.carbohydrates_100g || 0),
+                    fat: Math.round(n.fat_serving || n.fat_100g || 0),
                     source: 'External Database',
-                    isCommunity: false
+                    isCommunity: false,
+                    image: p.image_front_small_url || ""
                 };
-            });
+            }).filter(item => item.calories > 0); // Filter out items with no data
         }
-    } catch (e) { console.warn("API Fetch Error", e); }
+    } catch (e) { 
+        console.error("API Fetch Error:", e); 
+    }
 
-    // 3. Merge & Render
+    // 4. Merge & Render
     list.innerHTML = "";
     const all = [...communityMatches, ...apiMatches];
 
     if (all.length === 0) {
-        list.innerHTML = "<p>No results found.</p>";
+        list.innerHTML = `<p style="text-align:center; padding:20px;">No results found for "${rawQ}".<br><small>Try checking your spelling or add a custom item.</small></p>`;
         return;
     }
 
     all.forEach(food => {
         const card = document.createElement('div');
         card.className = "card";
-        card.style.padding = "10px";
+        card.style.cssText = "padding:12px; margin-bottom:10px; cursor:pointer; border-left: 5px solid " + (food.isCommunity ? "#e67e22" : "#3498db");
 
-        // Badge for community items
-        const badge = food.isCommunity ? `<span style="background:#e67e22; color:white; padding:2px 5px; border-radius:4px; font-size:10px; margin-left:5px;">Community</span>` : '';
+        const badge = food.isCommunity ? `<span style="background:#e67e22; color:white; padding:2px 6px; border-radius:4px; font-size:10px; float:right;">Community</span>` : '';
 
         card.innerHTML = `
-            <strong>${food.name}</strong>${badge}<br>
-            <small>${food.calories} kcal | P: ${food.protein}g C: ${food.carbs}g F: ${food.fat}g</small>
+            ${badge}
+            <div style="font-weight:bold;">${food.name}</div>
+            <div style="font-size:13px; color:var(--text-color); opacity:0.8;">
+                ${food.calories} kcal <span style="margin:0 5px;">|</span> 
+                P: ${food.protein}g C: ${food.carbs}g F: ${food.fat}g
+            </div>
         `;
 
         card.onclick = () => {
